@@ -1,0 +1,128 @@
+# .workbench/config.yml
+# The workspace root is the directory that holds `.workbench/`.
+# Unknown fields are errors. Paths use `/`. Secrets are never written here, only the names of
+# the environment variables that hold them.
+version: 1                   # required; this file format's version
+lsp:                         # optional workspace-wide defaults, per language.
+                             # Reserved: read and checked, not used in the first release
+  python:
+    server: basedpyright
+storage:                     # written by `workbench init`; every field optional
+  backend: sqlite            # sqlite (default). Roadmap: memgraph; the memgraph fields below are refused until then
+  path: .workbench/graph.db  # sqlite only; relative to the workspace root, or absolute
+  # host: localhost          # memgraph only; default localhost
+  # port: 7687               # memgraph only; default 7687
+  # namespace: billing-3f9a  # memgraph only; one per workspace, unique on that Memgraph
+  # username: workbench      # memgraph only; optional, Memgraph has no login unless one is set up
+  # password_env: MEMGRAPH_PASSWORD   # the variable's name, never the password
+compose:                     # optional; shared stacks: compose files that belong to no single project.
+                             # Each entry is one stack. A compose file appears in one entry only, here or under a project
+  - files:                   # required; the stack's compose files, in the order Docker is given them (`-f a -f b`).
+                             # A later file overrides an earlier one. Relative to the workspace root, or absolute
+      - docker-compose.yml
+      - docker-compose.dev.yml
+    name: billing-stack      # optional; the Compose name the stack runs under, when it is set outside the files
+                             # (`-p` or COMPOSE_PROJECT_NAME). Default: the `name` in the files, else the first file's
+                             # directory name. No two entries may have the same Compose name.
+                             # Networks are read from the files; services in different stacks are linked only by a shared network
+    networks:                # optional; the real name of a network when the files cannot state it,
+                             # for example a name built from ${NET_NAME}. Without an entry such a network is a warning.
+                             # An entry always wins over the name in the files; the override is only logged
+      backend: acme-backend  # key: the network as named in the files. Value: its real name, used exactly as written
+    projects:                # every project that uses this stack; each must be a project id in this file
+      - billing-api
+      - web-app
+    services:                # optional; one entry per service the indexer cannot match on its own.
+                             # Default: the project from the build context, the binary from the build target.
+                             # A service with no build context and no entry here is an external service.
+                             # Each key must be a service in these files
+      billing:
+        project: billing-api # must also be listed under `projects` above
+        binary: api          # optional; by name from that project's `binaries`
+      billing-worker:        # built from the same Dockerfile as `billing`, runs a different binary
+        project: billing-api
+        binary: worker
+semantic:                    # optional. Reserved: read and checked, not used in the first release
+  llm:
+    provider: claude           # copilot-cli | ollama | claude
+    model: claude-sonnet-5-5
+    api_key_env: ANTHROPIC_API_KEY   # claude only: the variable's name, never the key
+projects:                      # required; at least one
+  - id: shared-api             # stable, kebab-case, unique. Changing it re-identifies every node of the project
+    path: libs/shared-api      # relative to the workspace root; no project path may sit inside another's
+    language: python           # the project's main language: python | typescript. Roadmap: go.
+                               # html, css and scss files inside a project are indexed too
+    dependency_manager: uv     # python: poetry | uv; typescript: npm | pnpm | yarn | bun.
+                               # The first release reads python projects only; typescript follows
+    import_names: [shared_api] # optional; names other projects import this one by; unique across the workspace.
+                               # Default: read from the project's own manifest
+  - id: billing-api
+    path: services/billing
+    language: python
+    dependency_manager: uv
+    exclude:                   # optional; files to leave out of the graph, on top of what .gitignore excludes.
+                               # Glob patterns relative to the project. A binary's `entry` must not be excluded
+      - "src/billing/generated/**"
+      - "**/*_pb2.py"
+    dependencies:              # optional; local dependencies: other projects whose code this one uses
+      discover: true           # default true: read local dependencies from the dependency_manager's files
+      local:                   # additional local dependencies, hand-written
+        - project: shared-api  # must be a project id in this file, and not this project
+          scope: build         # optional: build | dev. Default: build. Roadmap: runtime
+          note: imported only through a plugin loader   # optional, free text
+    binaries:                  # optional; hand-written, never detected
+      - name: api              # unique within the project
+        entry: src/billing/api.py     # relative to the project; the file must exist
+      - name: worker
+        entry: src/billing/worker.py
+    links:                     # optional; runtime links the code does not reveal, hand-written
+      - service: kafka         # the target: exactly one of `service` or `project`. A service is named as in a compose file
+        stack: billing-stack   # with `service` only: the Compose name, needed when that service name is in more than one stack
+        via: topic             # http | grpc | topic | queue | database. topic, queue and database need a `service` target
+        name: invoice.created  # topic and queue only, and required for them
+        role: publish          # topic and queue only, and required for them: publish | subscribe
+        binary: worker         # optional; which of this project's own binaries makes the link
+        note: sent after each billing run   # optional, free text
+    compose:                   # optional; this project's own stack
+      files:                   # optional; inside the project, in the order Docker is given them.
+                               # Default: the first of compose.yaml, compose.yml, docker-compose.yaml,
+                               # docker-compose.yml at the project root, then its override file if there is one
+        - docker-compose.yml
+        - docker-compose.dev.yml
+      name: billing-dev        # optional; as in the shared stacks
+      networks:                # optional; as in the shared stacks. The same real name in two stacks links them
+        backend: acme-backend
+      services:                # optional; as in the shared stacks, with the project implied
+        api:
+          binary: api
+    environment:               # optional; how to enter the project's environment, for language servers.
+                               # Reserved, as `lsp` below
+      venv: .venv
+      activate: uv run
+    lsp:                       # optional; overrides the workspace and catalog defaults. Reserved, as above
+      enabled: true
+      server: basedpyright
+      command: [basedpyright-langserver, --stdio]   # optional launch override
+      settings:                # passed to the server as-is; the one place unknown fields are allowed
+        python.analysis.typeCheckingMode: standard
+      servers:                 # optional: one entry per file kind; the fields above are shorthand for the project's main kind
+        yaml: {server: yaml-language-server}
+        dockerfile: {enabled: false}
+  - id: web-app
+    path: ../shared/web        # may sit outside the workspace root
+    language: typescript
+    framework: angular         # optional; angular only for now, and only with typescript
+    dependency_manager: pnpm
+    dependencies:
+      discover: false          # use only what is listed under `local`
+    binaries:
+      - name: admin
+        entry: projects/admin/src/main.ts
+      - name: shop
+        entry: projects/shop/src/main.ts
+    links:
+      - project: billing-api   # a project id in this file, and not this project. Name a `service` instead
+                               # to say which of the target's binaries receives the call
+        via: http
+        binary: admin
+        note: calls the billing API, no manifest link

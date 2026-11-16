@@ -13,16 +13,28 @@ The folder that holds `.workbench/`. A project's path in the configuration is wr
 _Avoid_: Base directory, config folder
 
 **Project**:
-One unit of source code listed in the workspace configuration, with its own root directory and dependency manager.
+One unit of source code listed in the workspace configuration, with its own root folder and dependency manager.
 _Avoid_: Package, module, app
 
+**Import name**:
+A name other projects' code imports a project by, which can differ from the name the project is installed by.
+_Avoid_: Package name, module name
+
 **Node**:
-One thing the graph knows about, such as a file, a function or a class.
+One thing the graph knows about, such as a file, a function, a project or a service.
 _Avoid_: Symbol, entity, vertex
 
 **Edge**:
 A directed relationship of one kind from one node to another.
 _Avoid_: Link, relation, reference
+
+**Scope**:
+What a node belongs to: the workspace, one project or one stack. The scope is part of the node's id.
+_Avoid_: Namespace, owner
+
+**Origin**:
+Where a node came from: parsed from a file, or declared with no file.
+_Avoid_: Source, location
 
 **Service**:
 One running unit declared in a compose file, belonging either to one project or to none.
@@ -31,6 +43,10 @@ _Avoid_: Container, image
 **Stack**:
 All the services that run together under one Compose name, from one compose file or several.
 _Avoid_: Compose project, deployment
+
+**Compose name**:
+The name Docker Compose runs a stack under. It identifies the stack, and no two stacks share one.
+_Avoid_: Compose project name, stack id
 
 **Network**:
 A named container network that services join; services on the same network can reach each other.
@@ -62,6 +78,42 @@ _Avoid_: Channel, event, stream
 A named line of messages inside an external service, where each message goes to one consumer.
 _Avoid_: Channel, job list
 
+**Link**:
+A runtime connection declared by hand in the configuration: an HTTP or gRPC call, a database connection, or publishing or subscribing to a topic or queue. Each link becomes an edge.
+_Avoid_: Connection, dependency
+
+**Mode**:
+What the MCP server is started for: developer support, operational support or testing support. The mode decides which tools an AI tool is offered.
+_Avoid_: Profile, role
+
+**Context**:
+One deployment of the workspace that the operational mode can look into, such as staging or production.
+_Avoid_: Environment (that is a project's own environment, for language servers), cluster, stage
+
+**Release branch**:
+The branch of a project that is deployed to a context.
+_Avoid_: Deploy branch, version
+
+**Checkout**:
+The branch and commit a project was on when it was last indexed.
+_Avoid_: Revision, snapshot
+
+**Skill**:
+A short written guide an AI tool loads when it needs it, shared by every mode.
+_Avoid_: Prompt, rule, instruction file
+
+**Caller**:
+A function or method that calls a given node. The node it calls is its **callee**.
+_Avoid_: Parent, user
+
+**Call flow**:
+The chain of calls, imports and links that connects a set of nodes, inside one project or across several.
+_Avoid_: Call graph, trace
+
+**Blast radius**:
+Everything that may be affected when a node changes: the code that uses it, and the projects, binaries and services that code reaches.
+_Avoid_: Impact set, ripple
+
 **Provenance**:
-How an edge came to exist: read from source, declared by hand, or inferred.
+How an edge came to exist: read from source code, read from a dependency manager's files, read from a compose file, declared by hand, or inferred.
 _Avoid_: Source, origin

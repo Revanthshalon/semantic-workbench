@@ -21,6 +21,8 @@ If a fact can be read from a file, you do not write it here.
 
 The [usage guide](./usage-guide.md#how-a-command-finds-the-workspace) explains how a command finds this folder.
 
+`workbench init` writes two folders beside the configuration: `skills/` and `mcp/`. Neither is part of this file, and both are described in [mcp-modes.md](./mcp-modes.md).
+
 ## The smallest configuration
 
 ```yaml
@@ -36,7 +38,7 @@ Everything else is optional.
 
 ## Rules that apply everywhere
 
-- **Unknown fields are errors.** A misspelled field is never silently ignored. The one exception is `lsp.settings`, which is passed through as written.
+- **Unknown fields are errors.** A misspelled field is never silently ignored. The one exception is a `settings` block under `lsp`, which is passed through as written.
 - **Paths use `/`,** on every platform.
 - **Secrets are never written here.** A field ending in `_env` holds the name of an environment variable, not its value.
 - **Ids are kebab-case:** lowercase letters and digits, in groups joined by single hyphens, such as `billing-api`.
@@ -67,7 +69,7 @@ Required, with at least one entry. A project is one unit of source code with its
 |---|---|---|---|
 | `id` | yes | | A stable, unique, kebab-case name. Changing it gives every node of the project a new id, so choose it once |
 | `path` | yes | | The project's root folder. No project's path may be the same as, or inside, another's |
-| `language` | yes | | The main language: `python` or `typescript`. The first release reads Python projects only |
+| `language` | yes | | The main language: `python` or `typescript`. The first release reads the source code of Python projects only. A TypeScript project still appears in the graph with its binaries, dependencies and links |
 | `dependency_manager` | yes | | For Python: `poetry` or `uv`. For TypeScript: `npm`, `pnpm`, `yarn` or `bun` |
 | `framework` | no | none | `angular`, and only with `typescript` |
 | `import_names` | no | read from the project's manifest | The names other projects import this one by. Unique across the workspace |
@@ -76,8 +78,8 @@ Required, with at least one entry. A project is one unit of source code with its
 | `binaries` | no | none | See below |
 | `links` | no | none | See below |
 | `compose` | no | the project's compose files, if any are found | See below |
-| `environment` | no | none | Reserved; see "Reserved sections" |
-| `lsp` | no | none | Reserved; see "Reserved sections" |
+| `environment` | no | none | Reserved; see [Reserved sections](#reserved-sections) |
+| `lsp` | no | none | Reserved; see [Reserved sections](#reserved-sections) |
 
 **When to set `import_names`.** In Python the name you install and the name you import often differ: the package `acme-shared-api` is imported as `shared_api`. Workbench needs the import name to connect `import shared_api` in one project to the code of another. It reads it from the manifest when it can; set it by hand when it cannot.
 
@@ -257,13 +259,32 @@ These are part of the format so that a configuration written today stays valid l
 | `projects[].environment` | Language servers. It says how to enter the project's own environment: the virtual environment folder (`venv`) and the command that runs a program inside it (`activate`). A language server must start there to see the project's installed packages |
 | `storage.backend: memgraph` and the Memgraph fields | Memgraph. Unlike the others, these are refused in the first release with a message |
 
+The shape that is checked:
+
+| Field | Shape |
+|---|---|
+| `lsp.<language>` (top level) | Workspace-wide defaults, one entry per language. Each entry takes the same fields as a project's `lsp` |
+| `projects[].lsp.enabled` | `true` or `false` |
+| `projects[].lsp.server` | The language server's name, such as `basedpyright` |
+| `projects[].lsp.command` | Optional. The command that starts the server, as a list |
+| `projects[].lsp.settings` | Passed to the server as written. Unknown fields are allowed here |
+| `projects[].lsp.servers` | Optional. One entry per file kind, such as `yaml` or `dockerfile`, each with the fields above. The fields directly under `lsp` are shorthand for the project's main language |
+| `projects[].environment.venv` | The virtual environment folder, relative to the project |
+| `projects[].environment.activate` | The command that runs a program inside the environment, such as `uv run` |
+| `semantic.llm.provider` | `copilot-cli`, `ollama` or `claude` |
+| `semantic.llm.model` | The model's name |
+| `semantic.llm.api_key_env` | `claude` only. The name of the environment variable that holds the key |
+| `storage.host`, `storage.port` | Memgraph only. Defaults: `localhost` and `7687` |
+| `storage.namespace` | Memgraph only. One per workspace, unique on that Memgraph |
+| `storage.username`, `storage.password_env` | Memgraph only, optional. `password_env` is the name of the environment variable that holds the password |
+
 ## What is checked, and when
 
 **When the configuration is read** (`check`, and the start of `index`):
 
-1. No unknown fields, except under `lsp.settings`.
+1. No unknown fields, except in a `settings` block under `lsp`.
 2. `version` is `1`.
-3. Each project `id` is kebab-case and unique.
+3. There is at least one project. Each project `id` is kebab-case and unique.
 4. No project path is the same as, or inside, another's.
 5. `dependency_manager` suits `language`; `framework: angular` is used only with `typescript`.
 6. Every project named in `dependencies.local`, `links`, `compose[].projects` or `compose[].services` exists. A dependency or a link never names its own project.
@@ -275,13 +296,13 @@ These are part of the format so that a configuration written today stays valid l
 12. A Compose name uses lowercase letters, digits, `-` and `_`, and starts with a letter or digit.
 13. `storage.backend` is `sqlite`.
 
-**When the compose files are read** (`index`):
+**When the files on disk are read** (`index`):
 
 14. Every key under `services` is a service in that stack's files.
 15. Every key under `networks` is a network in that stack's files.
 16. A service mapped to a project in a shared stack has that project in the stack's `projects` list.
 17. No `exclude` pattern matches a binary's `entry`.
-18. A link's `service` exists. If the name is in more than one stack, the link gives `stack`.
+18. A link's `service` exists, in the named `stack` when one is given. If the name is in more than one stack, the link gives `stack`.
 19. Every binary's `entry` file exists.
 
 ## Errors, warnings and log lines
@@ -316,5 +337,5 @@ These are part of the format so that a configuration written today stays valid l
 
 These are known gaps in the format.
 
-- **A stack named after its folder.** With no `name` in the file or the configuration, the Compose name is the folder's name, which can differ between machines. A link that names such a stack can break elsewhere. The indexer should warn.
+- **A stack named after its folder.** With no `name` in the file or the configuration, the Compose name is the folder's name, which can differ between machines. A link that names such a stack can break elsewhere. The indexer should warn. The billing stack in the [example workspace](./example-workspace.md) is one.
 - **Services outside any compose file.** A managed database or broker cannot be the target of a link yet. The current assumption is that the compose files describe everything that runs.

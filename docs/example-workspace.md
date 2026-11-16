@@ -2,7 +2,7 @@
 
 A worked example of one workspace made of several separately cloned repositories. It shows what the indexer can read on its own, what the configuration has to add, and how networks and links fit together.
 
-This describes the designed behaviour. The indexer is not built yet. In the first release only the Python projects have their source code read; `web-app` still appears as a project with its binary and its link. Terms are defined in [GLOSSARY.md](./GLOSSARY.md), and every configuration field is explained in [`templates/config.yml`](../templates/config.yml).
+This describes the designed behaviour. The indexer is not built yet. In the first release only the Python projects have their source code read; `web-app` still appears as a project with its binary, the binary's entry file and its link. Terms are defined in [GLOSSARY.md](./GLOSSARY.md). Every configuration field is explained in the [configuration guide](./configuration-guide.md) and shown in [`templates/config.yml`](../templates/config.yml). The graph this workspace produces is drawn in [graph-model.md](./graph-model.md#what-the-graph-looks-like-for-acme-shop).
 
 ## The application
 
@@ -22,7 +22,7 @@ Four repositories cloned side by side, plus one folder that holds the workspace.
 └── web-app/                    # Angular. Runs on the host with `ng serve`
 ```
 
-The workspace root is the directory that holds `.workbench/`. The projects sit outside it, which the configuration allows.
+The workspace root is the folder that holds `.workbench/`. The projects sit outside it, which the configuration allows.
 
 ## How it runs
 
@@ -76,7 +76,7 @@ networks:
 | File | Readable from the file | Missing from the file |
 |---|---|---|
 | Infrastructure | Stack `acme-infra`. Network `acme-backbone`. `kafka` and `postgres` have no build context, so they are external services. | Nothing. |
-| Billing | Network `acme-backbone`. Each build target has the name of a binary, so each service maps to its binary. The stack is named after the directory, `billing-api`. | Nothing. |
+| Billing | Network `acme-backbone`. Each build target has the name of a binary, so each service maps to its binary. The stack is named after the folder, `billing-api`. | Nothing. |
 | Ledger | Two services built from the project. | The Compose name, set by `-p`. The network's real name, set by a variable. Which binary each service runs, since there is no build target. |
 
 The configuration fills exactly the gaps in the right-hand column.
@@ -136,6 +136,7 @@ Points to notice:
 - **Billing has no `compose` block.** Its compose file is found by default and everything in it is readable.
 - **Ledger's `compose` block lists no `files`.** Its compose file is found by default too; the block only adds what the file cannot say.
 - **`stack: billing-api` on the web-app link is required,** because a service named `api` exists in two stacks.
+- **That stack name comes from a folder name.** It holds only while the repository is cloned as `billing-api`. A `name` in billing's compose file would fix it; see the [open points](./configuration-guide.md#open-points) of the configuration guide.
 - **Local dependencies are not written.** The indexer reads them from each project's `pyproject.toml`. Both APIs depend on `shared-api`.
 - **`kafka` and `postgres` take no entry anywhere.** They are read from the infrastructure file as external services.
 
@@ -162,8 +163,8 @@ Networks say who can talk. Links say who does talk, and how.
 
 | Source | Nodes and edges |
 |---|---|
-| Configuration | Four projects and six binaries. One topic, `kafka/invoice.created`. Four links: database, publish, subscribe, HTTP. |
-| Compose files | Three stacks. Four services and two external services. Two networks, and each service's membership. Each service's binary. |
+| Configuration | Four projects and five binaries. One topic, `kafka/invoice.created`. Four links: database, publish, subscribe, HTTP. The binary each ledger service runs. |
+| Compose files | Three stacks, and which projects use each. Four services and two external services. Two networks, and each service's membership. The binary each billing service runs. |
 | Dependency manager files | `billing-api` depends on `shared-api`. `ledger-api` depends on `shared-api`. |
 | Source code | Files, classes, functions and imports inside each project, including imports of `shared_api` that resolve to nodes in `shared-api`. |
 

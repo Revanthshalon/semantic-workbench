@@ -1,0 +1,9 @@
+# .workbench/mcp/config.yml
+#
+# The contexts of the operational-support mode: the deployments of this workspace.
+# The mode itself is chosen on the command line: `workbench mcp --mode operational-support`.
+default_context: staging            # required; the context a tool uses when it is given none
+contexts:                           # required; name -> the context's file, relative to this folder
+  production: contexts/production.yml
+  staging:    contexts/staging.yml
+  testing:    contexts/testing.yml

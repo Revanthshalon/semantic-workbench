@@ -1,6 +1,21 @@
 # Product Vision
 
-The capability map, the roadmap and the usage guide all follow from this page.
+Every other page follows from this one.
+
+| Page | What it answers |
+|---|---|
+| [Capability map](./capability-map.md) | What will the tool do? One row per capability |
+| [Roadmap](./roadmap.md) | What ships when, and in what order is it built? |
+| [Usage guide](./usage-guide.md) | Which commands and MCP tools are there, and how are they used? |
+| [Configuration guide](./configuration-guide.md) | How is `.workbench/config.yml` written? |
+| [Example workspace](./example-workspace.md) | What does a real workspace look like, end to end? |
+| [Graph model](./graph-model.md) | Why does the graph look the way it does? |
+| [Domain model](./domain-model.md) | Which types and rules are implemented and validated against? |
+| [Storage model](./storage-model.md) | How is the graph kept in SQLite? |
+| [Modes, contexts and skills](./mcp-modes.md) | What are the modes of the MCP server, and what else does `init` write? |
+| [Implementation plan](./implementation-plan/00-overview.md) | Who builds what, in which order, and what can be built at once? |
+| [Decision records](./adrs/) | Which decisions were made, and why? |
+| [Glossary](./GLOSSARY.md) | What does each term mean? |
 
 ## The problem
 

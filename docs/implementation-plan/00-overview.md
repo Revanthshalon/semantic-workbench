@@ -1,0 +1,309 @@
+# Implementation Plan: Overview
+
+What every step plan in this folder shares: how the work is cut into slices that several developers can build at once, the constraints of the repository, where code goes, and the names one slice hands to the next.
+
+## The plans
+
+| Roadmap step | Plan | Specified by |
+|---|---|---|
+| 1. Domain types | sliced below, not written as tasks | [domain-model.md](../domain-model.md) |
+| 2. Configuration | [step-2-configuration.md](./step-2-configuration.md) | [configuration-guide.md](../configuration-guide.md) |
+| 3. SQLite store | sliced below, not written as tasks | [storage-model.md](../storage-model.md) |
+| 4. Workspace indexing | [step-4-workspace-indexing.md](./step-4-workspace-indexing.md) | [example-workspace.md](../example-workspace.md), [graph-model.md](../graph-model.md) |
+| 5. Python parsing | [step-5-python-parsing.md](./step-5-python-parsing.md) | [domain-model.md](../domain-model.md), [storage-model.md](../storage-model.md) |
+| 6. Queries | [step-6-queries.md](./step-6-queries.md) | [usage-guide.md](../usage-guide.md) |
+| 7. Command line | [step-7-command-line.md](./step-7-command-line.md) | [usage-guide.md](../usage-guide.md) |
+| 8. MCP server | [step-8-mcp-server.md](./step-8-mcp-server.md) | [usage-guide.md](../usage-guide.md), [mcp-modes.md](../mcp-modes.md) |
+
+Steps 1 and 3 have a specification and no task plan. Their specifications are detailed enough to build from.
+
+Each plan covers Release 1 only. Operational support (Release 3) is not planned here.
+
+## Working in parallel
+
+The work is cut into **slices**. A slice is one pull request by one developer: a few tasks that touch their own files and end in something tested. The roadmap's steps say what is delivered in what order. The slices say what can be built at the same time.
+
+Three things make that possible.
+
+1. **Contracts first.** Slice C0 lands the traits and result types that slices share, with no behaviour. After it, a slice that calls the store does not wait for SQLite, and the command line does not wait for the queries.
+2. **A store in memory.** C0 also lands `MemoryStore`, a `GraphStore` that holds a `Graph` in memory. Every use case is tested on it. SQLite must pass the same tests.
+3. **One fixture.** The Acme Shop graph exists as a value in code from slice 1E, so a query can be tested before any indexer exists.
+
+### Rules for a slice
+
+- **A slice owns its files.** Two slices in flight never edit the same file. The file tables of each plan say who owns what.
+- **Shared files change in one line.** A slice adds its own `mod` line to a `mod.rs` and nothing else there. `Cargo.toml` is changed only by C0, which adds every crate at once, so `Cargo.lock` never conflicts.
+- **Types before bodies.** A slice's first commit is the types in its **Produces** block. Slices that depend on those types can then start. `todo!()` cannot be used as a placeholder: CI refuses it.
+- **A slice is merged only when green.** The three checks under [Before every commit](#before-every-commit) pass, on its own.
+- **A changed name is changed everywhere.** If a slice has to change a name in [Names handed between slices](#names-handed-between-slices), it changes this page in the same pull request.
+
+### The slices
+
+A slice can start as soon as every slice in its **Needs** column is merged, or has at least merged its types.
+
+| Slice | Delivers | Needs | Plan |
+|---|---|---|---|
+| 1A | Value types: `NodeId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash`, `Span`, `Site` | | [domain-model.md](../domain-model.md#value-types) |
+| 1B | `Node`, its kinds, scope, origin and identity. Rules N1 to N5 | 1A | [domain-model.md](../domain-model.md#node) |
+| 1C | `Edge`, its kinds and data, provenance. Rules E1 to E4 | 1A | [domain-model.md](../domain-model.md#edge) |
+| 1D | `FileRecord`, `UnresolvedReference`, `Warning`, `ProjectCheckout` | 1A | [domain-model.md](../domain-model.md#file-record) |
+| 1E | `Graph`, `validate` with every Graph rule, and the Acme Shop fixture | 1B, 1C, 1D | [domain-model.md](../domain-model.md#validating-an-implementation) |
+| C0 | Contracts: the ports, the query result types, `MemoryStore`, the shared store tests, every crate | 1E | [below](#slice-c0-contracts) |
+| 2A | Find the workspace | | [step 2](./step-2-configuration.md) |
+| 2B | Parse the configuration into the raw model | | [step 2](./step-2-configuration.md) |
+| 2C | Check rules 1 to 13, and `load` | 1A, 2B | [step 2](./step-2-configuration.md) |
+| 2D | What `init` writes | 2B | [step 2](./step-2-configuration.md) |
+| 2E | The text of the `workbench` and `python` skills | | [step 2](./step-2-configuration.md) |
+| 3A | The schema, opening a store, the format version | C0 | [storage-model.md](../storage-model.md#the-schema) |
+| 3B | Reading: every read operation of the port | 3A | [storage-model.md](../storage-model.md#how-the-store-is-read) |
+| 3C | Writing: one index as one transaction, replacing a file, the workspace layer | 3A | [storage-model.md](../storage-model.md#how-the-store-is-written) |
+| 4A | Read `pyproject.toml` | 1A | [step 4](./step-4-workspace-indexing.md) |
+| 4B | Read and merge compose files | 1A | [step 4](./step-4-workspace-indexing.md) |
+| 4C | Read a project's checkout | C0 | [step 4](./step-4-workspace-indexing.md) |
+| 4D | Resolve stacks, networks and services | 2C, 4B | [step 4](./step-4-workspace-indexing.md) |
+| 4E | Build the workspace layer | 1E, 2C, 4A, 4D | [step 4](./step-4-workspace-indexing.md) |
+| 4F | The Acme Shop workspace as files | | [step 4](./step-4-workspace-indexing.md) |
+| 4G | The index use case, end to end | C0, 4C, 4E, 4F | [step 4](./step-4-workspace-indexing.md) |
+| 5A | Choose the files to read | C0, 2C | [step 5](./step-5-python-parsing.md) |
+| 5B | Python: definitions | C0 | [step 5](./step-5-python-parsing.md) |
+| 5C | Python: references | 5B | [step 5](./step-5-python-parsing.md) |
+| 5D | Resolve references inside a project | C0 | [step 5](./step-5-python-parsing.md) |
+| 5E | Resolve imports across projects | 5D | [step 5](./step-5-python-parsing.md) |
+| 5F | Index code incrementally | C0, 5A | [step 5](./step-5-python-parsing.md) |
+| 5G | Acme Shop with source, end to end | 4G, 5C, 5E, 5F, 3C | [step 5](./step-5-python-parsing.md) |
+| 6A | Naming a node, budgets, freshness | C0 | [step 6](./step-6-queries.md) |
+| 6B | `search`, `node` | 6A | [step 6](./step-6-queries.md) |
+| 6C | `files`, `deps`, `status` | 6A | [step 6](./step-6-queries.md) |
+| 6D | The walk, `callers`, `callees`, `neighbors` | 6A | [step 6](./step-6-queries.md) |
+| 6E | `impact` | 6D | [step 6](./step-6-queries.md) |
+| 6F | `explore` | 6B, 6E | [step 6](./step-6-queries.md) |
+| 7A | The command tree, flags and exit codes | C0 | [step 7](./step-7-command-line.md) |
+| 7B | Text output of the read commands | C0 | [step 7](./step-7-command-line.md) |
+| 7C | Text output of `init`, `check`, `index`, `status` | C0, 2C | [step 7](./step-7-command-line.md) |
+| 7D | Wiring, and tests that run the binary | 7A, 7B, 7C, 3B, 3C, 4G, 6F | [step 7](./step-7-command-line.md) |
+| 7E | Installation | 7D | [step 7](./step-7-command-line.md) |
+| 8A | The server over stdio, and modes | C0 | [step 8](./step-8-mcp-server.md) |
+| 8B | The ten tools | 8A | [step 8](./step-8-mcp-server.md) |
+| 8C | Skills | 8A | [step 8](./step-8-mcp-server.md) |
+| 8D | Wiring, and tests that run the server | 8B, 8C, 7D | [step 8](./step-8-mcp-server.md) |
+
+### What can run at once
+
+| Wave | Slices | Developers it can occupy |
+|---|---|---|
+| 1 | 1A, 2A, 2B, 2E, 4F | 5 |
+| 2 | 1B, 1C, 1D, 2C, 2D, 4A, 4B | 7 |
+| 3 | 1E, 4D | 2 |
+| 4 | C0, 4E | 2 |
+| 5 | 3A, 4C, 5A, 5B, 5D, 6A, 7A, 7B, 7C, 8A | 10 |
+| 6 | 3B, 3C, 4G, 5C, 5E, 5F, 6B, 6C, 6D, 8B, 8C | 11 |
+| 7 | 5G, 6E | 2 |
+| 8 | 6F | 1 |
+| 9 | 7D | 1 |
+| 10 | 7E, 8D | 2 |
+
+Waves 3 and 4 are the narrow point: most of what follows waits for 1E and then C0. Keep those two small and merge them fast. The last waves are narrow too, because they join everything; they are mostly wiring and tests.
+
+## Slice C0: contracts
+
+**Files:** `src/ports/outbound/{mod,store,files,git,parser}.rs`, `src/use_cases/query/results.rs`, `src/ports/outbound/memory_store.rs`, `src/ports/outbound/store_tests.rs`, `Cargo.toml`.
+
+- [ ] Add every crate of [Crates to add](#crates-to-add) to `Cargo.toml` in one commit.
+- [ ] Write the traits `GraphStore`, `IndexWriter`, `Files`, `Git` and `LanguageParser`, and the types they use, exactly as in [Names handed between slices](#names-handed-between-slices).
+- [ ] Write the result types of every query in `results.rs`, each deriving `Debug`, `Clone`, `PartialEq` and `serde::Serialize`.
+- [ ] Write `MemoryStore`: a `GraphStore` and `IndexWriter` over a `Graph` behind a mutex. `MemoryStore::from(graph)` seeds it.
+- [ ] Write `store_tests`: a set of test functions generic over `S: GraphStore`, covering every operation of the port and the four ways of writing in [storage-model.md](../storage-model.md#how-the-store-is-written). Run them on `MemoryStore`. Slice 3 runs the same functions on SQLite.
+- [ ] Commit: `feat: add the ports, the query result types and a store in memory`
+
+## How a task is written
+
+Each task lists its files, the interfaces it produces, and its tests by name with what each asserts. The developer writes the test code and the bodies. Every task is done the same way:
+
+- [ ] Commit the types of the task's **Produces** block.
+- [ ] Write the tests listed. Run them and see them fail.
+- [ ] Implement until they pass.
+- [ ] Run the three checks under [Before every commit](#before-every-commit).
+- [ ] Commit with the message the task gives.
+
+## Global constraints
+
+Taken from `Cargo.toml`, `rust-toolchain.toml` and `.github/workflows/ci.yml`.
+
+- Rust edition `2024`, `rust-version = "1.100.0"`, stable toolchain.
+- One binary crate, `workbench`, with entry point `src/main.rs`. There is no `src/lib.rs`, so tests in `tests/` can only run the binary. Unit tests sit beside the code in `#[cfg(test)]` modules.
+- `unwrap_used`, `panic` and `unsafe_code` are denied, in tests too. A test returns `Result<(), Box<dyn std::error::Error>>` and uses `?`.
+- `todo` is a warning, and CI turns warnings into errors. No `todo!()` is ever merged.
+- `missing_docs` and `missing_debug_implementations` are warnings as well. Every public item has a doc comment and derives or implements `Debug`.
+- `redundant_clone` and `large_enum_variant` are denied.
+- Results go to standard output. Messages, warnings and progress go to standard error.
+- No network calls and no telemetry in any Release 1 code path.
+- macOS and Linux only. Paths in the configuration and the graph use `/`.
+- `cargo deny` must pass for every crate added. `deny.toml` holds the rules.
+
+### Before every commit
+
+```bash
+cargo fmt --all --check
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo test --workspace --all-features --locked
+```
+
+## Where code goes
+
+The scaffold is hexagonal. A module may depend only on the ones named in its last column.
+
+| Module | Holds | Depends on |
+|---|---|---|
+| `src/domain` | The types and rules of [domain-model.md](../domain-model.md) | nothing |
+| `src/config` | Finding, reading and checking `.workbench/config.yml`, and what `init` writes | `domain` |
+| `src/ports/outbound` | The traits the core needs from the outside: store, files, parsers, git | `domain` |
+| `src/use_cases` | Indexing and every query | `domain`, `config`, `ports` |
+| `src/adapters/driven/store/sqlite` | The SQLite store | `domain`, `ports` |
+| `src/adapters/driven/fs` | Reading files, walking folders, reading `.git` | `domain`, `ports` |
+| `src/adapters/driven/parse` | Reading source code, manifests and compose files | `domain`, `ports` |
+| `src/adapters/driving/cli` | The command line | `use_cases`, `config` |
+| `src/adapters/driving/mcp` | The MCP server | `use_cases`, `config` |
+| `src/main.rs` | Wiring: builds the adapters and hands them to the use cases | everything |
+
+## Crates to add
+
+Proposed. C0 adds them all. Pick the latest release at the time of building, and check each with `cargo deny`.
+
+| Crate | Used for |
+|---|---|
+| `thiserror` | Error types |
+| `blake3` | Node ids and content hashes |
+| `serde` with `derive`, `serde_json` | The configuration model, the result of every query, `--json` and MCP answers |
+| A maintained YAML crate for `serde`, such as `serde_yaml_ng` | Reading YAML. `serde_yaml` itself is no longer maintained |
+| `toml` | Reading `pyproject.toml` |
+| `ignore` and `globset` | Walking a project by `.gitignore` rules, and `exclude` patterns |
+| `tree-sitter` and `tree-sitter-python` | Parsing Python |
+| `rmcp`, the official Rust SDK for MCP | The MCP server over stdio |
+| `assert_cmd` and `tempfile`, as dev-dependencies | Tests that run the binary |
+
+`sqlx`, `tokio` and `clap` are already in `Cargo.toml`. `sqlx` is asynchronous, so the store port and every use case are `async`.
+
+Slices 1A to 1D, 2A and 2B start before C0. They need `thiserror`, `blake3`, `serde` and the YAML crate, so whichever of them merges first adds those four, and C0 adds the rest.
+
+## Names handed between slices
+
+Later slices use these names. A slice that has to change one changes it here in the same pull request.
+
+### From step 1, in `src/domain`
+
+| Name | What it is |
+|---|---|
+| `NodeId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash` | The value types. Each has `fn parse(&str) -> Result<Self, DomainError>` |
+| `Node`, `NodeKind`, `Scope`, `Origin`, `Span` | A node. `Node::parsed(...)` and `Node::declared(...)` build one and compute its id |
+| `Edge`, `EdgeKind`, `Provenance`, `Site` | An edge. `EdgeKind` carries its data: `Imports { specifier, alias }`, `DependsOn { scope }`, `ConnectsTo { protocol }` |
+| `DependencyScope`, `Protocol` | `Build` or `Dev`; `Http`, `Grpc` or `Database` |
+| `Language`, `DependencyManager` | `Python`, `TypeScript`; `Uv`, `Poetry`, `Npm`, `Pnpm`, `Yarn`, `Bun` |
+| `FileRecord`, `ParseStatus` | A file record |
+| `UnresolvedReference` | A reference waiting to be resolved |
+| `Warning`, `WarningCode` | A warning |
+| `ProjectCheckout` | A project's branch and commit |
+| `Graph` | Nodes, edges, file records, references, warnings and checkouts together. `fn validate(&self) -> Vec<RuleViolation>` |
+| `RuleViolation` | `{ rule: &'static str, message: String }`. `rule` is an id from the domain model, such as `"T2"` |
+| `DomainError` | What building a broken value returns |
+| `fixtures::acme_workspace_layer() -> Graph` | The Acme Shop workspace layer: 27 nodes and 53 edges |
+| `fixtures::acme() -> Graph` | The same, plus the code nodes and edges the walk of [graph-model.md](../graph-model.md#walking-the-graph) needs |
+
+Both fixtures are compiled only for tests.
+
+### From C0: the store, in `src/ports/outbound/store.rs`
+
+```rust
+pub trait GraphStore {
+    type Writer: IndexWriter;
+    async fn node(&self, id: &NodeId) -> Result<Option<Node>, StoreError>;
+    async fn nodes_named(&self, scope: Option<&Scope>, qualified_name: &str) -> Result<Vec<Node>, StoreError>;
+    async fn search(&self, text: &str, filter: &NodeFilter, limit: usize) -> Result<Vec<Node>, StoreError>;
+    async fn nodes_of_file(&self, file: &FileRef) -> Result<Vec<Node>, StoreError>;
+    async fn edges(&self, of: &[NodeId], direction: Direction, kinds: &[EdgeKindName]) -> Result<Vec<Edge>, StoreError>;
+    async fn files(&self, filter: &FileFilter) -> Result<Vec<FileRecord>, StoreError>;
+    async fn warnings(&self) -> Result<Vec<Warning>, StoreError>;
+    async fn checkouts(&self) -> Result<Vec<ProjectCheckout>, StoreError>;
+    async fn counts(&self) -> Result<Counts, StoreError>;
+    async fn meta(&self) -> Result<StoreMeta, StoreError>;
+    async fn begin_index(&self, force: bool) -> Result<Self::Writer, StoreError>;
+}
+
+pub trait IndexWriter {
+    async fn replace_file(&mut self, parsed: ParsedFile) -> Result<Vec<FileRef>, StoreError>;
+    async fn remove_file(&mut self, file: &FileRef) -> Result<Vec<FileRef>, StoreError>;
+    async fn unresolved(&mut self) -> Result<Vec<UnresolvedReference>, StoreError>;
+    async fn resolve(&mut self, reference: &UnresolvedReference, edge: Edge) -> Result<(), StoreError>;
+    async fn rebuild_workspace_layer(&mut self, layer: WorkspaceLayer) -> Result<(), StoreError>;
+    async fn commit(self) -> Result<(), StoreError>;
+}
+```
+
+| Name | What it is |
+|---|---|
+| `Direction` | `Out`, `In` or `Both` |
+| `EdgeKindName` | An edge kind without its data, for filtering |
+| `NodeFilter` | `{ kinds: Vec<NodeKind>, project: Option<ProjectId> }` |
+| `FileFilter` | `{ project: Option<ProjectId>, status: Option<ParseStatus> }` |
+| `FileRef` | `{ project: ProjectId, path: RelPath }` |
+| `ParsedFile` | `{ record: FileRecord, nodes: Vec<Node>, edges: Vec<Edge>, unresolved: Vec<UnresolvedReference> }` |
+| `Counts` | `{ nodes: u64, edges: u64, files: u64 }` |
+| `StoreMeta` | `{ format_version: u32, workbench_version: String, indexed_at: Option<String> }` |
+| `WorkspaceLayer` | `{ nodes: Vec<Node>, edges: Vec<Edge>, warnings: Vec<Warning>, checkouts: Vec<ProjectCheckout> }` |
+| `StoreError` | Includes `IndexRunning`, `WrongFormat { found: Option<u32> }` and `NotIndexed` |
+
+`replace_file` and `remove_file` return the files that referred to something now gone. The indexer reads those again, as [storage-model.md](../storage-model.md#replacing-a-file) describes. Dropping the writer without `commit` rolls everything back.
+
+### From C0: the other ports
+
+```rust
+pub trait Files {
+    fn read(&self, path: &Path) -> Result<Vec<u8>, FilesError>;
+    fn exists(&self, path: &Path) -> bool;
+    fn list(&self, dir: &Path) -> Result<Vec<PathBuf>, FilesError>;
+    fn walk(&self, root: &Path, exclude: &[String]) -> Result<Vec<RelPath>, FilesError>;
+}
+
+pub trait Git { fn checkout(&self, project_root: &Path) -> Checkout; }
+pub struct Checkout { pub branch: Option<String>, pub commit: Option<String> }
+
+pub trait LanguageParser {
+    fn language(&self) -> Language;
+    fn extensions(&self) -> &'static [&'static str];
+    fn parse(&self, file: &FileRef, module_path: &str, source: &[u8]) -> Result<ParsedSource, ParseError>;
+}
+pub struct ParsedSource { pub nodes: Vec<Node>, pub edges: Vec<Edge>, pub unresolved: Vec<UnresolvedReference> }
+```
+
+### From C0: the query results, in `src/use_cases/query/results.rs`
+
+Every query returns `Answer<T>`. The command line prints it, and the MCP server returns it, so both give the same answer.
+
+```rust
+pub struct Answer<T> { pub result: T, pub freshness: Freshness, pub truncated: Option<String> }
+pub struct Freshness { pub indexed_at: Option<String>, pub changed_files: u64 }
+pub struct Location { pub node: NodeId, pub kind: NodeKind, pub scope: Scope, pub qualified_name: String, pub path: Option<RelPath>, pub line: Option<u32> }
+```
+
+| `T` | Returned by | Holds |
+|---|---|---|
+| `SearchResult` | `search` | `matches: Vec<Location>` |
+| `NodeView` | `node` | The node, its source, its direct callers and callees |
+| `FileView` | `node --file` | The file's lines, and the nodes it holds |
+| `CallList` | `callers`, `callees` | `calls: Vec<Call>`, each a `Location`, the `Site` of the call and its depth |
+| `NeighborsResult` | `neighbors` | The nodes reached, and the edges that reached them |
+| `ImpactResult` | `impact` | `by_project: Vec<ProjectImpact>`, each entry with the path of edges that led to it |
+| `ExploreResult` | `explore` | `sources: Vec<SourceBlock>`, `flow: Vec<Edge>`, `blast_radius: Vec<ImpactSummary>` |
+| `FileList` | `files` | `files: Vec<FileRecord>` |
+| `DependencyList` | `deps` | `dependencies: Vec<Dependency>`, each with its scope and provenance |
+| `StatusReport` | `status` | Counts, checkouts, warnings, failed files |
+
+`truncated` is `None` for a complete answer, and otherwise says what the budget left out.
+
+## The test workspace
+
+Two forms of the Acme Shop workspace serve the tests.
+
+- **As a value:** `fixtures::acme()`, from slice 1E. Queries are tested on it through `MemoryStore`.
+- **As files:** `tests/fixtures/acme/`, from slice 4F: the configuration, the three compose files, the `pyproject.toml` files and the Python source. Indexing is tested on it. Its layout is the one in [example-workspace.md](../example-workspace.md#the-application).
+
+Slice 5G checks that indexing the files gives the value.

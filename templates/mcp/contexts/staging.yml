@@ -1,0 +1,57 @@
+# .workbench/mcp/contexts/staging.yml
+version: 1
+branch: release-2.4                 # the release branch deployed to this environment
+branches:                           # optional per-project overrides
+  billing-api: release-2.4.1
+
+ssh:                                # required: how to log in to this environment's VM
+  host: vm-staging.internal
+  port: 22                          # default 22
+  user: workbench
+  password_env: STAGING_SSH_PASSWORD       # the SSH password; or `password: ...` inline
+  host_key: SHA256:abc123...        # optional pin; otherwise known_hosts must already list the host
+  connect_timeout: 10               # seconds
+
+kubectl:                            # runs ON the VM, through ssh
+  binary: kubectl                   # default
+  kubeconfig: /home/workbench/.kube/config   # path on the VM; optional
+  context: staging-cluster          # the kubectl context name
+  namespace: billing                # required
+
+compose:                            # optional: Docker Compose on the VM, read by `compose_status`
+  binary: docker                    # default docker
+  project_dir: /srv/billing         # absolute path on the VM
+  files: [compose.yaml]             # relative to project_dir; default compose.yaml
+
+postgres:                           # named connections; host and port as the VM sees them
+  billing:
+    host: db.staging.internal
+    port: 5432                      # default 5432
+    database: billing
+    user: readonly
+    password_env: STAGING_PG_PASSWORD
+    sslmode: require                # disable | prefer | require | verify-ca | verify-full; default require
+    access: tunnel                  # tunnel (default) | remote
+  users:
+    host: db.staging.internal
+    database: users
+    user: readonly
+    access: remote                  # run the VM's psql; no password here, the VM's .pgpass is used
+    binary: psql                    # remote only; default psql
+
+redis:                              # named connections, reached through the VM
+  cache:
+    host: cache.staging.internal
+    port: 6379                      # default 6379
+    db: 0
+    tls: false
+    password_env: STAGING_REDIS_PASSWORD
+    access: tunnel                  # tunnel (default) | remote (then `binary: redis-cli`, no password here)
+
+kafka:                              # reached through the VM
+  brokers: ["kafka-1.staging.internal:9092", "kafka-2.staging.internal:9092"]   # quoted: host:port
+  security: sasl_ssl                # plaintext | ssl | sasl_plaintext | sasl_ssl; default plaintext
+  sasl_mechanism: SCRAM-SHA-512     # plain | SCRAM-SHA-256 | SCRAM-SHA-512
+  username: readonly
+  password_env: STAGING_KAFKA_PASSWORD
+  access: tunnel                    # tunnel (default) | remote (then `bin_dir:` on the VM, no password here)

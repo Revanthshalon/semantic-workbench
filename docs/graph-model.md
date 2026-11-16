@@ -1,8 +1,8 @@
 # The Graph Model
 
-How the structure of the knowledge graph was decided, and what the graph looks like for a real workspace.
+How the structure of the knowledge graph was decided, and what the graph looks like for a real workspace. The exact types, fields and rules to implement and validate against are in [domain-model.md](./domain-model.md).
 
-This describes the designed model. The types are specified in [`implementation-plan/`](./implementation-plan/00-overview.md) and are not all written yet. The running example is the Acme Shop workspace from [example-workspace.md](./example-workspace.md). Terms are defined in [GLOSSARY.md](./GLOSSARY.md).
+This describes the designed model. None of its types are written yet; they are specified in the implementation plan, which is not in this repository yet. The running example is the Acme Shop workspace from [example-workspace.md](./example-workspace.md). Terms are defined in [GLOSSARY.md](./GLOSSARY.md).
 
 ## What the graph is for
 
@@ -31,6 +31,7 @@ The same node must get the same id every time the workspace is indexed. Then ind
 | Add the node's kind | Adopted | Separates a class from a function with the same name |
 | Add an ordinal (0 for the first duplicate, 1 for the second) | Adopted | Separates overloads, redefinitions and unnamed functions |
 | Add the line number | Rejected | Editing a line above a function would change its id |
+| BLAKE3, keeping the first 64 bits as 16 hex characters | Adopted | Short enough for an AI to read and repeat. A collision is very unlikely, and the index stops if one happens |
 | Base64 of the inputs, so the id can be decoded | Rejected | Long, unreadable, costly for an AI to read, and the node already stores those values |
 | Let the database assign ids | Rejected | Edges could not be built before storing, and ids would change on every index |
 | Store the ordinal on the node to verify ids later | Rejected | It duplicates what the id already encodes; a changed file is detected by its content hash |
@@ -43,9 +44,11 @@ Once a workspace has several projects, a file path is not unique. Services and n
 |---|---|
 | The workspace | Projects, stacks, networks with a known real name |
 | One project | Its files, its code and its binaries |
-| One stack | Its services, their topics and queues |
+| One stack | Its services, their topics and queues, networks whose real name is unknown |
 
 A project named `billing` and a stack named `billing` get different ids, because the scope's type is hashed along with its name.
+
+The workspace node itself is the root of the graph. Its qualified name is always `workspace`, so its id is the same on every machine. The workspace root's folder name is only its display name.
 
 ### 3. One graph for the whole workspace
 
@@ -104,7 +107,9 @@ An AI should treat a relationship read from source differently from one that was
 
 ### 8. A node is either parsed from a file or declared
 
-A code node has a file and a region of that file. A project or a hand-declared topic has neither. So a node's **origin** is one of two things: parsed, with a file and a span, or declared, with nothing. This replaced a mandatory file path and four mandatory position numbers.
+A code node has a file and a region of that file. A project or a hand-declared topic has neither. So a node's **origin** is one of two things: parsed, with a file and a span, or declared, with nothing. This replaced a mandatory file path and four mandatory position numbers. Lines count from 1 and columns from 0.
+
+A binary's entry file always gets a file node, even when its language is not parsed yet. The file then has no nodes below it, and the binary's `EntryPoint` edge still has a target.
 
 ### 9. Workspace edges have rules about what they connect
 
@@ -129,7 +134,7 @@ A "joins" edge from a function to a network is a bug. Each of the nine workspace
 | Workspace kind | From | To | Meaning |
 |---|---|---|---|
 | `DependsOn` | Project | Project | Uses the other project's code |
-| `Uses` | Project | Stack | Is listed under a compose file of that stack |
+| `Uses` | Project | Stack | Uses that stack: the project's own stack, or a shared stack that lists the project |
 | `EntryPoint` | Binary | File | Starts at this file |
 | `Runs` | Service | Binary | Runs this binary |
 | `BuiltFrom` | Service | Project | Is built from this project, binary unknown |
@@ -138,7 +143,7 @@ A "joins" edge from a function to a network is a bug. Each of the nine workspace
 | `Publishes` | Project, Binary | Topic, Queue | Sends messages to it |
 | `Subscribes` | Project, Binary | Topic, Queue | Receives messages from it |
 
-`Contains` does all grouping: workspace to project, project to binary and file, file to class, stack to service, a service to its topics.
+`Contains` does all grouping, and makes the graph one tree with the workspace node at its root: workspace to project, stack and network, project to binary and file, file to class, stack to service and external service, external service to its topics and queues.
 
 ### What a node holds
 
@@ -154,7 +159,7 @@ A "joins" edge from a function to a network is a bug. Each of the nine workspace
 - The provenance.
 - A note: the free text of a hand-written dependency or link.
 
-Two calls from one function to another on different lines are two edges, because the site differs.
+Two calls from one function to another on different lines are two edges, because the site differs. An edge's identity is its source, target, kind and site. The data of a kind is not part of it.
 
 ## What the graph looks like for Acme Shop
 
@@ -180,6 +185,10 @@ RUNTIME LAYER     what runs, and what can reach what
   Stack ledger ──────Contains─> Service api, Service consumer
 
   every service and external service above ─Joins─> Network acme-backbone
+  Service api, Service worker (stack billing-api) ─Joins─> Network billing-api_default
+
+  billing-api ─Uses─> Stack billing-api, Stack acme-infra
+  ledger-api ──Uses─> Stack ledger, Stack acme-infra
 
 
 CODE LAYER        what the source says
@@ -250,6 +259,7 @@ A file that imports `Invoice` and is not an entry file is reached the same way, 
 
 - **A confidence score on inferred edges.** Nothing produces inferred edges yet.
 - **Timestamps.** The content hash of a file already says whether it changed.
+- **A copy of the source code.** A node stores where its source is. A query reads the file through the node's span, and marks a file that has changed since the last index.
 - **Topics, queues and HTTP calls found in code.** They are declared by hand for now.
 - **Services that run outside any compose file,** such as a managed database. The current assumption is that the compose files describe everything that runs.
-- **How the graph is laid out in SQLite.** That belongs to the storage plan, which is not written.
+- **How the graph is kept in SQLite.** That is in [storage-model.md](./storage-model.md): one table of nodes and one of edges, for both layers.

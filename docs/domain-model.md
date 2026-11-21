@@ -2,7 +2,7 @@
 
 The types of the knowledge graph and the rules they must keep. This is the page to implement against and to validate against.
 
-[graph-model.md](./graph-model.md) explains why the model looks this way. This page says exactly what it is. [storage-model.md](./storage-model.md) says how it is kept in SQLite. Terms are defined in [GLOSSARY.md](./GLOSSARY.md). The running example is the [Acme Shop workspace](./example-workspace.md).
+[graph-model.md](./graph-model.md) explains why the model looks this way. This page says exactly what it is. [storage-model.md](./storage-model.md) says how it is kept in SQLite. [python-parsing.md](./python-parsing.md) says what Python fills in, and how the two stages of an index produce the call sites, local bindings, inferred types and reach defined here. Terms are defined in [GLOSSARY.md](./GLOSSARY.md). The running example is the [Acme Shop workspace](./example-workspace.md).
 
 > **Nothing here is written yet.** The types belong in `src/domain`. They depend on nothing outside it: no SQLite, no parser, no configuration loader.
 
@@ -20,7 +20,7 @@ Workspace
 ├── Project
 │   ├── Binary
 │   └── File
-│       └── code nodes: Module, Class, Function, ...
+│       └── code nodes: Module, Class, Function, Route, ...
 │           └── nested code nodes: Method, Field, Parameter, ...
 ├── Stack
 │   ├── Service
@@ -78,15 +78,65 @@ Where a node came from. It is one of two things.
 | `qualified_name` | text | yes | The full name within the scope, such as `shared_api.models.Invoice` |
 | `scope` | `Scope` | yes | What the node belongs to |
 | `origin` | `Origin` | yes | Parsed or declared |
-| `language` | `Language` | no | The language of a code node |
-| `doc` | text | no | The doc string |
-| `signature` | text | no | The declaration as written |
-| `visibility` | `Visibility` | no | Public, private, protected or internal |
-| `is_exported`, `is_async`, `is_static`, `is_abstract` | flag | no | Each defaults to false |
-| `decorators`, `type_parameters` | list of text | no | Each defaults to empty |
-| `return_type` | text | no | The return type as written |
+| `data` | `NodeData` | yes | The kind's own data, which may be nothing. See [Node data](#node-data) |
 
-The optional fields are filled in for code nodes and left empty for workspace nodes. A node holds no timestamp and no copy of the source code. Source is read from the file through the node's span when a query needs it.
+A node holds no timestamp and no copy of the source code. Source is read from the file through the node's span when a query needs it.
+
+A code node holds no language. Its language is its file's, held by the [file record](#file-record). A project's main language is held by the `Project` node.
+
+### Node data
+
+The data is part of the kind, as an edge's is, so a kind can never carry another kind's fields.
+
+| Kinds | Data |
+|---|---|
+| `Project` | `ProjectData { language }`: the project's main language, from the configuration |
+| `Binary` | `BinaryData { framework, app, framework_source }` |
+| `Workspace`, `Stack`, `Service`, `ExternalService`, `Network`, `Topic`, `Queue` | none |
+| `Function`, `Method`, `Property` | `Callable { doc, signature, visibility, is_async, is_static, is_abstract, is_exported, decorators, type_parameters, return_type, role }` |
+| `Class`, `Struct`, `Interface`, `Trait`, `Protocol`, `Enum`, `Union`, `TypeAlias`, `Component` | `TypeDecl { doc, signature, visibility, is_abstract, is_exported, decorators, type_parameters, role }` |
+| `Field`, `Variable`, `Constant`, `Parameter` | `Member { visibility, is_static, is_exported, declared_type, default, source, role }` |
+| `Route` | `RouteData { method, path, status_code, tags }` |
+| `File`, `Module`, `Namespace` | `Doc { doc }` |
+| `EnumMember`, `Import`, `Export` | none |
+
+The fields:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `language` | `Language` | `Python` or `TypeScript` |
+| `framework` | `Framework` | `Fastapi`, `Angular` or `None` |
+| `app` | text, optional | The qualified name of a FastAPI binary's app, such as `billing.api.app` |
+| `framework_source` | `FrameworkSource` | Where `framework` came from: `Declared` (the configuration), `Compose` (a compose command) or `Entry` (the entry file) |
+| `doc` | text, optional | The doc string |
+| `signature` | text, optional | The declaration as written, on one line |
+| `visibility` | `Visibility`, optional | `Public`, `Private`, `Protected` or `Internal` |
+| `is_async`, `is_static`, `is_abstract`, `is_exported` | flag | Each defaults to false |
+| `decorators` | list of text | Each decorator's dotted name as written, without arguments, in source order. Defaults to empty |
+| `type_parameters` | list of text | Defaults to empty |
+| `return_type`, `declared_type` | text, optional | The annotation as written |
+| `default` | text, optional | A default value as written, cut at 80 characters |
+| `source` | `ParamSource`, optional | `Parameter` only: `Path`, `Query`, `Header`, `Cookie`, `Body`, `Form` or `File` |
+| `role` | `FrameworkRole`, optional | What a framework makes of the node, when the node's own file shows it: `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook` or `Model` |
+| `method` | `HttpMethod` | `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`, `Trace` or `WebSocket` |
+| `path` | text, optional | A route's local path, as written. Empty when it is not a literal |
+| `status_code` | number, optional | |
+| `tags` | list of text | Defaults to empty |
+
+What each language can express. A value outside its row is refused when the node is built (rule N9):
+
+| Language | Refused |
+|---|---|
+| `Python` | `visibility` of `Protected` or `Internal`. `framework` of `Angular` |
+| `TypeScript` | `framework` of `Fastapi`. The rest is settled when TypeScript is parsed (Release 2) |
+
+A role suits only some kinds (rule N10):
+
+| Role | Kinds |
+|---|---|
+| `App`, `Router` | `Variable` |
+| `Middleware`, `ExceptionHandler`, `LifecycleHook` | `Function`, `Method` |
+| `Model` | `Class` |
 
 ### Node identity
 
@@ -114,6 +164,7 @@ An id of 64 bits is short enough for an AI to read and repeat. Two nodes sharing
 | `Network` | The real name when known, else the name in the compose file | `acme-backbone` |
 | `Topic`, `Queue` | The external service's name, `/`, the topic or queue name | `kafka/invoice.created` |
 | `File` | The file's path | `src/billing/worker.py` |
+| `Route` | Its handler's qualified name, `@`, the method and the local path. Its `name` is the method and the local path | `billing.routes.invoices.get_invoice@GET /{invoice_id}` |
 | Other code kinds | The language's own dotted path | `shared_api.models.Invoice` |
 
 ### Node rules
@@ -127,6 +178,9 @@ An id of 64 bits is short enough for an AI to read and repeat. Two nodes sharing
 | N5 | Building the same node twice from the same inputs gives the same id | Build |
 | N6 | No two nodes in a graph share an id | Graph |
 | N7 | There is exactly one `Workspace` node | Graph |
+| N8 | The data suits the kind, as in the [node data](#node-data) table | Build |
+| N9 | A code node's data suits the language of the file it is parsed from, and a binary's framework suits its project's language, as in the language table. The language is given when the node is built and is not stored on it | Build |
+| N10 | A role suits the kind, as in the role table. `app` is given only when `framework` is `Fastapi` | Build |
 
 ## Edge
 
@@ -134,7 +188,7 @@ An id of 64 bits is short enough for an AI to read and repeat. Two nodes sharing
 |---|---|---|---|
 | `source` | `NodeId` | yes | The node the edge starts at |
 | `target` | `NodeId` | yes | The node the edge ends at |
-| `kind` | `EdgeKind` | yes | One of the 22 kinds listed in [graph-model.md](./graph-model.md#edge-kinds), with its data |
+| `kind` | `EdgeKind` | yes | One of the 25 kinds listed in [graph-model.md](./graph-model.md#edge-kinds), with its data |
 | `site` | `Site` | no | Where in a file the relationship occurs, when it has a place |
 | `provenance` | `Provenance` | yes | How the edge came to exist |
 | `note` | text | no | The free text of a hand-written dependency or link |
@@ -148,13 +202,15 @@ The data is part of the kind, so a kind can never carry another kind's data.
 | `Imports` | `specifier`: the import as written. `alias`: the local name it is bound to, optional |
 | `DependsOn` | `scope`: `Build` or `Dev` |
 | `ConnectsTo` | `protocol`: `Http`, `Grpc` or `Database` |
-| The other nineteen | none |
+| `Mounts` | `prefix`: the path prefix the mount adds, optional |
+| The other twenty-one | none |
 
 ### Provenance
 
 | Value | Meaning | Kinds that carry it in Release 1 |
 |---|---|---|
 | `TreeSitter` | Read from source code by a parser | Every code kind |
+| `Flow` | Resolved by carrying types from callers. Right when the workspace holds every caller | `Calls`, `Instantiates` |
 | `Manifest` | Read from a dependency manager's files | `DependsOn` |
 | `Compose` | Read from a compose file | `Runs`, `BuiltFrom`, `Joins`, `Uses` |
 | `Declared` | Written by hand in the configuration | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `ConnectsTo`, `Publishes`, `Subscribes` |
@@ -177,6 +233,8 @@ A `Contains` edge takes its provenance from the child: `Declared` for a declared
 | E8 | A `Service` has exactly one of `Runs` or `BuiltFrom`. An `ExternalService` has neither | Graph |
 | E9 | A `Binary` has exactly one `EntryPoint`, and it leads to a `File` of the same project | Graph |
 | E10 | A `Runs` edge leads to a binary of the project whose folder the service is built from | Graph |
+| E11 | A framework edge joins only these: `Mounts` from a `Variable` with role `App` or `Router` to such a `Variable` or to a `Route`. `Handles` from a `Route` to a `Function` or `Method`. `Injects` from a `Function`, `Method`, `Route` or `Variable` with role `Router` to a `Function`, `Method` or `Class` | Graph |
+| E12 | A `Flow` edge starts at a callable, or a node inside one, whose callable has at least one parameter with an [inferred type](#inferred-type) | Graph |
 
 ## The containment tree
 
@@ -228,7 +286,7 @@ A name the parser saw and could not yet connect to a node: a call, an import, a 
 | `id` | computed | A hash of the four fields below, made the same way as a `NodeId` |
 | `from` | `NodeId` | The node the reference appears in |
 | `name` | text | The name as written |
-| `kind` | `EdgeKind` | The kind of edge it becomes when resolved. Never a workspace kind |
+| `kind` | `EdgeKind` | The kind of edge it becomes when resolved, with its data: a `Mounts` reference keeps its prefix. Never a workspace kind |
 | `site` | `Site` | Where it appears |
 
 | Id | Rule | Enforced |
@@ -236,7 +294,82 @@ A name the parser saw and could not yet connect to a node: a call, an import, a 
 | R1 | `from` is a node in the graph | Graph |
 | R2 | `kind` is a code edge kind | Build |
 | R3 | No two references share an id | Graph |
-| R4 | A resolved reference is removed, and exactly one edge replaces it, with the same `from`, kind and site | Indexer |
+| R4 | A resolved reference is removed, and exactly one edge replaces it, with the same `from`, kind and site. One exception: an `Overrides` reference whose bases all resolved, and none has the name, is removed with no edge | Indexer |
+
+## Call site
+
+One call expression, with its arguments as written. Stage 1 records it from the call's own file, and it is replaced with its file. Stage 2 uses it to carry types from callers.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `from` | `NodeId` | The node the call is in, or the `File` at module level |
+| `site` | `Site` | Where the call is |
+| `callee` | text | The callee as written: `process`, `self.repo.save`, `models.Invoice` |
+| `arguments` | list of `Argument` | In source order |
+
+An `Argument` is a `position` (from 0) or a `keyword`, and a `Shape`. A `Shape` is one of:
+
+| Shape | Written as |
+|---|---|
+| `Call(name)` | A call of a name: `Invoice(...)`, `make_invoice()`. Resolution decides whether it creates an instance of a class or calls a function |
+| `Name(name)` | A bare or dotted name: `repo`, `self.repo` |
+| `Literal(kind)` | A string, number, bytes, bool, `None`, list, dict, set or tuple literal |
+| `Other` | Anything else |
+
+| Id | Rule | Enforced |
+|---|---|---|
+| C1 | `from` is a node in the graph | Graph |
+| C2 | Each argument has a position or a keyword, never both. Positions run from 0 without a gap | Build |
+| C3 | No two call sites share `from` and `site` | Graph |
+
+## Local binding
+
+One name assigned inside a function, with the shape of its value. Stage 1 records it from its own file, and it is replaced with its file.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `in` | `NodeId` | The function or method |
+| `name` | text | The name assigned |
+| `shape` | `Shape` | The shape of the first value assigned |
+| `assigned_once` | flag | True when the name is assigned exactly once in the function |
+
+| Id | Rule | Enforced |
+|---|---|---|
+| L1 | `in` is a `Function` or `Method` node in the graph | Graph |
+| L2 | `name` is not empty | Build |
+| L3 | No two bindings share `in` and `name` | Graph |
+
+## Inferred type
+
+A parameter's class, carried from its callers by stage 2b. It exists only when every call site in the workspace agrees.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `parameter` | `NodeId` | The `Parameter` |
+| `class` | `NodeId` | The class every call site passes |
+| `call_sites` | number | How many call sites agreed |
+
+| Id | Rule | Enforced |
+|---|---|---|
+| Y1 | `parameter` is a `Parameter` node, and `class` is a `Class`, `Protocol` or `Enum` node | Graph |
+| Y2 | At most one inferred type per parameter | Graph |
+| Y3 | `call_sites` is at least 1 | Build |
+| Y4 | Every index removes all inferred types and every `Flow` edge, and writes the ones it computed | Indexer |
+
+## Reach
+
+That a root may run a code node, found by stage 2c over resolved edges.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `node` | `NodeId` | A code node |
+| `root` | `Root` | `Binary(NodeId)`: a binary. `Module(NodeId)`: the `File` of a module named in a command or a binary's `app`. `Test(NodeId)`: a test `File` |
+
+| Id | Rule | Enforced |
+|---|---|---|
+| H1 | `node` is a code node in the graph. A `Binary` root is a `Binary` node; a `Module` or `Test` root is a `File` node | Graph |
+| H2 | No two reach records share `node` and `root` | Graph |
+| H3 | Every index removes all reach records and writes the ones it computed | Indexer |
 
 ## Project checkout
 
@@ -270,6 +403,10 @@ Something the indexer noticed that does not stop the run. The warnings of the la
 | `NetworkNameUnknown` | A network's real name cannot be read and the configuration does not give it | The network |
 | `LinkWithoutSharedNetwork` | A link joins two services that share no network | The project or binary that makes the link |
 | `DependencyPathNotAProject` | A dependency manager's file names a local path that is not a listed project | The project whose file names it |
+| `FrameworkMismatch` | The configuration or a compose command names one framework for a binary, and its entry file builds another, or names none while it builds an app | The binary |
+| `FrameworkAppNotFound` | A FastAPI binary's `app` names no node, or a node that is not an app or a function that returns one | The binary |
+| `EntryCommandMismatch` | A compose command runs a module other than the binary's configured entry | The binary |
+| `FlowRoundLimit` | Carrying types from callers stopped at its round limit before it settled | none |
 
 | Id | Rule | Enforced |
 |---|---|---|
@@ -283,10 +420,12 @@ The model maps to SQLite as one table per type, with one column per field. This 
 
 | Table | Holds | Notes |
 |---|---|---|
-| `nodes` | One row per node | The scope is two columns, its type and its name. The origin is a path and four span columns, all empty for a declared node. Workspace nodes leave the code-only columns empty |
-| `edges` | One row per edge | The data of a kind has its own typed columns, empty for the nineteen kinds that carry none. The table checks that each is filled in for its own kind only. Unique on source, target, kind and site |
+| `nodes` | One row per node | The scope is two columns, its type and its name. The origin is a path and four span columns, all empty for a declared node. The node data is one column per field, empty for kinds whose data has no such field |
+| `edges` | One row per edge | The data of a kind has its own typed columns, empty for the twenty-one kinds that carry none. The table checks that each is filled in for its own kind only. Unique on source, target, kind and site |
 | `files` | One row per file record | |
 | `unresolved_refs` | One row per unresolved reference | |
+| `call_sites`, `local_bindings` | One row per call site, one per local binding | Replaced with their file |
+| `inferred_types`, `reach` | One row per inferred type, one per reach record | Replaced at every index, with the `Flow` edges |
 | `warnings` | One row per warning of the last index | |
 | `project_checkouts` | One row per project checkout | |
 | A full-text index | Name, qualified name, doc string and signature of every node | Serves `search` and the first step of `explore` |
@@ -309,6 +448,10 @@ Each query in the [usage guide](./usage-guide.md#commands) works only if the mod
 | `status` | The warnings of the last index, each with its code, and each project's checkout | A2, A3, P1, P4 |
 | `search` | A name and a qualified name on every node | N1 |
 | Every query that crosses projects | Ids that differ when only the scope differs | N2, N6 |
+| `callers`, `callees` with `Flow` edges | A `Flow` edge always rests on an inferred type | E12, Y1, Y2 |
+| `node` on a parameter | At most one inferred type, with the number of call sites | Y1, Y2, Y3 |
+| `node`'s `reached by`, `files --unreached` | Reach records for the last index only | H1, H2, H3 |
+| `node` on a route: its full paths and binaries | `Mounts` chains that end at an app, and binaries that name their app | E11, N10 |
 
 ## Validating an implementation
 
@@ -342,6 +485,13 @@ The fixture must also show that:
 - Building the fixture twice gives the same ids.
 - The six steps of the walk in [graph-model.md](./graph-model.md#walking-the-graph) can be followed, once Class `Invoice`, its file and the `Imports` edges that reach it are added.
 
+`fixtures::acme()` adds the code layer of [python-parsing.md](./python-parsing.md#acme-shop-with-fastapi) and must show that:
+
+- Billing's `api` binary has `framework: Fastapi` and `app: billing.api.app`, and `worker` has `framework: None`.
+- The route `GET /{invoice_id}` reaches billing's app through two `Mounts` edges, with the prefixes `/invoices` and `/v1`.
+- `r` in `process` has the inferred type `InvoiceRepo` from 2 call sites, and `r.save()` is a `Flow` edge to `InvoiceRepo.save`.
+- `routes/invoices.py` is reached by `api` only, and `services.py` by `worker` and by the test `test_services.py`.
+
 ## Decisions made on this page
 
 Points the other pages left open, settled here and confirmed by the project owner. The ones that are hard to reverse are also recorded, with the options that were rejected, in the [decision records](./adrs/).
@@ -361,7 +511,20 @@ Points the other pages left open, settled here and confirmed by the project owne
 | Warnings | A structured record: a code, an optional subject node and a message |
 | The release a graph was built from | A checkout is kept for each project, not one for the workspace, so that the `operational-support` mode can check each project against its release branch |
 | The SQLite layout | One `nodes` table and one `edges` table for both layers, with a column per field. The data of an edge kind is typed columns, not JSON. Walks are done in the core, not in SQL |
+| Node data | Part of the kind, as an edge's data is. A field a kind does not have cannot be set |
+| Language | On the `Project` node, from the configuration, and on the file record, detected. Not on code nodes |
+| How an index builds the graph | Stage 1 reads every file, one at a time. Stage 2 analyses the finished graph from each root and reads no file again |
+| Types carried from callers | Only when every call site in the workspace passes the same class. Such edges carry `Flow` |
+| A binary's framework | Decided before parsing, per binary, from the configuration, then a compose command, then the entry file. A framework's rules read every file that imports it |
 
 ## Open points
 
-None at present.
+These wait on the open points of [python-parsing.md](./python-parsing.md#open-points). The model above follows each proposal.
+
+| Point | Proposed, and written above |
+|---|---|
+| `Flow`, or `Heuristic` reused | `Flow` |
+| `Mounts`, `Handles` and `Injects`, or `References` with a role | The three new kinds |
+| A route's full path, stored or derived | Derived at query time; `RouteData` holds the local path only |
+| The round limit of 2b | 5, with the `FlowRoundLimit` warning when it is hit |
+| FastAPI in Release 1 | Yes, as step 5b |

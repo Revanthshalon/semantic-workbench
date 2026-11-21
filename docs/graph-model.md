@@ -90,7 +90,10 @@ Some edges need extra data. An import has the text that was imported. A dependen
 | `Imports` | The import as written, and the local name it is bound to |
 | `DependsOn` | When the dependency is needed: build or dev |
 | `ConnectsTo` | The protocol: HTTP, gRPC or database |
-| The other nineteen | Nothing |
+| `Mounts` | The path prefix the mount adds, when there is one |
+| The other twenty-one | Nothing |
+
+The same holds for nodes: a node kind carries its own data (decision 10).
 
 ### 7. Every edge says how it came to exist
 
@@ -99,6 +102,7 @@ An AI should treat a relationship read from source differently from one that was
 | Provenance | Meaning |
 |---|---|
 | `TreeSitter` | Read from source code by a parser |
+| `Flow` | Resolved by carrying types from callers. Right when the workspace holds every caller |
 | `Scip` | Read from a SCIP index |
 | `Manifest` | Read from a dependency manager's files |
 | `Compose` | Read from a compose file |
@@ -113,7 +117,39 @@ A binary's entry file always gets a file node, even when its language is not par
 
 ### 9. Workspace edges have rules about what they connect
 
-A "joins" edge from a function to a network is a bug. Each of the nine workspace edge kinds may only connect certain kinds of node, and building an edge that breaks its rule is refused. Code edges are not restricted.
+A "joins" edge from a function to a network is a bug. Each of the nine workspace edge kinds may only connect certain kinds of node, and building an edge that breaks its rule is refused. Code edges are not restricted, except the three framework edges of decision 11.
+
+### 10. A node kind carries its own data
+
+The first model gave every node the same optional fields: doc, signature, visibility, flags, decorators, return type. A service could then be async, and a Python method could be protected. So, as with edges, the data is part of the kind.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| One flat set of optional fields | Replaced | Nothing stopped a field that made no sense for the kind or the language |
+| One data type per kind and language (`PyFunction`, `TsFunction`, ...) | Rejected | The number of types multiplies with each language. Languages differ in which values they allow, not in which fields exist |
+| One data type per shape of kind, checked against what the language can express | Adopted | Kinds that look alike share a type: `Callable`, `TypeDecl`, `Member`, `RouteData`. A table per language refuses what it cannot express |
+
+The language is not on code nodes. It is the file's, held by the file record, and the project's main language is on the `Project` node. A binary also carries data: its framework and its app.
+
+### 11. Frameworks add three edge kinds
+
+A FastAPI app mounts routers, a router mounts routes, a route is handled by a function, and a route or a provider injects other providers. These are `Mounts` (with its prefix), `Handles` and `Injects`. Each may only join certain kinds of node.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| `References`, with a role on the node | Rejected, pending review | "Which providers does this route use" would have to filter every `References` edge |
+| Three new kinds | Adopted, pending review | Each question about a route is one edge kind |
+| Storing a route's full path on the node | Rejected, pending review | The prefixes sit in other files, so a change to one would rewrite route nodes elsewhere. The full path is derived at query time from `Mounts` |
+
+### 12. An index reads every file, then analyses from each root
+
+Reading only the files an entry reaches was considered, to follow the code as it runs. It would miss code loaded by name, read libraries only in part, drop tests, and break incremental reading. So stage 1 reads every file on its own, and stage 2 analyses the finished graph: it resolves references, carries types from callers, and finds which roots reach each node. [python-parsing.md](./python-parsing.md#how-the-graph-is-built) describes both stages.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| Read only what an entry reaches | Rejected | Incomplete, and not incremental |
+| Infer a parameter's type from any caller | Rejected | One wrong caller would give wrong edges with no sign of it |
+| Carry a type only when every caller agrees, and mark such edges `Flow` | Adopted | Nothing is guessed within what the workspace shows, and a reader can tell these edges from those read directly |
 
 ## The model that results
 
@@ -128,7 +164,7 @@ A "joins" edge from a function to a network is a bug. Each of the nine workspace
 
 | Group | Kinds |
 |---|---|
-| Code (13) | `Contains`, `Calls`, `Imports`, `Exports`, `Extends`, `Implements`, `References`, `TypeOf`, `Returns`, `Instantiates`, `Overrides`, `Decorates`, `Navigates` |
+| Code (16) | `Contains`, `Calls`, `Imports`, `Exports`, `Extends`, `Implements`, `References`, `TypeOf`, `Returns`, `Instantiates`, `Overrides`, `Decorates`, `Navigates`, `Mounts`, `Handles`, `Injects` |
 | Workspace (9) | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `Joins`, `ConnectsTo`, `Publishes`, `Subscribes` |
 
 | Workspace kind | From | To | Meaning |
@@ -149,7 +185,7 @@ A "joins" edge from a function to a network is a bug. Each of the nine workspace
 
 - **Identity:** the id, the kind, the name and the qualified name.
 - **Place:** the scope and the origin.
-- **Details, each optional:** language, doc string, signature, visibility, whether it is exported, async, static or abstract, decorators, type parameters and return type. These are filled in for code nodes and left empty for the rest.
+- **Data, which depends on the kind:** for a callable, its doc string, signature, visibility, flags, decorators, type parameters and return type; for a field, variable or parameter, its declared type and default; for a route, its method and local path; for a project, its language; for a binary, its framework and app. Most workspace kinds carry none.
 
 ### What an edge holds
 
@@ -257,7 +293,7 @@ A file that imports `Invoice` and is not an entry file is reached the same way, 
 
 ## What is left out, and why
 
-- **A confidence score on inferred edges.** Nothing produces inferred edges yet.
+- **A confidence score on inferred edges.** Nothing produces `Heuristic` edges yet. `Flow` edges need none: they exist only when every caller agrees.
 - **Timestamps.** The content hash of a file already says whether it changed.
 - **A copy of the source code.** A node stores where its source is. A query reads the file through the node's span, and marks a file that has changed since the last index.
 - **Topics, queues and HTTP calls found in code.** They are declared by hand for now.

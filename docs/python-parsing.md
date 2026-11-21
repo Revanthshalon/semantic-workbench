@@ -71,13 +71,12 @@ Files are independent of each other, so they can be read in parallel.
 
 | Shape | Written as | Example |
 |---|---|---|
-| `New(name)` | A call of a name, which may turn out to be a class | `Invoice(...)`, `models.Invoice(...)` |
-| `Call(name)` | The same syntax. Resolution decides whether it is `New` or a call of a function | `make_invoice()` |
+| `Call(name)` | A call of a name. Resolution decides whether it creates an instance of a class or calls a function | `Invoice(...)`, `models.Invoice(...)`, `make_invoice()` |
 | `Name(name)` | A bare or dotted name | `repo`, `self.repo`, `settings` |
 | `Literal(kind)` | A string, number, bytes, bool, `None`, list, dict, set or tuple literal | `"x"`, `3`, `[]` |
 | `Other` | Anything else | `a + b`, `f()[0]`, `await x`, a lambda |
 
-`New` and `Call` are kept as one shape at read time, because the parser cannot know whether a name is a class. They are listed apart here only to show what resolution turns them into.
+The parser cannot know whether a called name is a class, so a call is one shape until resolution.
 
 **Why every file is read, and not only what an entry reaches:**
 
@@ -89,7 +88,7 @@ Files are independent of each other, so they can be read in parallel.
 
 ### Stage 2a: resolve
 
-Turns unresolved references into edges, with the `TreeSitter` provenance. Step 5's lookup order and the four rules under [Resolution, beyond step 5](#resolution-beyond-step-5) apply, in that order. A local binding of shape `Call(name)` becomes `New` when the name resolves to a class. When the name resolves to a function with a `Returns` edge, the binding takes that class. The FastAPI profile's references (`Mounts`, `Handles`, `Injects`) are resolved here like any other.
+Turns unresolved references into edges, with the `TreeSitter` provenance. Step 5's lookup order and the four rules under [Resolution, beyond step 5](#resolution-beyond-step-5) apply, in that order. A local binding of shape `Call(name)` takes the class when the name resolves to a class. When the name resolves to a function with a `Returns` edge, the binding takes that class. The FastAPI profile's references (`Mounts`, `Handles`, `Injects`) are resolved here like any other.
 
 ### Stage 2b: carry types from callers
 
@@ -111,7 +110,7 @@ def process(r):          # no annotation
 
 | Argument shape | Its type |
 |---|---|
-| `New(C)`, with `C` resolved to a class of the workspace | `C` |
+| `Call(C)`, with `C` resolved to a class of the workspace | `C` |
 | `Call(f)`, with `f` resolved to a function that has a `Returns` edge to a class | That class |
 | `Name(n)`, with `n` a parameter that has a declared type, or a type from this stage | That type |
 | `Name(n)`, with `n` a local binding assigned once, whose value has a type by this table | That type |
@@ -129,7 +128,7 @@ def process(r):          # no annotation
 **How it runs.**
 1. Rounds. In each round, every parameter's type is computed from the edges that exist at the start of the round. Then every reference inside an affected callee is resolved again.
 2. A parameter goes from untyped to typed to conflicted, and never back. A parameter typed in one round that meets a disagreeing call site in a later round becomes conflicted. Every `Flow` edge that rested on it is removed.
-3. The rounds stop when one changes nothing, or after 5 rounds. Because a conflicted parameter never takes a type again, the rounds always end.
+3. The rounds stop when one changes nothing, or after 5 rounds. Because a conflicted parameter never takes a type again, the rounds always end. Stopping at the limit raises the `FlowRoundLimit` warning, which `status` shows.
 4. The result depends only on the graph, not on the order in which nodes are visited.
 
 **Every caller counts, not only those reached from an entry.** A function called from `worker.py` and from `tests/test_services.py` takes a type only if both pass the same class. A type that ignored the test would be wrong for the test.
@@ -451,15 +450,15 @@ billing-api/tests/
 
 ## Changes this needs elsewhere
 
-Nothing below is applied yet. Each change is made in its own page when this page is accepted.
+All of these are applied. Each follows the proposals under [Open points](#open-points), and changes with them. The decisions that are hard to reverse are also in ADRs [0012](./adrs/0012-node-kinds-carry-their-own-data.md), [0013](./adrs/0013-read-every-file-then-analyse-from-each-root.md), [0014](./adrs/0014-types-are-carried-only-when-every-caller-agrees.md) and [0015](./adrs/0015-a-binarys-framework-is-decided-before-parsing.md), each `proposed` until this page is accepted.
 
 | Page | Change |
 |---|---|
 | [domain-model.md](./domain-model.md) | Node kinds carry typed data per kind (`Callable`, `TypeDecl`, `Member`, `RouteData`), with the language capability check at build time, as proposed for the domain design. New fields: `declared_type`, `default`, `source` on `Parameter`. New `FrameworkRole`: `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Model`. A route's qualified name, as above, as an exception to "the language's own dotted path" |
 | [domain-model.md](./domain-model.md), [graph-model.md](./graph-model.md) | Three new code edge kinds, 22 → 25: `Mounts { prefix: Option<String> }`, `Handles`, `Injects`. A new graph rule for their ends: `Mounts` from an app or router to a router, app or route; `Handles` from a route to a function or method; `Injects` from a function, method, route or router to a function, method or class |
-| [configuration-guide.md](./configuration-guide.md), [`templates/config.yml`](../templates/config.yml), [step 2](./implementation-plan/step-2-configuration.md) (applied) | Two optional fields on `binaries[]`: `framework` (`fastapi` or `none` for Python, `angular` or `none` for TypeScript) and `app` (`module:attribute`, as uvicorn writes it). The project-level `framework` is removed; `framework: angular` moves onto each binary. Check rule 5 grows: a binary's framework suits its project's language, and `app` is given only with `fastapi` and has the form `module:attribute` |
-| [domain-model.md](./domain-model.md) | A `Binary` carries data: `framework`, `app`, `framework_source`. Three new warning codes: `FrameworkMismatch`, `FrameworkAppNotFound`, `EntryCommandMismatch` |
-| [step 4](./implementation-plan/step-4-workspace-indexing.md) | A new task: decide each binary's framework from the three sources, then `none`, and raise the warnings |
+| [configuration-guide.md](./configuration-guide.md), [`templates/config.yml`](../templates/config.yml), [step 2](./implementation-plan/step-2-configuration.md) | Two optional fields on `binaries[]`: `framework` (`fastapi` or `none` for Python, `angular` or `none` for TypeScript) and `app` (`module:attribute`, as uvicorn writes it). The project-level `framework` is removed; `framework: angular` moves onto each binary. Check rule 5 grows: a binary's framework suits its project's language, and `app` is given only with `fastapi` and has the form `module:attribute` |
+| [domain-model.md](./domain-model.md) | A `Binary` carries data: `framework`, `app`, `framework_source`. Four new warning codes: `FrameworkMismatch`, `FrameworkAppNotFound`, `EntryCommandMismatch`, `FlowRoundLimit` |
+| [step 4](./implementation-plan/step-4-workspace-indexing.md), [00-overview.md](./implementation-plan/00-overview.md) | Task 7 and slice 4H: decide each binary's framework from the three sources, then `none`, and raise the warnings. `ComposeService` gains `command`. `LanguageParser` gains `probe_framework`. The store port gains the reads and the write of stage 2. The names table gains the new types |
 | [domain-model.md](./domain-model.md) | Rule R4 gains one exception: an `Overrides` reference whose bases all resolved, and none has the name, is dropped instead of kept |
 | [domain-model.md](./domain-model.md) | Language: the `Project` node carries `language`, declared by the configuration. The file record keeps `language`, detected from the file. Code nodes have no `language`; a code node's language is its file's. The language check on node details reads the language from the file being parsed |
 | [domain-model.md](./domain-model.md) | Two new records from Stage 1, part of a parsed file: `CallSite { from, site, callee, arguments: [{ position or keyword, shape }] }` and `LocalBinding { in, name, shape, assigned_once }`, with `Shape` as in [Stage 1](#stage-1-read-every-file). Two derived records from Stage 2, replaced at every index: `InferredType { parameter, class, call_sites }` and `Reach { node, root }`, with `Root` a binary, a named module or a test file |
@@ -477,7 +476,7 @@ Each phase ends in something tested on its own. The phases follow step 5 and use
 
 | Phase | Delivers | Needs | Tested by |
 |---|---|---|---|
-| P0 | Binary framework: the two new configuration fields, the three sources in order, then `none`, the stored data, the three warnings | Step 2's 2C, step 4's 4B, 4E | One test per source. A higher source beats a lower one and raises `FrameworkMismatch`. A factory app needs the configuration. `python -m` against a different entry raises `EntryCommandMismatch` |
+| P0 | Binary framework: the two new configuration fields, the three sources in order, then `none`, the stored data, the warnings | Step 2's 2C, step 4's 4B, 4H | One test per source. A higher source beats a lower one and raises `FrameworkMismatch`. A factory app needs the configuration. `python -m` against a different entry raises `EntryCommandMismatch` |
 | P1 | Core definitions: every node kind and every detail in the tables above | Step 5's 5B, the typed node data | One test per row of the definitions and details tables, on strings of Python |
 | P2 | Core references: `Implements`, `Overrides`, `TypeOf`, `Returns`, `References`, `Exports`. Call sites and local bindings, with their shapes | P1, 5C | One test per row of the references table. One test per shape. `x = A(); x = B()` gives a binding that is not assigned once |
 | P3 | Resolution (2a): re-exports, following annotations, local inference, inherited members, `Call` bindings through `Returns` | P2, 5D, 5E | A re-export chain across projects. A cycle in re-exports ends. `invoice.total()` through an annotation. An unannotated receiver stays unresolved |

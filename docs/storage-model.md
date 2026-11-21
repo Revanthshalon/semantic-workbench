@@ -29,6 +29,8 @@ The file is opened with:
 | An origin | Five columns: `path` and the four numbers of the span. All five are empty for a declared node |
 | A site | Three columns: `site_path`, `site_line`, `site_column`. All three are empty for an edge with no place |
 | The data of an edge kind | Its own typed columns, empty for every other kind. See [`edges`](#edges) |
+| The data of a node kind | One column per field, empty for kinds whose data has no such field. See [`nodes`](#nodes) |
+| A call site's arguments | Text holding a JSON array of `{"position": 0, "shape": "name", "value": "repo"}` or `{"keyword": "db", ...}`. They are only ever read whole, so they are not split into columns |
 | A flag | Integer, `0` or `1` |
 | A list of text | Text holding a JSON array, `[]` when empty |
 | A time | Text, UTC, ISO 8601, such as `2026-11-16T09:12:00Z` |
@@ -55,7 +57,13 @@ CREATE TABLE nodes (
   start_column    INTEGER,
   end_line        INTEGER,
   end_column      INTEGER,
-  language        TEXT,
+  -- ProjectData
+  language        TEXT CHECK (language IN ('python', 'typescript')),
+  -- BinaryData
+  framework        TEXT CHECK (framework IN ('fastapi', 'angular', 'none')),
+  framework_source TEXT CHECK (framework_source IN ('declared', 'compose', 'entry')),
+  app              TEXT,
+  -- Doc, Callable, TypeDecl, Member
   doc             TEXT,
   signature       TEXT,
   visibility      TEXT CHECK (visibility IN ('public', 'private', 'protected', 'internal')),
@@ -66,11 +74,30 @@ CREATE TABLE nodes (
   decorators      TEXT NOT NULL DEFAULT '[]',
   type_parameters TEXT NOT NULL DEFAULT '[]',
   return_type     TEXT,
+  declared_type   TEXT,
+  default_value   TEXT,
+  param_source    TEXT CHECK (param_source IN ('path', 'query', 'header', 'cookie', 'body', 'form', 'file')),
+  role            TEXT CHECK (role IN ('app', 'router', 'middleware', 'exception_handler', 'lifecycle_hook', 'model')),
+  router_prefix   TEXT,
+  -- RouteData
+  route_method    TEXT CHECK (route_method IN
+                    ('get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace', 'websocket')),
+  route_path      TEXT,
+  route_status    INTEGER,
+  route_tags      TEXT NOT NULL DEFAULT '[]',
   CHECK ((scope_type = 'workspace') = (scope_name IS NULL)),
   CHECK ((path IS NULL) = (start_line IS NULL)
      AND (path IS NULL) = (start_column IS NULL)
      AND (path IS NULL) = (end_line IS NULL)
-     AND (path IS NULL) = (end_column IS NULL))
+     AND (path IS NULL) = (end_column IS NULL)),
+  CHECK ((kind = 'project') = (language IS NOT NULL)),
+  CHECK ((kind = 'binary') = (framework IS NOT NULL)),
+  CHECK ((framework IS NULL) = (framework_source IS NULL)),
+  CHECK (app IS NULL OR framework IS 'fastapi'),
+  CHECK (param_source IS NULL OR kind = 'parameter'),
+  CHECK (router_prefix IS NULL OR role IS 'router'),
+  CHECK ((kind = 'route') = (route_method IS NOT NULL)),
+  CHECK (kind = 'route' OR (route_path IS NULL AND route_status IS NULL AND route_tags = '[]'))
 );
 
 CREATE INDEX nodes_kind           ON nodes (kind);
@@ -88,19 +115,22 @@ CREATE TABLE edges (
   site_line        INTEGER,
   site_column      INTEGER,
   provenance       TEXT NOT NULL CHECK (provenance IN
-                     ('tree_sitter', 'scip', 'manifest', 'compose', 'declared', 'heuristic')),
+                     ('tree_sitter', 'flow', 'scip', 'manifest', 'compose', 'declared', 'heuristic')),
   note             TEXT,
   import_specifier TEXT,
   import_alias     TEXT,
   dependency_scope TEXT CHECK (dependency_scope IN ('build', 'dev')),
   protocol         TEXT CHECK (protocol IN ('http', 'grpc', 'database')),
+  mount_prefix     TEXT,
   CHECK ((kind = 'imports')     = (import_specifier IS NOT NULL)),
   CHECK (import_alias IS NULL OR kind = 'imports'),
   CHECK ((kind = 'depends_on')  = (dependency_scope IS NOT NULL)),
   CHECK ((kind = 'connects_to') = (protocol IS NOT NULL)),
+  CHECK (mount_prefix IS NULL OR kind = 'mounts'),
   CHECK ((site_path IS NULL) = (site_line IS NULL)
      AND (site_path IS NULL) = (site_column IS NULL)),
-  CHECK (note IS NULL OR provenance = 'declared')
+  CHECK (note IS NULL OR provenance = 'declared'),
+  CHECK (provenance <> 'flow' OR kind IN ('calls', 'instantiates'))
 );
 
 CREATE UNIQUE INDEX edges_identity ON edges
@@ -134,10 +164,48 @@ CREATE TABLE unresolved_refs (
 CREATE INDEX unresolved_refs_name ON unresolved_refs (name);
 CREATE INDEX unresolved_refs_from ON unresolved_refs (from_node);
 
+CREATE TABLE call_sites (
+  id          INTEGER PRIMARY KEY,
+  from_node   TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  site_path   TEXT NOT NULL,
+  site_line   INTEGER NOT NULL,
+  site_column INTEGER NOT NULL,
+  callee      TEXT NOT NULL CHECK (callee <> ''),
+  arguments   TEXT NOT NULL DEFAULT '[]',
+  UNIQUE (from_node, site_path, site_line, site_column)
+);
+
+CREATE TABLE local_bindings (
+  in_node       TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  name          TEXT NOT NULL CHECK (name <> ''),
+  shape         TEXT NOT NULL CHECK (shape IN ('call', 'name', 'literal', 'other')),
+  shape_value   TEXT,
+  assigned_once INTEGER NOT NULL CHECK (assigned_once IN (0, 1)),
+  PRIMARY KEY (in_node, name),
+  CHECK ((shape = 'other') = (shape_value IS NULL))
+) WITHOUT ROWID;
+
+CREATE TABLE inferred_types (
+  parameter  TEXT PRIMARY KEY REFERENCES nodes (id) ON DELETE CASCADE,
+  class      TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  call_sites INTEGER NOT NULL CHECK (call_sites >= 1)
+) WITHOUT ROWID;
+
+CREATE TABLE reach (
+  node      TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  root_kind TEXT NOT NULL CHECK (root_kind IN ('binary', 'module', 'test')),
+  root      TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  PRIMARY KEY (node, root_kind, root)
+) WITHOUT ROWID;
+
+CREATE INDEX reach_root ON reach (root);
+
 CREATE TABLE warnings (
   id      INTEGER PRIMARY KEY,
   code    TEXT NOT NULL CHECK (code IN
-            ('network_name_unknown', 'link_without_shared_network', 'dependency_path_not_a_project')),
+            ('network_name_unknown', 'link_without_shared_network', 'dependency_path_not_a_project',
+             'framework_mismatch', 'framework_app_not_found', 'entry_command_mismatch',
+             'flow_round_limit')),
   subject TEXT REFERENCES nodes (id) ON DELETE CASCADE,
   message TEXT NOT NULL CHECK (message <> '')
 );
@@ -188,7 +256,19 @@ One row per key.
 
 One row per node, for both layers. Each column is the field of the same name in the [domain model](./domain-model.md#node).
 
-- **Workspace nodes leave the code-only columns empty.** `language`, `doc`, `signature`, `visibility` and `return_type` are empty, the flags are `0` and the lists are `[]`.
+- **The node data of a kind fills its own columns only.** The comments in the schema group the columns by data type. A column that the node's data does not have is empty, a flag is `0` and a list is `[]`.
+
+| Columns | Filled in for |
+|---|---|
+| `language` | `project`, always. Code nodes have no language: it is the file's, in `files` |
+| `framework`, `framework_source` | `binary`, always |
+| `app` | `binary`, when `framework` is `fastapi` and the app is known |
+| `doc`, `signature`, `visibility`, the flags, `decorators`, `type_parameters`, `return_type` | Callables and type declarations; `doc` also for `file`, `module` and `namespace` |
+| `declared_type`, `default_value` | `field`, `variable`, `constant`, `parameter` |
+| `param_source` | `parameter`, when something says where it comes from |
+| `role` | `variable` (`app`, `router`), `function` and `method` (`middleware`, `exception_handler`, `lifecycle_hook`), `class` (`model`) |
+| `router_prefix` | A node whose role is `router`, when the prefix is known |
+| `route_method`, `route_path`, `route_status`, `route_tags` | `route`. `route_method` always |
 - **The kind is not checked by the table.** There are 32 kinds and the list grows with each language. The domain types already refuse an unknown kind.
 - **`nodes_qualified_name`** serves the `scope:qualified name` form of naming a node.
 - **`nodes_file`** serves "every node in this file", which `node --file` and the replacing of a file both need.
@@ -205,6 +285,9 @@ The data of an edge kind has typed columns, and the table checks that each is fi
 | `import_alias` | `imports`, when there is one | The local name it is bound to |
 | `dependency_scope` | `depends_on`, always | `build` or `dev` |
 | `protocol` | `connects_to`, always | `http`, `grpc` or `database` |
+| `mount_prefix` | `mounts`, when there is one | The path prefix the mount adds |
+
+An edge with the `flow` provenance is a `calls` or `instantiates` edge, and the table refuses any other kind.
 
 A kind that gains data later gets its own column in a new format version.
 
@@ -219,6 +302,14 @@ One row per file record. `error` holds the parser's message, and is filled in on
 ### `unresolved_refs`
 
 One row per unresolved reference. Deleting a node deletes the references that appear in it. `unresolved_refs_name` serves resolution: when a new node appears, the references that wait for its name are found by name.
+
+### `call_sites` and `local_bindings`
+
+One row per call site, and one per local binding, read in stage 1. Deleting a node deletes the call sites and bindings it holds, so they are replaced with their file. Stage 2 reads them all at every index. `shape_value` holds the name for `call` and `name`, the literal's kind for `literal`, and nothing for `other`.
+
+### `inferred_types` and `reach`
+
+The results of stage 2. They are deleted and written again at every index, together with every edge whose provenance is `flow`. `reach_root` serves "everything this binary may run"; the primary key serves "which roots run this node".
 
 ### `warnings`
 
@@ -254,6 +345,15 @@ The domain types are the first guard. The schema is the second, for the rules th
 | P3: a branch only with a commit | `CHECK` on `branch` and `commit_id` |
 | A1: a warning's message is not empty | `CHECK` |
 | A2: a warning's subject exists | Foreign key |
+| N8, in part: a project has a language, a binary a framework, a route a method, and no other kind has them | `CHECK` on `language`, `framework` and `route_method` with `kind` |
+| N10, in part: `app` only with `fastapi`; a router prefix only on a router | `CHECK` on `app` and `router_prefix` |
+| E3, in part: `flow` only on `calls` and `instantiates` | `CHECK` on `provenance` and `kind` |
+| C1, L1 in part, Y1 in part, H1 in part: the nodes named exist | Foreign keys |
+| C3: one call site per node and site | `UNIQUE` |
+| L3: one binding per function and name | Primary key |
+| Y2: one inferred type per parameter | Primary key |
+| Y3: at least one call site agreed | `CHECK` |
+| H2: one reach record per node and root | Primary key |
 
 Every other rule of the domain model needs more than one row to decide, and is checked by `validate` before anything is written.
 
@@ -271,8 +371,8 @@ Every other rule of the domain model needs more than one row to decide, and is c
 
 When a file has changed, the indexer replaces it in four steps.
 
-1. Delete the file's nodes. The edges that start at them, and the references that appear in them, go with them. The edges that end at them stay.
-2. Insert the nodes, edges and references of the new parse. Ids are computed, so a node that did not move in name keeps its id, and the edges that end at it are valid again.
+1. Delete the file's nodes. The edges that start at them, and the references, call sites and local bindings that appear in them, go with them. The edges that end at them stay.
+2. Insert the nodes, edges, references, call sites and local bindings of the new parse. Ids are computed, so a node that did not move in name keeps its id, and the edges that end at it are valid again.
 3. Find the edges that still end at a node that no longer exists. Each belongs to a file that referred to something now gone.
 4. Delete those edges and read their files again in the same run, so that each lost edge becomes an unresolved reference.
 
@@ -291,6 +391,15 @@ The workspace layer is rebuilt on every index, inside the same transaction.
 3. Delete every edge whose provenance is `manifest`, `compose` or `declared`, and insert the ones the run produces.
 4. Delete all warnings, and insert the ones the run raised.
 5. Write the checkout of every project the run indexed, replacing its row.
+
+### Writing the results of stage 2
+
+Stage 2 runs after every file is in and every reference has been tried, inside the same transaction.
+
+1. Delete every edge whose provenance is `flow`, every row of `inferred_types` and every row of `reach`.
+2. Insert the `flow` edges, inferred types and reach records the run computed.
+
+Deleting first keeps the results free of leftovers from a call site that is gone. Stage 2 always works on the whole graph, so nothing is lost.
 
 ### `index --force`
 
@@ -312,7 +421,11 @@ The rest of the program reaches the store through one port, so a second store ca
 | Project checkouts | `status`, and `context_status` in the `operational-support` mode |
 | Counts of nodes, edges and files | `status` |
 | The `meta` values | `status`, every MCP answer |
-| Write one index, as described above | `index` |
+| Every call site and local binding | `index`, stage 2 |
+| The inferred type of a parameter | `node` |
+| The roots that reach a node, and the nodes a root reaches | `node`, `impact` |
+| Files that no root reaches | `files --unreached` |
+| Write one index, as described above, with the results of stage 2 | `index` |
 
 **The store never walks.** A walk is done step by step above the port: ask for the edges of a set of nodes, decide where to go next, ask again. Each step is one query on `edges_source_kind` or `edges_target_kind`. `impact` and `explore` therefore behave the same on any store.
 
@@ -328,10 +441,11 @@ The rest of the program reaches the store through one port, so a second store ca
 ## Validating an implementation
 
 1. **The schema.** Create it in an empty file. For each row of [Rules the schema enforces](#rules-the-schema-enforces), insert one row that breaks the rule and check that SQLite refuses it.
-2. **Round trip.** Write the Acme Shop fixture of the [domain model](./domain-model.md#validating-an-implementation), read it back through the port, and check that every node, edge, file record and warning is equal to what was written.
-3. **Replacing a file.** Rename a class in one file of a small two-file graph and index again. The edge from the other file is gone, an unresolved reference has taken its place, and the other file was read again.
-4. **One index at a time.** Start an index, start a second one, and check that the second stops with exit code `1` and that a query still answers from the old graph.
-5. **The format version.** Set `format_version` to `2` and check that the store is refused with the `index --force` message.
+2. **Round trip.** Write the Acme Shop fixture of the [domain model](./domain-model.md#validating-an-implementation), read it back through the port, and check that every node with its data, edge, file record, call site, local binding, inferred type, reach record and warning is equal to what was written.
+3. **Stage 2 is replaced.** Index the fixture, remove the test's call to `process`, and index again. The inferred type of `r` stays, and `test_services.py` no longer reaches `services.py`. Add a call that passes another class: the inferred type and its `flow` edge are gone.
+4. **Replacing a file.** Rename a class in one file of a small two-file graph and index again. The edge from the other file is gone, an unresolved reference has taken its place, and the other file was read again.
+5. **One index at a time.** Start an index, start a second one, and check that the second stops with exit code `1` and that a query still answers from the old graph.
+6. **The format version.** Set `format_version` to `2` and check that the store is refused with the `index --force` message.
 
 ## Left to the implementation
 

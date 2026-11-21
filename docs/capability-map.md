@@ -19,7 +19,7 @@ Nothing is built yet beyond the module scaffold.
 |---|---|---|---|---|---|
 | C. Configuration | Finding, reading and checking the workspace configuration | 11 | | 1 | 2 |
 | W. Workspace indexing | Projects, dependencies, compose files, networks, links | 10 | 1 | | 2 |
-| I. Code indexing | Parsing source code and resolving references | 12 | 3 | | 4 |
+| I. Code indexing | Parsing source code and resolving references | 14 | 3 | | 4 |
 | G. Graph model | What a node and an edge are | 11 | | | 1 |
 | S. Storage | Where the graph is kept | 3 | | | 1 |
 | Q. Queries | The questions the graph can answer | 9 | | | 2 |
@@ -93,6 +93,8 @@ The indexer turns the configuration, the dependency manager files and the compos
 | I17 | Plain Python binary: its start through module-level code, the main guard, `python -m` and callbacks, and the code it reaches | R1 | Open | `index`, `neighbors`, `impact` |
 | I18 | FastAPI: apps, routers, routes, mounts, providers, parameter sources, models, middleware and hooks. A route's full path and its binary are derived | R1 | Open | `index`, `node`, `query --kind route`, `impact` |
 | I19 | More Python framework profiles: Flask, Django, Celery, Click, Typer, pytest fixtures | Later | Decided | `index` |
+| I20 | Carry types from callers: a parameter with no annotation takes the class that every call site in the workspace passes, and the calls on it are resolved, with the `Flow` provenance. See [python-parsing.md](./python-parsing.md#stage-2b-carry-types-from-callers) | R1 | Open | `index`, `callers`, `callees`, `node` |
+| I21 | Reach: which binaries, named modules and tests may run each code node, from their entries over resolved edges; and the files no root reaches. See [python-parsing.md](./python-parsing.md#stage-2c-reach) | R1 | Open | `index`, `node`, `files --unreached`, `impact` |
 
 ## G. Graph model
 
@@ -221,7 +223,7 @@ Behaviour that every command shares.
 
 | Rows | What needs deciding |
 |---|---|
-| C14, I14 to I18, G11, G12 | Comprehensive Python and the FastAPI profile. Proposed in [python-parsing.md](./python-parsing.md), with its own [open points](./python-parsing.md#open-points): language on nodes, a route's full path stored or derived, FastAPI in Release 1, new edge kinds or reuse |
+| C14, I14 to I18, I20, I21, G11, G12 | Comprehensive Python, the FastAPI profile, types from callers and reach. Proposed in [python-parsing.md](./python-parsing.md), with its own [open points](./python-parsing.md#open-points): the `Flow` provenance, a route's full path stored or derived, FastAPI in Release 1, new edge kinds or reuse, the round limit |
 | K2 | How a skill reaches the AI tool. Proposed: as an MCP prompt and as an MCP resource |
 | O5 to O9 | The operational tools: their names, arguments and limits. The list is a proposal drafted from the sample context file |
 | O2 | Whether a context file may hold a password. The sample allows `ssh.password`; the workspace configuration forbids secrets in files |

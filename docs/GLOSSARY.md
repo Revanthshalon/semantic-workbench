@@ -86,6 +86,14 @@ _Avoid_: Endpoint, URL, API
 A function or class that a framework calls to supply a value to a route or to another provider, such as one named in FastAPI's `Depends`.
 _Avoid_: Dependency (that is a local dependency), injectable
 
+**Root**:
+A place from which code starts to run: a binary's entry file, a module named in a command, or a test file.
+_Avoid_: Entry (that is a binary's file), starting point
+
+**Reach**:
+The code a root may run: everything its calls, imports and references lead to.
+_Avoid_: Coverage, call graph, reachability
+
 **Local dependency**:
 One project using another project's code, either read from the dependency manager's files or declared by hand.
 _Avoid_: Internal dependency, workspace dependency

@@ -4,7 +4,7 @@ Everything the graph captures from Python source, what it leaves out, and why. I
 
 > **Proposed, not built.** This page widens what [step 5](./implementation-plan/step-5-python-parsing.md) reads. Where the two disagree, this page is the target and step 5 is the first slice of it. The changes this needs in the domain, the store and the capability map are listed under [Changes this needs elsewhere](#changes-this-needs-elsewhere).
 
-Related pages: [domain-model.md](./domain-model.md) for the types and rules, [graph-model.md](./graph-model.md) for why the graph looks the way it does, [capability-map.md](./capability-map.md) for the rows this page fills (I14 to I19). Terms are defined in [GLOSSARY.md](./GLOSSARY.md).
+Related pages: [domain-model.md](./domain-model.md) for the types and rules, [graph-model.md](./graph-model.md) for why the graph looks the way it does, [capability-map.md](./capability-map.md) for the rows this page fills (C14, I14 to I21, G11, G12). Terms are defined in [GLOSSARY.md](./GLOSSARY.md).
 
 ## How languages are added
 
@@ -25,8 +25,172 @@ These decide every row below.
 1. **A node holds only what its own file says.** The parser sees one file at a time. Anything that needs another file, such as what a base class is or which app mounts a router, is an edge made by resolution or a fact derived at query time. A file that has not changed therefore never needs to be parsed again because another file changed.
 2. **A binary's framework is known before parsing.** The workspace layer decides it for each binary, together with the binary's app object. It reads the binary's entry in the configuration, then the compose command of the services that run the binary, then the binary's entry file. See [How a binary's framework is decided](#how-a-binarys-framework-is-decided).
 3. **A profile's rules still run on any file that imports the framework.** A router module is never an entry, and it may sit in a library project with no binaries at all. So the configuration decides what a binary *is*, and the import decides which rules read a file. The two never disagree about a file: they answer different questions.
-4. **Nothing is guessed.** A reference that the rules below cannot resolve stays unresolved. Every edge here has the `TreeSitter` provenance.
+4. **Nothing is guessed.** A reference that the rules below cannot resolve stays unresolved. An edge from reading a file has the `TreeSitter` provenance. An edge from types carried from callers has its own provenance, `Flow`, so a reader can tell the two apart.
 5. **Deterministic.** The same files give the same nodes, ids and edges, in every run and on every machine.
+6. **Read every file, then analyse from each entry.** Reading never depends on where a file is reached from. Analysis runs over the finished graph and never reads a file again. See [How the graph is built](#how-the-graph-is-built).
+
+## How the graph is built
+
+Two stages, inside one index and one transaction (ADR 0003).
+
+```
+Stage 1  read every file         file by file, keyed by content hash
+           → nodes, Contains edges, unresolved references,
+             call sites, local bindings, file records
+
+Stage 2  analyse from each entry over the graph, no file is read again
+           2a  resolve                 references → edges              TreeSitter
+           2b  carry types from callers parameter types → more edges    Flow
+           2c  reach                   which roots may run each node
+```
+
+### Stage 1: read every file
+
+**What is read.** Every file the walk of [step 5](./implementation-plan/step-5-python-parsing.md#task-1-choose-the-files-to-read) returns, whether or not any binary reaches it. That means every file not excluded by `.gitignore`, the fixed folders or `exclude`.
+
+**When a file is read again.**
+- Its content hash differs from its record.
+- Its record says `GrammarUnavailable`.
+- `--force` is given.
+- `replace_file` or `remove_file` returns it because something it referred to is gone.
+
+Files are independent of each other, so they can be read in parallel.
+
+**What one file gives.** All of it comes from that file alone (principle 1):
+
+| Output | Holds | Used by |
+|---|---|---|
+| Nodes | Every definition in [Definitions](#definitions-which-nodes-a-python-file-gives), with its [details](#details-what-each-node-carries) | Everything |
+| `Contains` edges | Nesting, from the `File` down | The tree, rules T1 to T5 |
+| Unresolved references | Every row of [References](#references-which-edges-a-python-file-gives), each with its name as written, kind and site | 2a |
+| Call sites | For each call: the node it is in, its site, the callee as written (`process`, `self.repo.save`, `models.Invoice`), and each argument's position or keyword with its shape | 2b |
+| Local bindings | For each name assigned in a function: the function, the name, the shape of the value, and whether it is assigned once | 2a rule 3, 2b |
+| A file record | Project, path, content hash, language, parse status | Incremental reading, `files`, `status` |
+
+**The shape of a value or an argument** is one of these, read from the syntax alone:
+
+| Shape | Written as | Example |
+|---|---|---|
+| `New(name)` | A call of a name, which may turn out to be a class | `Invoice(...)`, `models.Invoice(...)` |
+| `Call(name)` | The same syntax. Resolution decides whether it is `New` or a call of a function | `make_invoice()` |
+| `Name(name)` | A bare or dotted name | `repo`, `self.repo`, `settings` |
+| `Literal(kind)` | A string, number, bytes, bool, `None`, list, dict, set or tuple literal | `"x"`, `3`, `[]` |
+| `Other` | Anything else | `a + b`, `f()[0]`, `await x`, a lambda |
+
+`New` and `Call` are kept as one shape at read time, because the parser cannot know whether a name is a class. They are listed apart here only to show what resolution turns them into.
+
+**Why every file is read, and not only what an entry reaches:**
+
+1. **Code loaded by name is invisible to a walk.** `uvicorn "billing.api:app"`, `importlib.import_module(...)`, plugin entry points and Celery autodiscovery load modules by a string. A walk from the entry never sees them, and the graph would not say they are missing. Reading every file cannot miss them.
+2. **Libraries would be read in part.** `shared-api` has no binary. Only what another project imports would be indexed, and `search` for anything else would find nothing.
+3. **Tests, scripts and migrations would vanish.** "What breaks if I rename `Invoice`?" must name `tests/test_invoice.py`.
+4. **Incremental reading would break.** One changed file is one read, by its content hash. With a walk, adding one import changes which files are reachable, so each binary's reachable set would have to be tracked and walked again.
+5. **Nothing would be saved.** A file reached by two binaries is read once either way.
+
+### Stage 2a: resolve
+
+Turns unresolved references into edges, with the `TreeSitter` provenance. Step 5's lookup order and the four rules under [Resolution, beyond step 5](#resolution-beyond-step-5) apply, in that order. A local binding of shape `Call(name)` becomes `New` when the name resolves to a class. When the name resolves to a function with a `Returns` edge, the binding takes that class. The FastAPI profile's references (`Mounts`, `Handles`, `Injects`) are resolved here like any other.
+
+### Stage 2b: carry types from callers
+
+**The problem.** A parameter with no annotation leaves every call on it unresolved:
+
+```python
+# billing/worker.py (entry)
+repo = InvoiceRepo()
+process(repo)
+
+# billing/services.py
+def process(r):          # no annotation
+    r.save()             # after 2a: unresolved
+```
+
+**The rule.** A parameter takes a type when **every** call site in the workspace that reaches it passes a value of the same project class. Then every reference inside the callee whose receiver is that parameter is resolved again with the type. Here `r` takes `InvoiceRepo`, and `r.save()` becomes a `Calls` edge to `InvoiceRepo.save` with the `Flow` provenance.
+
+**The type of an argument at one call site** is:
+
+| Argument shape | Its type |
+|---|---|
+| `New(C)`, with `C` resolved to a class of the workspace | `C` |
+| `Call(f)`, with `f` resolved to a function that has a `Returns` edge to a class | That class |
+| `Name(n)`, with `n` a parameter that has a declared type, or a type from this stage | That type |
+| `Name(n)`, with `n` a local binding assigned once, whose value has a type by this table | That type |
+| `Name(self.x)`, with `x` a field that has a declared type | That type |
+| Anything else: a literal, `Other`, a name assigned more than once, a module, a class passed as a value | Unknown |
+
+**When a parameter does not take a type.**
+- Any call site passes an argument whose type is unknown.
+- Two call sites pass different classes. A subclass and its base count as different. A test passing a `Mock` is enough to stop it.
+- Any call site leaves the argument out, and the parameter's default is not of the same class.
+- The callable is also used as a value: there is a `References` edge to it (a callback), an `Injects` edge (a provider), a `Handles` edge (a route handler), or it is decorated by a decorator that resolves to a node. Its real callers are then not all visible.
+- The callable has no resolved call site at all.
+- `*args` and `**kwargs`.
+
+**How it runs.**
+1. Rounds. In each round, every parameter's type is computed from the edges that exist at the start of the round. Then every reference inside an affected callee is resolved again.
+2. A parameter goes from untyped to typed to conflicted, and never back. A parameter typed in one round that meets a disagreeing call site in a later round becomes conflicted. Every `Flow` edge that rested on it is removed.
+3. The rounds stop when one changes nothing, or after 5 rounds. Because a conflicted parameter never takes a type again, the rounds always end.
+4. The result depends only on the graph, not on the order in which nodes are visited.
+
+**Every caller counts, not only those reached from an entry.** A function called from `worker.py` and from `tests/test_services.py` takes a type only if both pass the same class. A type that ignored the test would be wrong for the test.
+
+**What is stored.** For each parameter that took a type: the parameter, the class, and how many call sites agreed. `node` on a parameter shows `inferred: InvoiceRepo (3 call sites)`. These records and every `Flow` edge are removed and computed again at every index.
+
+### Stage 2c: reach
+
+**Roots: where reach starts.**
+
+| Root | From |
+|---|---|
+| A binary | Its entry `File` (`EntryPoint`) |
+| A named module | A module named in a string that Stage 1 or the workspace layer found: a compose `command` (`uvicorn billing.api:app`, `python -m ledger.consumer`), a binary's `app`, a `uvicorn.run("billing.api:app")` call |
+| A test | A file named `test_*.py` or `*_test.py`, a file under a folder named `tests`, and `conftest.py` |
+
+**Edges followed, from a root outwards.**
+
+| Edge | Why it means "may run" |
+|---|---|
+| `Imports`, to a `File` | Importing a module runs its module-level code |
+| `Calls`, `Instantiates` | The callee runs. `Instantiates` also reaches the class's `__init__` |
+| `References` | A function passed as a value is assumed to be called |
+| `Overrides`, followed backwards | A call to a base method may run any override of it |
+| `Decorates` | The decorator runs when the decorated node is defined |
+| `Mounts`, downwards, then `Handles` | An app serves its routers' routes, and each route runs its handler |
+| `Injects` | A route or provider runs its providers |
+
+Module-level code of a reached `File` reaches what it calls. A reached class does not reach its methods by itself; each method is reached through its own calls.
+
+**What is stored.** For each code node, the roots that reach it. It is computed again at every index, and replaced in the same transaction.
+
+**Where it shows.**
+- `node` on any code node: `reached by: api, worker, tests`.
+- `node` on a binary: how many files and nodes it reaches.
+- `files --unreached`: files that no root reaches.
+- `impact` already walks towards binaries; reach lets it say which binaries run each step.
+
+**What "unreached" means.** Not reached through *resolved* edges. An unresolved call breaks the chain, so an unreached node may still run. `files --unreached` is a hint to look, never proof that code is dead.
+
+### Incremental indexing with two stages
+
+| Stage | When it runs again | Cost |
+|---|---|---|
+| 1 | Per file, by the four triggers above | One read per changed file |
+| 2a | For references in changed files, and in files whose targets went away, as step 5 does | As step 5 |
+| 2b | In full, at every index | Linear in call sites, times at most 5 rounds |
+| 2c | In full, at every index | Linear in edges, times the number of roots, with one bit per root |
+
+Running 2b and 2c in full keeps them simple and deterministic. Running them only from the changed nodes outward is Later.
+
+### What the two stages lack
+
+| Not covered | Why |
+|---|---|
+| Types from return values that are not annotated | Only `Returns` edges from annotations feed 2b. Inferring a function's return type from its body is Later |
+| Types carried through containers: `repos = [InvoiceRepo()]`, then `repos[0].save()` | A list's element type is not tracked |
+| Types carried through attributes set outside `__init__` and not annotated | Only annotated fields and the first `self.x = ...` give a field. That field has no declared type unless annotated |
+| Callers outside the workspace | A library function called by code that is not indexed. 2b counts only the callers it sees, which is why its edges carry `Flow` and not `TreeSitter` |
+| Calls through `getattr`, dicts of functions, `functools.partial` | No static form. `partial(f, ...)` gives a `References` edge to `f`, which reach follows, and 2b stops at it |
+| Reach through code loaded by name in ways not listed as roots | Add the module as a binary, or wait for a profile that knows the loader |
 
 ## The language core
 
@@ -228,6 +392,8 @@ On every file that imports from `fastapi`, in any project. A file that does not 
 | Re-exports through `__init__.py` | | Yes | |
 | Calls and instantiation | Yes | Yes | Calls on receivers whose type is unknown |
 | Calls through annotated parameters and fields, and one step of local inference | | Yes | Deeper type inference |
+| Calls through parameters typed by their callers (2b) | | Yes, as `Flow` | Callers that disagree, callables used as values, containers, unannotated returns |
+| Which binaries and tests may run each node (2c) | | Yes | Code reached only through unresolved calls |
 | Base classes | Yes | Yes, as `Extends` or `Implements` | |
 | Overrides | | Yes | |
 | Type references in annotations | | Yes | |
@@ -269,6 +435,20 @@ The question from [graph-model.md](./graph-model.md#walking-the-graph), "I am re
 
 The answer names the endpoint whose response changes, not only the file that imports the class.
 
+Stage 2 adds two things to the fixture:
+
+```
+billing-api/src/billing/
+├── services.py         def process(r): r.save()
+├── repo.py             class InvoiceRepo: def save(self): ...
+└── worker.py           repo = InvoiceRepo(); process(repo)
+billing-api/tests/
+└── test_services.py    process(InvoiceRepo())
+```
+
+- **2b:** both call sites pass `InvoiceRepo`. So `r` takes `InvoiceRepo`, and `r.save()` becomes a `Flow` edge to `InvoiceRepo.save`.
+- **2c:** `routes/invoices.py` is reached by `api` only. `services.py` is reached by `worker` and by the test `test_services.py`. `db.py` is reached by `api` through `Injects`.
+
 ## Changes this needs elsewhere
 
 Nothing below is applied yet. Each change is made in its own page when this page is accepted.
@@ -281,8 +461,13 @@ Nothing below is applied yet. Each change is made in its own page when this page
 | [domain-model.md](./domain-model.md) | A `Binary` carries data: `framework`, `app`, `framework_source`. Three new warning codes: `FrameworkMismatch`, `FrameworkAppNotFound`, `EntryCommandMismatch` |
 | [step 4](./implementation-plan/step-4-workspace-indexing.md) | A new task: decide each binary's framework from the three sources, then `none`, and raise the warnings |
 | [domain-model.md](./domain-model.md) | Rule R4 gains one exception: an `Overrides` reference whose bases all resolved, and none has the name, is dropped instead of kept |
+| [domain-model.md](./domain-model.md) | Language: the `Project` node carries `language`, declared by the configuration. The file record keeps `language`, detected from the file. Code nodes have no `language`; a code node's language is its file's. The language check on node details reads the language from the file being parsed |
+| [domain-model.md](./domain-model.md) | Two new records from Stage 1, part of a parsed file: `CallSite { from, site, callee, arguments: [{ position or keyword, shape }] }` and `LocalBinding { in, name, shape, assigned_once }`, with `Shape` as in [Stage 1](#stage-1-read-every-file). Two derived records from Stage 2, replaced at every index: `InferredType { parameter, class, call_sites }` and `Reach { node, root }`, with `Root` a binary, a named module or a test file |
+| [domain-model.md](./domain-model.md), [graph-model.md](./graph-model.md) | A new provenance, `Flow`: resolved by carrying types from callers, correct when the workspace holds every caller. Rule E3: `Flow` is allowed on `Calls` and `Instantiates` only. Graph rules: an `InferredType` joins a `Parameter` to a `Class`, `Protocol` or `Enum`; a `Reach` joins a code node to a root that exists |
+| [storage-model.md](./storage-model.md) | Tables `call_sites`, `local_bindings`, `inferred_types` and `reach`. The last two, and every edge with the `Flow` provenance, are deleted and written again in each index's transaction. `nodes.language` is filled for `Project` nodes only |
+| [usage-guide.md](./usage-guide.md) | `node` shows `reached by` on code nodes, `inferred` on parameters, and reach counts on binaries. `files --unreached`. `callers` and `callees` mark `Flow` edges |
 | [storage-model.md](./storage-model.md) | Columns for the new node data and the `Mounts` prefix. A new format version: the store is rebuilt, per ADR 0008 |
-| [capability-map.md](./capability-map.md) | Rows I14 to I19 and G11, G12 (done with this page) |
+| [capability-map.md](./capability-map.md) | Rows I14 to I21, C14, G11, G12 (done with this page) |
 | [step 5](./implementation-plan/step-5-python-parsing.md) | Its "What Release 1 reads" tables become the first slice of this page. New slices, below |
 | [usage-guide.md](./usage-guide.md) | `node` on a route shows its full paths and its binary. `query --kind route` finds routes |
 
@@ -294,20 +479,28 @@ Each phase ends in something tested on its own. The phases follow step 5 and use
 |---|---|---|---|
 | P0 | Binary framework: the two new configuration fields, the three sources in order, then `none`, the stored data, the three warnings | Step 2's 2C, step 4's 4B, 4E | One test per source. A higher source beats a lower one and raises `FrameworkMismatch`. A factory app needs the configuration. `python -m` against a different entry raises `EntryCommandMismatch` |
 | P1 | Core definitions: every node kind and every detail in the tables above | Step 5's 5B, the typed node data | One test per row of the definitions and details tables, on strings of Python |
-| P2 | Core references: `Implements`, `Overrides`, `TypeOf`, `Returns`, `References`, `Exports` | P1, 5C | One test per row of the references table |
-| P3 | Resolution: re-exports, following annotations, local inference, inherited members | P2, 5D, 5E | A re-export chain across projects. A cycle in re-exports ends. `invoice.total()` through an annotation. An unannotated receiver stays unresolved |
+| P2 | Core references: `Implements`, `Overrides`, `TypeOf`, `Returns`, `References`, `Exports`. Call sites and local bindings, with their shapes | P1, 5C | One test per row of the references table. One test per shape. `x = A(); x = B()` gives a binding that is not assigned once |
+| P3 | Resolution (2a): re-exports, following annotations, local inference, inherited members, `Call` bindings through `Returns` | P2, 5D, 5E | A re-export chain across projects. A cycle in re-exports ends. `invoice.total()` through an annotation. An unannotated receiver stays unresolved |
+| P3b | Types from callers (2b): rounds, the conflict rule, the stop after 5 rounds, the `Flow` provenance, inferred-type records | P3, the `Flow` provenance | The `process(repo)` example gives a `Flow` edge. A second caller passing another class removes it. A callback stops it. A `Mock` in a test stops it. Two runs give the same edges. A chain of three calls types all three parameters |
 | P4 | Plain binary: main guard, `-m` entries, callbacks; the derived "what code a binary runs" | P3 | The worker reaches `send_invoice` from its entry. `Thread(target=f)` reaches `f` |
 | P5 | FastAPI profile: every row of its table | P3, the new edge kinds | One test per row. A factory app. A prefix from a constant. A prefix from `settings` gives `path: None` |
 | P6 | Derived views: a route's full paths, and the binaries that serve it | P0, P5, step 6's walk | `GET /v1/invoices/{invoice_id}` from the fixture, served by billing's `api`. A router mounted twice gives two paths. A router in a library is served by the binary that mounts it |
-| P7 | Acme Shop with FastAPI, end to end | P4, P6, 5G | The walk above, on the SQLite store. Indexing twice changes nothing. `validate` passes |
+| P6b | Reach (2c): the three kinds of root, the edges followed, reach records, `reached by`, `files --unreached` | P3b, P4, P5 | `routes/invoices.py` reached by `api` only. A test file is a root. A module named in a compose command is a root. An override is reached through its base. A file behind an unresolved call is listed as unreached |
+| P7 | Acme Shop with FastAPI and Stage 2, end to end | P4, P6, P6b, 5G | The walk above, on the SQLite store. The 2b and 2c results in the fixture section. Indexing twice changes nothing. `validate` passes |
 
 ## Open points
 
-1. **Language on every node.** A code node's language is always its file's. Proposed: drop it from `Node` and read it from the file record, or keep it and add a graph rule that the two agree.
+1. **The `Flow` provenance, or `Heuristic`.** An edge from 2b is right when the workspace holds every caller. `Heuristic` already means "inferred, and may be wrong", and could be reused. Proposed: a new value, `Flow`, because 2b never guesses within what it can see, and a reader should be able to trust it more than a heuristic.
 2. **A route's full path, stored or derived.** Derived keeps nodes file-local and indexing incremental. Storing it would let `search` find `GET /v1/invoices`. Proposed: derived, with `search` matching the local path and the method.
 3. **FastAPI in Release 1, or right after it.** The example workspace does not need it to pass Release 1's done-when list. Proposed: Release 1, as a step 5b, because billing's `api` is the natural FastAPI binary of the example.
 4. **New edge kinds, or reuse.** `Mounts`, `Handles` and `Injects` could be `References` with a role on the node. Proposed: new kinds, because a query that asks "which providers does this route use" should not have to filter `References`.
 5. **Type-only imports.** An import under `if TYPE_CHECKING:` breaks type checking but not the running program. Marking it needs a flag on `Imports`. Proposed: Later.
 6. **The compose command never replaces `entry`.** It can give a binary's framework and app, but the entry stays what the configuration names, and a disagreement is a warning. Proposed as written. The alternative is to let a command such as `uvicorn billing.api:app` stand in for `entry`, so a binary could be declared with less.
 
-**Settled:** the framework is set on a binary only. The project-level `framework` is removed, and `framework: angular` moves from `web-app` onto its binaries. A project default would save one line per binary, and would cost a precedence rule and one more way for sources to disagree.
+7. **The limit of 5 rounds in 2b.** Each round carries types one call deeper. Proposed: 5, and `status` reports when the limit stopped the rounds, so the number can be tuned on real workspaces.
+
+**Settled:**
+
+- **Language** lives on the `Project` node (declared) and on the file record (detected). Code nodes have none. A binary was considered, but a binary has one entry file inside its project, so it can never differ from the project. A file in another language inside a project, such as a script, is covered by its file record.
+- **Read every file, then analyse from each entry.** Reading only what an entry reaches was considered. It would miss code loaded by name, half-read libraries, drop tests and break incremental reading. The accuracy it promised comes from analysis, which Stage 2 gives over the whole graph.
+- **The framework is set on a binary only.** The project-level `framework` is removed, and `framework: angular` moves from `web-app` onto its binaries. A project default would save one line per binary, and would cost a precedence rule and one more way for sources to disagree.

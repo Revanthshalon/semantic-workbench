@@ -5,7 +5,7 @@ date: 2026-11-21
 
 # A binary's framework is decided before parsing; a framework's rules read every file that imports it
 
-Each binary's framework and app are decided in the workspace layer, before any code is parsed. They come from the binary's `framework` and `app` in the configuration, else from a compose command that runs it (`uvicorn billing.api:app`), else from a probe of its entry file, else `none`. A framework is never set on a project. Separately, the framework's rules read every file that imports the framework, in any project, because a router module is never an entry, and it may sit in a library with no binaries at all.
+Each binary's framework and app are decided in the workspace layer, before any code is parsed. They come from the binary's `framework` and `app` in the configuration, else from the command line of a service that runs it (`uvicorn billing.api:app`), taken from compose or from the service's Dockerfile, else from a probe of its entry file, else `none`. A framework is never set on a project. Separately, the framework's rules read every file that imports the framework, in any project, because a router module is never an entry, and it may sit in a library with no binaries at all.
 
 ## Considered options
 

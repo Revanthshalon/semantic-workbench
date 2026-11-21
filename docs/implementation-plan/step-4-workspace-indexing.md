@@ -37,6 +37,7 @@
 | `src/adapters/driven/fs/git.rs` | The `Git` port of C0, on the real disk |
 | `src/adapters/driven/parse/manifest/pyproject.rs` | Reading `pyproject.toml` for uv and poetry |
 | `src/adapters/driven/parse/compose.rs` | Reading and merging compose files |
+| `src/adapters/driven/parse/dockerfile.rs` | Reading Dockerfiles, and each service's command line |
 | `src/use_cases/index/stacks.rs` | Compose names, network names, matching services |
 | `src/use_cases/index/workspace_layer.rs` | Building nodes, edges and warnings |
 | `src/use_cases/index/frameworks.rs` | Deciding each binary's framework and app |
@@ -51,8 +52,9 @@ Each slice is one pull request. The [overview](./00-overview.md#working-in-paral
 |---|---|---|---|
 | 4A | 1 | 1A | `parse/manifest/pyproject.rs` |
 | 4B | 2 | 1A | `parse/compose.rs` |
+| 4I | 8 | 1A, 4B | `parse/dockerfile.rs` |
 | 4C | 3 | C0 | `fs/files.rs`, `fs/git.rs` |
-| 4D | 4 | 2C, 4B | `index/stacks.rs` |
+| 4D | 4 | 2C, 4B, 4I | `index/stacks.rs` |
 | 4H | 7 | C0, 2C, 4B | `index/frameworks.rs` |
 | 4E | 5 | 1E, 2C, 4A, 4D, 4H | `index/workspace_layer.rs` |
 | 4F | the fixture files | | `tests/fixtures/acme/` |
@@ -105,7 +107,7 @@ pub struct ComposeStack {
     pub networks: BTreeMap<String, ComposeNetwork>,
     pub skipped_keys: Vec<String>,
 }
-pub struct ComposeService { pub build_context: Option<String>, pub build_target: Option<String>, pub command: Option<String>, pub networks: Vec<String>, pub position: Span }
+pub struct ComposeService { pub build_context: Option<String>, pub build_target: Option<String>, pub dockerfile: Option<String>, pub build_args: BTreeMap<String, String>, pub entrypoint: Option<String>, pub command: Option<String>, pub networks: Vec<String>, pub position: Span }
 pub struct ComposeNetwork { pub name: NetworkName, pub external: bool }
 pub enum NetworkName { Stated(String), Unreadable(String), Unstated }
 
@@ -178,7 +180,7 @@ pub fn resolve_stacks(config: &Config, stacks: Vec<(StackSource, ComposeStack)>)
 
 - **Compose name:** the configuration's `name`, else the file's, else the first file's folder name.
 - **A network's real name:** the configuration's entry, else the stated name, else `<Compose name>_<key>`. An `Unreadable` name with no entry gives `real_name: None` and a `NetworkNameUnknown` warning.
-- **A service's role:** the configuration's mapping when there is one, with `Declared`. Otherwise the project whose folder is the build context, and the binary whose name is the build target, with `Compose`. A project with no matching binary gives `BuiltFrom`. No build context and no mapping gives `External`.
+- **A service's role:** the configuration's mapping when there is one, with `Declared`. Otherwise the project whose folder is the build context, and the binary whose name is the build target, with `Compose`. A project with no matching binary gives `BuiltFrom`. No build context and no mapping gives `External`. When neither the mapping nor the build target names a binary, the binary whose entry the service's command line runs (task 8), with the command line's provenance.
 
 **Tests:**
 
@@ -187,7 +189,8 @@ pub fn resolve_stacks(config: &Config, stacks: Vec<(StackSource, ComposeStack)>)
 | `acme_gives_three_stacks` | `acme-infra`, `billing-api` and `ledger` |
 | `ledger_name_comes_from_the_configuration` | `ledger`, not `ledger-api` |
 | `billing_services_run_their_binaries_from_compose` | Both are `Runs` with `Compose` |
-| `ledger_services_run_their_binaries_as_declared` | Both are `Runs` with `Declared` |
+| `ledger_services_run_their_binaries_from_their_command_lines` | `api` runs `api` with `Dockerfile`, from the `CMD` of ledger's Dockerfile, and `consumer` runs `consumer` with `Compose`, from its compose command. The configuration maps neither |
+| `missing_dockerfile_warns` | One `DockerfileUnreadable`, and the service is matched as without one |
 | `kafka_and_postgres_are_external` | `External` |
 | `unstated_network_gets_the_compose_name_in_front` | `billing-api_default` |
 | `configuration_network_name_wins` | Ledger's `backbone` is `acme-backbone`, with `from_configuration` |
@@ -241,6 +244,53 @@ It builds every node and edge of the workspace layer as [domain-model.md](../dom
 
 **Commit:** `feat(index): build the workspace layer of the graph`
 
+## Task 8: Read Dockerfiles and work out each service's command line
+
+**Files:** create `src/adapters/driven/parse/dockerfile.rs`.
+
+**Produces:**
+
+```rust
+pub struct Dockerfile { pub stages: Vec<Stage> }
+pub struct Stage {
+    pub name: Option<String>, pub from: String,              // `from` may name an earlier stage
+    pub args: BTreeMap<String, Option<String>>, pub env: BTreeMap<String, String>,
+    pub entrypoint: Option<Instruction>, pub cmd: Option<Instruction>,
+}
+pub enum Instruction { Exec(Vec<String>), Shell(String) }
+pub struct CommandLine { pub words: Vec<String>, pub source: Provenance }   // Compose or Dockerfile
+
+pub fn read_dockerfile(text: &str) -> Result<Dockerfile, DockerfileError>;
+pub fn command_line(service: &ComposeService, dockerfile: Option<&Dockerfile>) -> Option<CommandLine>;
+```
+
+`command_line` follows Docker's rules, as [python-parsing.md](../python-parsing.md#the-command-a-service-runs) sets out:
+- the stage is `build.target`, else the last stage;
+- `ENTRYPOINT` and `CMD` come from the stage, else from its parent stage;
+- a compose `entrypoint` replaces the image's and clears its `CMD`, and a compose `command` replaces `CMD`;
+- variables in shell form are filled from `build.args`, then `ARG` and `ENV` defaults, else written `{?}`;
+- wrappers (`*.sh`, `tini`, `dumb-init`, `gosu <user>`) are passed over, and `sh -c` and `bash -c` run their string.
+
+Line continuations (`\`), comments, `# syntax=` lines and both forms of every instruction are read. Instructions other than `FROM`, `ARG`, `ENV`, `ENTRYPOINT` and `CMD` are skipped.
+
+**Tests:**
+
+| Test | Asserts |
+|---|---|
+| `acme_billing_dockerfile` | Stages `base`, `api` and `worker`. `api` runs `uvicorn billing.api:app --host 0.0.0.0`, `worker` runs `python -m billing.worker` |
+| `target_picks_the_stage_and_the_last_stage_is_the_default` | Both |
+| `cmd_is_inherited_from_the_parent_stage` | A stage with no `CMD` runs its parent's |
+| `compose_command_replaces_cmd` | Source `Compose` |
+| `compose_entrypoint_clears_cmd` | The image's `CMD` is not run |
+| `shell_form_variables_are_filled` | `${PORT}` from `build.args`, then from `ARG` |
+| `unknown_variable_is_unknown` | `{?}` |
+| `entrypoint_script_is_a_wrapper` | `ENTRYPOINT ["./entrypoint.sh"]` with `CMD ["uvicorn", "x:app"]` runs uvicorn |
+| `sh_c_runs_its_string` | `sh -c "python -m x run"` gives `python -m x run` |
+| `continuations_and_comments` | Read as one instruction |
+| `broken_dockerfile_is_an_error` | `DockerfileError` naming the line |
+
+**Commit:** `feat(index): read Dockerfiles and work out each service's command line`
+
 ## Task 7: Decide each binary's framework
 
 **Files:** create `src/use_cases/index/frameworks.rs`.
@@ -251,7 +301,7 @@ It builds every node and edge of the workspace layer as [domain-model.md](../dom
 pub struct DecidedFramework { pub framework: Framework, pub app: Option<String>, pub source: FrameworkSource }
 pub struct FrameworkInput<'a> {
     pub config: &'a Config,
-    pub commands: &'a BTreeMap<(ProjectId, String), Vec<String>>,   // compose commands of the services that run each binary
+    pub commands: &'a BTreeMap<(ProjectId, String), Vec<String>>,   // command lines of the services that run each binary, from task 8
     pub probes: &'a BTreeMap<(ProjectId, String), Option<FrameworkProbe>>,   // from LanguageParser::probe_framework on each entry
 }
 pub fn decide_frameworks(input: FrameworkInput<'_>) -> (BTreeMap<(ProjectId, String), DecidedFramework>, Vec<Warning>);
@@ -260,7 +310,7 @@ pub fn decide_frameworks(input: FrameworkInput<'_>) -> (BTreeMap<(ProjectId, Str
 For each binary, the first source that gives an answer wins:
 
 1. The binary's `framework` and `app` in the configuration. Source `Declared`.
-2. A compose command of a service that runs the binary. `uvicorn <module>:<attr>`, `fastapi run <path>` and `gunicorn ... -k uvicorn.workers.UvicornWorker <module>:<attr>` give `Fastapi` and the app. Source `Compose`.
+2. The command line of a service that runs the binary, from task 8. `uvicorn <module>:<attr>`, `fastapi run <path>` and `gunicorn ... -k uvicorn.workers.UvicornWorker <module>:<attr>` give `Fastapi` and the app. Source `Compose` or `Dockerfile`, as the command line says.
 3. The probe of the entry file. Source `Entry`.
 4. Otherwise `None`, source `Entry`.
 
@@ -320,6 +370,6 @@ impl<S: GraphStore, F: Files, G: Git> IndexWorkspace<S, F, G> {
 ## Done when
 
 - The Acme Shop fixture indexes into SQLite with exactly the counts of the domain model, and passes every rule.
-- Each of the five warnings this step raises has a test that raises it, and each of rules 14 to 19 a test that breaks it.
+- Each of the six warnings this step raises has a test that raises it, and each of rules 14 to 19 a test that breaks it.
 - Every binary has a decided framework, and every project its language.
 - Indexing twice gives the same graph.

@@ -18,7 +18,7 @@ Nothing is built yet beyond the module scaffold.
 | Area | What it covers | R1 | R2 | R3 | Later |
 |---|---|---|---|---|---|
 | C. Configuration | Finding, reading and checking the workspace configuration | 12 | | 1 | 2 |
-| W. Workspace indexing | Projects, dependencies, compose files, networks, links | 13 | 1 | | 1 |
+| W. Workspace indexing | Projects, dependencies, compose files, Dockerfiles, networks, links | 14 | 1 | | 1 |
 | I. Code indexing | Parsing source code and resolving references | 16 | 3 | | 4 |
 | G. Graph model | What a node and an edge are | 11 | | | 1 |
 | S. Storage | Where the graph is kept | 3 | | | 1 |
@@ -71,7 +71,8 @@ The indexer turns the configuration, the dependency manager files and the compos
 | W12 | Suggest runtime links with an LLM, stored as inferred edges until confirmed | Later | Decided | its own command, not designed |
 | W13 | Record the branch and commit each project is on, read from its own `.git` folder | R1 | Decided | `index`, `status` |
 | W14 | Find HTTP client calls in Python code (`httpx`, `requests`, `aiohttp`, `websockets`, `urllib`, FastAPI's `TestClient`), including calls made inside helpers and client classes, and match each to the route it calls, across projects. Declared links narrow the candidates; a cross-project match with no declared link is a warning. See [python-parsing.md](./python-parsing.md#stage-2d-match-http-calls-to-routes) | R1 | Decided | `index`, `node`, `impact`, `status` |
-| W15 | Link a compose service to the command it runs, from its `command` and `entrypoint`, a `python -m` module, a file path or a script in `pyproject.toml`. An unknown command is a warning. See [python-parsing.md](./python-parsing.md#commands) | R1 | Decided | `index`, `node`, `impact`, `status` |
+| W15 | Link a compose service to the command it runs, from its `command` and `entrypoint`, else its Dockerfile's `CMD` and `ENTRYPOINT`, a `python -m` module, a file path or a script in `pyproject.toml`. An unknown command is a warning. See [python-parsing.md](./python-parsing.md#commands) | R1 | Decided | `index`, `node`, `impact`, `status` |
+| W16 | Read each built service's Dockerfile: stages, `ENTRYPOINT`, `CMD`, `ARG` and `ENV`, with compose overrides and wrappers, to work out the command line it runs. It names the service's binary when nothing else does, its framework, and the command it invokes. See [python-parsing.md](./python-parsing.md#the-command-a-service-runs) | R1 | Decided | `index`, `node`, `status` |
 
 ## I. Code indexing
 

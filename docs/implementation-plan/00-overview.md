@@ -60,8 +60,9 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 | 4A | Read `pyproject.toml` | 1A | [step 4](./step-4-workspace-indexing.md) |
 | 4B | Read and merge compose files | 1A | [step 4](./step-4-workspace-indexing.md) |
 | 4C | Read a project's checkout | C0 | [step 4](./step-4-workspace-indexing.md) |
-| 4D | Resolve stacks, networks and services | 2C, 4B | [step 4](./step-4-workspace-indexing.md) |
-| 4H | Decide each binary's framework | C0, 2C, 4B | [step 4](./step-4-workspace-indexing.md) |
+| 4D | Resolve stacks, networks and services | 2C, 4B, 4I | [step 4](./step-4-workspace-indexing.md) |
+| 4I | Read Dockerfiles and work out each service's command line | 1A, 4B | [step 4](./step-4-workspace-indexing.md) |
+| 4H | Decide each binary's framework | C0, 2C, 4B, 4I | [step 4](./step-4-workspace-indexing.md) |
 | 4E | Build the workspace layer | 1E, 2C, 4A, 4D, 4H | [step 4](./step-4-workspace-indexing.md) |
 | 4F | The Acme Shop workspace as files | | [step 4](./step-4-workspace-indexing.md) |
 | 4G | The index use case, end to end | C0, 4C, 4E, 4F | [step 4](./step-4-workspace-indexing.md) |
@@ -94,8 +95,8 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 |---|---|---|
 | 1 | 1A, 2A, 2B, 2E, 4F | 5 |
 | 2 | 1B, 1C, 1D, 2C, 2D, 4A, 4B | 7 |
-| 3 | 1E, 4D | 2 |
-| 4 | C0 | 1 |
+| 3 | 1E, 4I | 2 |
+| 4 | C0, 4D | 2 |
 | 5 | 3A, 4C, 4H, 5A, 5B, 5D, 6A, 7A, 7B, 7C, 8A | 11 |
 | 6 | 3B, 3C, 4E, 5C, 5E, 5F, 6B, 6C, 6D, 8B, 8C | 11 |
 | 6b | 4G | 1 |
@@ -198,7 +199,7 @@ Later slices use these names. A slice that has to change one changes it here in 
 | `NodeId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash` | The value types. Each has `fn parse(&str) -> Result<Self, DomainError>` |
 | `Node`, `NodeKind`, `Scope`, `Origin`, `Span` | A node. `Node::parsed(...)` and `Node::declared(...)` build one and compute its id. `Node::parsed` takes the file's `Language` to check rule N9, and does not store it |
 | `NodeData`, `ProjectData`, `BinaryData`, `Callable`, `TypeDecl`, `Member`, `RouteData`, `CommandData`, `Doc` | The data a node kind carries |
-| `Framework`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `Fastapi`, `Angular`, `None`; `Declared`, `Compose`, `Entry`; `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
+| `Framework`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `Fastapi`, `Angular`, `None`; `Declared`, `Compose`, `Dockerfile`, `Entry`; `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
 | `Edge`, `EdgeKind`, `Provenance`, `Site` | An edge. `EdgeKind` carries its data: `Imports { specifier, alias, type_only }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix }`, `Requests { method, path }`, `Sends { name }`, `Invokes { words }`, and the data-less `Receives`. An edge made by resolution records `resolved_by: Option<Resolution>` |
 | `Resolution`, `Template` | `Import`, `SelfMember`, `SameFile`, `Project`, `CrossProject`, `ReExport`, `Annotation`, `LocalInference`, `Inherited`, `Flow`, `Framework`, `RouteMatch`, `MessageMatch`, `CommandMatch`; parts `Text(String)`, `Hole(String)` or `Unknown`, for a route's path, a prefix and a template value |
 | `DependencyScope`, `Protocol` | `Build` or `Dev`; `Http`, `Grpc` or `Database` |

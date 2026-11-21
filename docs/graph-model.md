@@ -108,6 +108,7 @@ An AI should treat a relationship read from source differently from one that was
 | `Scip` | Read from a SCIP index |
 | `Manifest` | Read from a dependency manager's files |
 | `Compose` | Read from a compose file |
+| `Dockerfile` | Read from a Dockerfile: the command line a service runs |
 | `Declared` | Written by hand in the configuration |
 | `Heuristic` | Inferred, and may be wrong |
 
@@ -301,7 +302,7 @@ The two `api` services have the same kind and the same name. Their scopes differ
 |---|---|---|---|
 | Project `billing-api` | `DependsOn` (build) | Project `shared-api` | Manifest |
 | Service `worker` | `Runs` | Binary `worker` | Compose |
-| Service `consumer` | `Runs` | Binary `consumer` | Declared |
+| Service `consumer` | `Runs` | Binary `consumer` | Compose |
 | Service `api` (stack `billing-api`) | `Joins` | Network `acme-backbone` | Compose |
 | Binary `worker` | `Publishes` | Topic `kafka/invoice.created` | Declared |
 | Binary `consumer` | `Subscribes` | Topic `kafka/invoice.created` | Declared |
@@ -309,7 +310,7 @@ The two `api` services have the same kind and the same name. Their scopes differ
 | Binary `admin` | `ConnectsTo` (HTTP) | Service `api` (stack `billing-api`) | Declared |
 | File `worker.py` | `Imports` (`shared_api.models`) | Class `Invoice` | TreeSitter |
 
-The provenance column shows the example's story. Billing's `Runs` edge comes from its compose file, where the build target names the binary. Ledger's comes from the configuration, because its compose file does not say.
+The provenance column shows the example's story. Billing's `Runs` edge comes from its compose file, where the build target names the binary. Ledger's has no build target to go by: `consumer`'s comes from its compose `command`, and `api`'s from the `CMD` of ledger's Dockerfile, with the `Dockerfile` provenance.
 
 ## Walking the graph
 

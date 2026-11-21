@@ -11,14 +11,14 @@ A plain binary is often a command-line program with subcommands, and a compose s
 
 - **Leave commands as `References` from `set_defaults(func=...)`.** Rejected: the handler is reached, but nothing names the command or links it to a service.
 - **Make a command a `Route` with a special method.** Rejected: a route is an HTTP endpoint, and its full path, binaries and HTTP matching would all have to skip it.
-- **Build `Invokes` with the workspace layer.** Rejected: commands exist only after the code is parsed. The edge is computed in stage 2 and replaced at every index, like the other results of stage 2. It keeps the `Compose` provenance, because the fact it records comes from the compose file, and has `resolved_by: command_match`.
+- **Build `Invokes` with the workspace layer.** Rejected: commands exist only after the code is parsed. The edge is computed in stage 2 and replaced at every index, like the other results of stage 2. It keeps the provenance of the command line, `Compose` or `Dockerfile`, because that is where the fact comes from, and has `resolved_by: command_match`.
 
 ## Consequences
 
 - Node kinds go from 32 to 33, and edge kinds from 26 to 29 with `Sends`, `Receives` (ADR 0019) and `Invokes`. `Handles` may also start at a `Command`.
 - Manifests also yield their scripts (`[project.scripts]`, `[tool.poetry.scripts]`), so a command line that starts with a script name is understood.
 - A command word that names no command raises `CommandNotFound`. A service that gives no command words runs the binary as a whole.
-- A command line given only in a Dockerfile is not read, because the workspace layer reads compose files only.
+- The command line comes from compose, else from the service's Dockerfile (ADR 0021), so `Invokes` has the provenance `Compose` or `Dockerfile`.
 - Click and Typer, as later framework profiles, give `Command` nodes too.
 
 Details: [python-parsing.md](../python-parsing.md#command-line-binaries-argparse), [python-parsing.md](../python-parsing.md#commands).

@@ -41,8 +41,9 @@ Stage 1  read every file         file by file, keyed by content hash
 Stage 2  analyse from each root    over the graph, no file is read again
            2a  resolve                  references → edges        resolved_by: import, annotation, ...
            2b  carry types from callers parameter types → edges   resolved_by: flow
-           2c  reach                    which roots may run each node
-           2d  route paths              each route's full paths and the binaries that serve it
+           2c  route paths              each route's full paths and the binaries that serve it
+           2d  HTTP calls               client calls matched to routes → Requests edges
+           2e  reach                    which roots may run each node
 ```
 
 ### Stage 1: read every file
@@ -74,7 +75,9 @@ Files are independent of each other, so they can be read in parallel.
 |---|---|---|
 | `Call(name)` | A call of a name. Resolution decides whether it creates an instance of a class or calls a function | `Invoice(...)`, `models.Invoice(...)`, `make_invoice()` |
 | `Name(name)` | A bare or dotted name | `repo`, `self.repo`, `settings` |
-| `Literal(kind)` | A string, number, bytes, bool, `None`, list, dict, set or tuple literal | `"x"`, `3`, `[]` |
+| `Text(value)` | A string literal, with its value | `"/v1/invoices"` |
+| `Template(value)` | An f-string, or strings joined with `+`, with each unknown part written `{?}` | `f"{BASE}/v1/invoices/{id}"` gives `{?}/v1/invoices/{?}` |
+| `Literal(kind)` | Any other literal: number, bytes, bool, `None`, list, dict, set or tuple | `3`, `[]` |
 | `Other` | Anything else | `a + b`, `f()[0]`, `await x`, a lambda |
 
 The parser cannot know whether a called name is a class, so a call is one shape until resolution.
@@ -107,7 +110,8 @@ Turns unresolved references into edges, with the `TreeSitter` provenance. Step 5
 | `local_inference` | A local name assigned once from a class, or from a function with a `Returns` edge |
 | `inherited` | A member found in a resolved base class |
 | `flow` | The receiver is a parameter typed by its callers (2b) |
-| `framework` | A framework profile's reference: `Mounts`, `Handles` or `Injects` |
+| `framework` | A framework profile's reference: `Mounts`, `Handles` or `Injects`, including a pytest fixture |
+| `route_match` | An HTTP client call matched to a route path (2d) |
 
 When several rules could apply, the first in the lookup order wins and names the edge. The same idea is `resolvedBy` in codegraph, the project this design follows for its commands.
 
@@ -169,41 +173,7 @@ A round can also resolve new calls, such as `r.helper()`, whose callees then get
 
 **What is stored.** For each parameter that took a type: the parameter, the class, and how many call sites agreed. `node` on a parameter shows `inferred: InvoiceRepo (3 call sites)`. These records and every edge with `resolved_by: flow` are removed and computed again at every index.
 
-### Stage 2c: reach
-
-**Roots: where reach starts.**
-
-| Root | From |
-|---|---|
-| A binary | Its entry `File` (`EntryPoint`) |
-| A named module | A module named in a string that Stage 1 or the workspace layer found: a compose `command` (`uvicorn billing.api:app`, `python -m ledger.consumer`), a binary's `app`, a `uvicorn.run("billing.api:app")` call |
-| A test | A file named `test_*.py` or `*_test.py`, a file under a folder named `tests`, and `conftest.py` |
-
-**Edges followed, from a root outwards.**
-
-| Edge | Why it means "may run" |
-|---|---|
-| `Imports`, to a `File`, unless the import is `type_only` | Importing a module runs its module-level code. An import under `if TYPE_CHECKING:` never runs, so reach does not follow it |
-| `Calls`, `Instantiates` | The callee runs. `Instantiates` also reaches the class's `__init__` |
-| `References` | A function passed as a value is assumed to be called |
-| `Overrides`, followed backwards | A call to a base method may run any override of it |
-| `Decorates` | The decorator runs when the decorated node is defined |
-| `Mounts`, downwards, then `Handles` | An app serves its routers' routes, and each route runs its handler |
-| `Injects` | A route or provider runs its providers |
-
-Module-level code of a reached `File` reaches what it calls. A reached class does not reach its methods by itself; each method is reached through its own calls.
-
-**What is stored.** For each code node, the roots that reach it. It is computed again at every index, and replaced in the same transaction.
-
-**Where it shows.**
-- `node` on any code node: `reached by: api, worker, tests`.
-- `node` on a binary: how many files and nodes it reaches.
-- `files --unreached`: files that no root reaches.
-- `impact` already walks towards binaries; reach lets it say which binaries run each step.
-
-**What "unreached" means.** Not reached through *resolved* edges. An unresolved call breaks the chain, so an unreached node may still run. `files --unreached` is a hint to look, never proof that code is dead.
-
-### Stage 2d: route paths
+### Stage 2c: route paths
 
 A route's full path joins prefixes from other files, so it is computed here, over the graph, and stored as its own record. No route node is changed, so principle 1 holds, and `search` can find a route by its full path.
 
@@ -229,6 +199,92 @@ full path: GET /v1/invoices/{invoice_id}, served by api
 
 **Where it shows.** `node` on a route lists its full paths and their binaries. `search "/v1/invoices"` finds the route. `impact` on a handler names the endpoints it serves.
 
+### Stage 2d: match HTTP calls to routes
+
+A Python client call that names a path is matched against the route paths of stage 2c. A match becomes a `Requests` edge from the node the call is in to the route. Only a workspace graph can do this: the caller and the route usually live in different repositories.
+
+**Calls recognised.** These come from the call sites of stage 1:
+
+| Client | Calls |
+|---|---|
+| `httpx` | `httpx.get`, `post`, `put`, `patch`, `delete`, `head` and `options`, `httpx.request(method, url)`, and the same methods on an `httpx.Client` or `httpx.AsyncClient` |
+| `requests` | `requests.get` and the rest, `requests.request(method, url)`, and the same methods on a `requests.Session` |
+| `aiohttp` | The same methods on an `aiohttp.ClientSession` |
+| FastAPI's `TestClient` | The same methods on `TestClient(app)`, where `app` resolves to a node with role `App` |
+
+A receiver is a client when its name is bound once from a call of the client's class, or annotated with that class, by the rules of 2a.
+
+**The method** is the function's name, or the first argument of `request(...)` when that is text.
+
+**The path** comes from the URL argument:
+
+| URL argument | Path |
+|---|---|
+| Text: `"/v1/invoices"` or `"http://billing:8000/v1/invoices"` | `/v1/invoices`: whatever follows the host |
+| A template: `f"{BILLING_URL}/v1/invoices/{invoice_id}"` | `/v1/invoices/{?}`. A leading unknown part is taken as the scheme and host |
+| Anything else: a name, a call, a concatenation of unknown parts | None. The call is not matched |
+
+A client created with a `base_url` whose path part is text, in the same function or at module level, adds that path in front.
+
+**Matching.** A call matches a route path when the methods are equal and the paths match segment by segment:
+- equal text matches;
+- a route's `{param}` matches any one segment;
+- the call's `{?}` matches any one segment.
+
+A query string and a trailing slash are ignored.
+
+**Narrowing the candidates**, in this order:
+1. `TestClient(app)`: only the routes of that app.
+2. The calling binary, or else its project, declares `http` links: only routes served by binaries that the linked services run.
+3. Otherwise, every route in the workspace.
+
+When exactly one route path is left, the call gives a `Requests` edge. Its data holds the method and the path as written in the call, and it has `resolved_by: route_match`. When more than one is left, or none, the call is stored as an unmatched HTTP call with its candidates, and `node` shows it. Nothing is guessed.
+
+**Links stay declared** (ADR 0004, amended by ADR 0018). A match never creates a `ConnectsTo` link. Say a call matches a route served by a binary of another project, and the caller declares no `http` link to a service that runs that binary. Then the `HttpCallWithoutLink` warning names the link to add.
+
+**What is stored.** `Requests` edges and unmatched HTTP calls, replaced at every index with the other results of stage 2.
+
+**What is not matched:**
+- A URL that holds no literal path at all, because it comes whole from configuration or the environment.
+- A call made inside your own helper, such as `def get(path): return client.get(BASE + path)`. The helper's caller passes the path, and carrying text arguments through parameters, as 2b does for types, is Later.
+- gRPC, GraphQL and WebSocket clients.
+- Callers in TypeScript. Those arrive with TypeScript parsing in Release 2.
+
+### Stage 2e: reach
+
+**Roots: where reach starts.**
+
+| Root | From |
+|---|---|
+| A binary | Its entry `File` (`EntryPoint`) |
+| A named module | A module named in a string that Stage 1 or the workspace layer found: a compose `command` (`uvicorn billing.api:app`, `python -m ledger.consumer`), a binary's `app`, a `uvicorn.run("billing.api:app")` call |
+| A test | A file named `test_*.py` or `*_test.py`, a file under a folder named `tests`, and `conftest.py` |
+
+**Edges followed, from a root outwards.**
+
+| Edge | Why it means "may run" |
+|---|---|
+| `Imports`, to a `File`, unless the import is `type_only` | Importing a module runs its module-level code. An import under `if TYPE_CHECKING:` never runs, so reach does not follow it |
+| `Calls`, `Instantiates` | The callee runs. `Instantiates` also reaches the class's `__init__` |
+| `References` | A function passed as a value is assumed to be called |
+| `Overrides`, followed backwards | A call to a base method may run any override of it |
+| `Decorates` | The decorator runs when the decorated node is defined |
+| `Mounts`, downwards, then `Handles` | An app serves its routers' routes, and each route runs its handler |
+| `Injects` | A route or provider runs its providers, and a test or fixture runs its fixtures |
+| `Requests`, then `Handles` | A call to a route runs its handler. This is how an API test, or a client in another project, reaches the handler |
+
+Module-level code of a reached `File` reaches what it calls. A reached class does not reach its methods by itself; each method is reached through its own calls.
+
+**What is stored.** For each code node, the roots that reach it. It is computed again at every index, and replaced in the same transaction.
+
+**Where it shows.**
+- `node` on any code node: `reached by: api, worker, tests`.
+- `node` on a binary: how many files and nodes it reaches.
+- `files --unreached`: files that no root reaches.
+- `impact` already walks towards binaries; reach lets it say which binaries run each step.
+
+**What "unreached" means.** Not reached through *resolved* edges. An unresolved call breaks the chain, so an unreached node may still run. `files --unreached` is a hint to look, never proof that code is dead.
+
 ### Incremental indexing with two stages
 
 | Stage | When it runs again | Cost |
@@ -236,10 +292,11 @@ full path: GET /v1/invoices/{invoice_id}, served by api
 | 1 | Per file, by the four triggers above | One read per changed file |
 | 2a | For references in changed files, and in files whose targets went away, as step 5 does | As step 5 |
 | 2b | In full, at every index | Linear in call sites, times at most `analysis.flow_rounds` rounds (10 by default) |
-| 2c | In full, at every index | Linear in edges, times the number of roots, with one bit per root |
-| 2d | In full, at every index | Linear in routes, times the depth of their mounts |
+| 2c | In full, at every index | Linear in routes, times the depth of their mounts |
+| 2d | In full, at every index | Linear in HTTP call sites, times the candidate routes |
+| 2e | In full, at every index | Linear in edges, times the number of roots, with one bit per root |
 
-Running 2b, 2c and 2d in full keeps them simple and deterministic. Running them only from the changed nodes outward is Later.
+Running 2b to 2e in full keeps them simple and deterministic. Running them only from the changed nodes outward is Later.
 
 ### What the two stages lack
 
@@ -419,9 +476,9 @@ On every file that imports from `fastapi`, in any project. A file that does not 
 
 **A route's qualified name** is its handler's qualified name, then `@`, the method and the local path: `billing.routes.invoices.get_invoice@GET /{invoice_id}`. Its display name is `GET /{invoice_id}`. All of this is known in the route's own file, so the id stays stable. Two decorators on one handler with the same method and path get ordinals.
 
-**A route's full path** is computed by [stage 2d](#stage-2d-route-paths), which follows `Mounts` from the route up to an app and joins the prefixes: `/v1` + `/invoices` + `/{invoice_id}`. It is stored as a route-path record, not on the route node, because a change to a prefix in `api.py` would otherwise mean rewriting route nodes in other files.
+**A route's full path** is computed by [stage 2c](#stage-2c-route-paths), which follows `Mounts` from the route up to an app and joins the prefixes: `/v1` + `/invoices` + `/{invoice_id}`. It is stored as a route-path record, not on the route node, because a change to a prefix in `api.py` would otherwise mean rewriting route nodes in other files.
 
-**Which binary serves a route** is every FastAPI binary whose stored `app` is the app that the route's mounts lead to. Stage 2d records it with each full path.
+**Which binary serves a route** is every FastAPI binary whose stored `app` is the app that the route's mounts lead to. Stage 2c records it with each full path.
 
 **Roles** are stored only when the node's own file shows them. A function becomes a provider because some route injects it, so "provider" is derived from incoming `Injects` edges and never stored. A class that extends a project model, instead of `BaseModel` directly, is a model by its `Extends` chain, also derived.
 
@@ -437,6 +494,50 @@ On every file that imports from `fastapi`, in any project. A file that does not 
 | The OpenAPI document, response classes, CORS and security scheme settings | Configuration of the running app, not structure |
 | Pydantic `Field(...)` constraints, validators as rules, `model_config` | The field and its type are read. Its validation rules are not |
 | Which client calls a route | A link still targets a service (C7). Making a route the target of a link, and finding HTTP calls in code (W11), are Later |
+
+## Tests
+
+**Test files and test functions.** A test file is a root of reach (stage 2e): a file named `test_*.py` or `*_test.py`, a file under a folder named `tests`, or a `conftest.py`. Inside it, a test function is a `Function` named `test_*`, or a `Method` named `test_*` in a class named `Test*`.
+
+**pytest fixtures.** A function decorated with `@pytest.fixture` has role `Fixture`. Fixtures are passed in by name, so the graph follows them like providers:
+- A test function or fixture whose parameter has a fixture's name gets an `Injects` edge to that fixture, with `resolved_by: framework`.
+- The nearest fixture of that name wins, as in pytest's own lookup: the same file, then `conftest.py` in the same folder, then in each parent folder.
+- `@pytest.mark.usefixtures("name")` gives the same edge.
+- An `autouse=True` fixture gives an edge from every test function at or below its file's folder.
+- A fixture from a pytest plugin outside the workspace stays unresolved.
+
+**API tests.** `TestClient(app).get("/v1/invoices/1")` in a test is matched by stage 2d, so the test reaches the route's handler.
+
+### Tests to run for a change
+
+`workbench impact <node> --tests` lists the test functions to run when the node changes:
+
+1. Reach narrows the search to the test files whose root reaches the node.
+2. Inside those files, it walks backwards from the node over the edges reach follows, and stops at each test function it meets.
+3. It prints each one as a pytest node id: `tests/test_services.py::test_process`, `tests/test_api.py::TestInvoices::test_get`.
+
+Several nodes may be given, or `--file <project>:<path>` for every node of a file. Like reach, the list can include a test that only might run the node, through a callback or an override. It can miss a test that reaches the node only through an unresolved call.
+
+## API contracts
+
+When `impact` is asked about a class used by a route, or a field of one, it adds an **API contract** section:
+
+1. **The routes that use the class**:
+   - in the request, when a handler parameter is typed with it;
+   - in the response, through the route's `response_model` (`Returns`) or the handler's return annotation;
+   - nested, when the class is the type of a field of a model a route uses, such as `InvoiceList.items: list[Invoice]`. Nesting is followed up to 5 levels.
+2. **For each route**: its full paths and binaries (2c), whether the class is in the request or the response, and the chain of fields that leads to it.
+3. **Its consumers:**
+   - `Requests` edges into the route: Python callers in any project, and tests.
+   - Declared `http` links to the services that run its binary. These are marked "declared; call site unknown", such as web-app's `admin` in Release 1.
+
+```
+API contract: shared_api.models.Invoice
+  GET /v1/invoices/{invoice_id}    response    billing-api: api
+    called by  ledger-api   ledger.clients.fetch_invoice        src/ledger/clients.py:14
+    called by  web-app      admin                               declared link; call site unknown
+    tested by  billing-api  tests/test_api.py::test_get_invoice
+```
 
 ## Coverage at a glance
 
@@ -454,8 +555,8 @@ On every file that imports from `fastapi`, in any project. A file that does not 
 | Calls through annotated parameters and fields, and one step of local inference | | Yes | Deeper type inference |
 | Calls through parameters typed by their callers (2b) | | Yes, with `resolved_by: flow` | Callers that disagree, callables used as values, containers, unannotated returns |
 | Which rule resolved each edge (`resolved_by`) | | Yes | |
-| A route's full paths, searchable, with their binaries (2d) | | Yes | Parts that are not literals, written `{?}` |
-| Which binaries and tests may run each node (2c) | | Yes | Code reached only through unresolved calls |
+| A route's full paths, searchable, with their binaries (2c) | | Yes | Parts that are not literals, written `{?}` |
+| Which binaries and tests may run each node (2e) | | Yes | Code reached only through unresolved calls |
 | Base classes | Yes | Yes, as `Extends` or `Implements` | |
 | Overrides | | Yes | |
 | Type references in annotations | | Yes | |
@@ -468,7 +569,11 @@ On every file that imports from `fastapi`, in any project. A file that does not 
 | Stub files `.pyi`, notebooks, Cython | | | Later |
 | Plain binary: start, main guard, `-m`, callbacks | Partly (module-level calls) | Yes | Run-time behaviour |
 | FastAPI: apps, routers, routes, mounts, providers, parameter sources, models, middleware, hooks | | Yes | See the table above |
-| Other frameworks: Flask, Django, Celery, Click, Typer, pytest fixtures | | | Later, each a profile (I19) |
+| HTTP client calls (`httpx`, `requests`, `aiohttp`, `TestClient`) matched to routes (2d) | | Yes, as `Requests` | Helpers that wrap the client, URLs with no literal path, gRPC, GraphQL |
+| pytest test functions and fixtures, `usefixtures`, `autouse` | | Yes | `parametrize`, fixtures from plugins |
+| The tests to run for a change | | Yes (`impact --tests`) | Tests reached only through unresolved calls |
+| API contracts: the routes a model is in, and their callers | | Yes (`impact`) | Callers in TypeScript until Release 2 |
+| Other frameworks: Flask, Django, Celery, Click, Typer | | | Later, each a profile (I19) |
 
 ## Acme Shop, with FastAPI
 
@@ -509,12 +614,26 @@ billing-api/tests/
 ```
 
 - **2b:** both call sites pass `InvoiceRepo`. So `r` takes `InvoiceRepo`, and `r.save()` becomes a `Calls` edge to `InvoiceRepo.save` with `resolved_by: flow`.
-- **2c:** `routes/invoices.py` is reached by `api` only. `services.py` is reached by `worker` and by the test `test_services.py`. `db.py` is reached by `api` through `Injects`.
-- **2d:** `GET /v1/invoices/{invoice_id}`, complete, served by `api`. `search "/v1/invoices"` finds it.
+- **2e:** `routes/invoices.py` is reached by `api` only. `services.py` is reached by `worker` and by the test `test_services.py`. `db.py` is reached by `api` through `Injects`.
+- **2c:** `GET /v1/invoices/{invoice_id}`, complete, served by `api`. `search "/v1/invoices"` finds it.
+
+Release 1's three cross-repository answers add:
+
+```
+ledger-api/src/ledger/
+└── clients.py          def fetch_invoice(invoice_id): return httpx.get(f"{BILLING_URL}/v1/invoices/{invoice_id}")
+billing-api/tests/
+├── conftest.py         @pytest.fixture def repo(): return InvoiceRepo()
+└── test_api.py         def test_get_invoice(repo): TestClient(app).get("/v1/invoices/1")
+```
+
+- **2d:** `fetch_invoice` gives a `Requests` edge to `GET /{invoice_id}`, the only route that matches `/v1/invoices/{?}`. Ledger declares no `http` link to billing's `api` service, so the index raises one `HttpCallWithoutLink` warning. The fixture expects it. `test_get_invoice` gives a `Requests` edge through `TestClient(app)`, and an `Injects` edge to the fixture `repo`.
+- **Tests to run:** `impact billing-api:billing.routes.invoices.get_invoice --tests` lists `tests/test_api.py::test_get_invoice`.
+- **API contract:** `impact shared-api:shared_api.models.Invoice` lists `GET /v1/invoices/{invoice_id}` (response), called by ledger's `fetch_invoice`, by web-app's `admin` (declared link) and by `test_get_invoice`.
 
 ## Changes this needs elsewhere
 
-All of these are applied. The decisions that are hard to reverse are also in ADRs [0012](./adrs/0012-node-kinds-carry-their-own-data.md), [0013](./adrs/0013-read-every-file-then-analyse-from-each-root.md), [0014](./adrs/0014-types-are-carried-only-when-every-caller-agrees.md), [0015](./adrs/0015-a-binarys-framework-is-decided-before-parsing.md), [0016](./adrs/0016-framework-relationships-are-edges-of-their-own.md) and [0017](./adrs/0017-every-resolved-edge-records-its-rule.md).
+All of these are applied. The decisions that are hard to reverse are also in ADRs [0012](./adrs/0012-node-kinds-carry-their-own-data.md), [0013](./adrs/0013-read-every-file-then-analyse-from-each-root.md), [0014](./adrs/0014-types-are-carried-only-when-every-caller-agrees.md), [0015](./adrs/0015-a-binarys-framework-is-decided-before-parsing.md), [0016](./adrs/0016-framework-relationships-are-edges-of-their-own.md) [0017](./adrs/0017-every-resolved-edge-records-its-rule.md) and [0018](./adrs/0018-http-calls-are-matched-to-routes-links-stay-declared.md).
 
 | Page | Change |
 |---|---|
@@ -525,7 +644,9 @@ All of these are applied. The decisions that are hard to reverse are also in ADR
 | [configuration-guide.md](./configuration-guide.md), [`templates/config.yml`](../templates/config.yml), [step 2](./implementation-plan/step-2-configuration.md) | `binaries[].framework` and `binaries[].app`; `projects[].framework` removed. A new `analysis` section with `flow_rounds`, 10 by default, `0` to turn 2b off |
 | [step 4](./implementation-plan/step-4-workspace-indexing.md), [00-overview.md](./implementation-plan/00-overview.md) | Task 7 and slice 4H decide each binary's framework. `ComposeService` gains `command`. `LanguageParser` gains `probe_framework`. The store port gains the reads and the write of stage 2. The names table gains the new types |
 | [usage-guide.md](./usage-guide.md) | `node` shows `reached by`, `inferred`, a route's full paths and binaries, a binary's framework. `search` finds routes by full path. `callers` and `callees` show `resolved_by`. `impact` labels type-only steps. `files --unreached` |
-| [capability-map.md](./capability-map.md), [roadmap.md](./roadmap.md) | Rows C14, C15, I14 to I21, G11, G12, decided. Step 5b in Release 1 |
+| [capability-map.md](./capability-map.md), [roadmap.md](./roadmap.md) | Rows C14, C15, I14 to I22, W14, Q12, Q13, G11, G12, decided. W11 keeps topics and queues for Later. Step 5b in Release 1 |
+| [domain-model.md](./domain-model.md), [graph-model.md](./graph-model.md), [storage-model.md](./storage-model.md) | The `Requests` edge kind, 25 → 26, with `resolved_by: route_match`. The role `Fixture`. The shapes `Text` and `Template`. The unmatched HTTP call record. The `HttpCallWithoutLink` warning. ADR 0018 amends ADR 0004 |
+| [usage-guide.md](./usage-guide.md) | `impact --tests` and the API contract section. `node` shows a function's HTTP calls and a route's callers |
 | [step 5](./implementation-plan/step-5-python-parsing.md) | Its "What Release 1 reads" tables become the first slice of this page |
 
 ## Plan
@@ -541,9 +662,12 @@ Each phase ends in something tested on its own. The phases follow step 5 and use
 | P3b | Types from callers (2b): rounds, the conflict rule, `analysis.flow_rounds`, `resolved_by: flow`, kept references, inferred-type records | P3 | The `process(repo)` example gives a `flow` edge. A second caller passing another class removes it. A callback stops it. A `Mock` in a test stops it. Two runs give the same edges. A chain of three calls types all three parameters. `flow_rounds: 1` types only the first and raises `FlowRoundLimit`. `flow_rounds: 0` gives no `flow` edge. A reference resolved by flow is resolved again after a second index |
 | P4 | Plain binary: main guard, `-m` entries, callbacks; the derived "what code a binary runs" | P3 | The worker reaches `send_invoice` from its entry. `Thread(target=f)` reaches `f` |
 | P5 | FastAPI profile: every row of its table, and the three framework edges | P3 | One test per row. A factory app. A prefix from a constant. A prefix from `settings` gives an unknown prefix |
-| P6 | Route paths (2d): full paths, binaries, search | P0, P5 | `GET /v1/invoices/{invoice_id}`, complete, served by billing's `api`. A router mounted twice gives two paths. A router in a library is served by the binary that mounts it. A prefix from `settings` gives `{?}` and `complete: false`. `search "/v1/invoices"` finds the route |
-| P6b | Reach (2c): the three kinds of root, the edges followed, reach records, `reached by`, `files --unreached` | P3b, P4, P5 | `routes/invoices.py` reached by `api` only. A test file is a root. A module named in a compose command is a root. An override is reached through its base. A `type_only` import is not followed. A file behind an unresolved call is listed as unreached |
-| P7 | Acme Shop with FastAPI and stage 2, end to end | P4, P6, P6b, 5G | The walk above, on the SQLite store. The results of 2b, 2c and 2d in the fixture section. Indexing twice changes nothing. `validate` passes |
+| P6 | Route paths (2c): full paths, binaries, search | P0, P5 | `GET /v1/invoices/{invoice_id}`, complete, served by billing's `api`. A router mounted twice gives two paths. A router in a library is served by the binary that mounts it. A prefix from `settings` gives `{?}` and `complete: false`. `search "/v1/invoices"` finds the route |
+| P6b | Reach (2e): the three kinds of root, the edges followed, reach records, `reached by`, `files --unreached` | P3b, P4, P5 | `routes/invoices.py` reached by `api` only. A test file is a root. A module named in a compose command is a root. An override is reached through its base. A `type_only` import is not followed. A file behind an unresolved call is listed as unreached |
+| P8 | HTTP calls (2d): the four clients, method and path, matching, narrowing, `Requests` edges, unmatched calls, `HttpCallWithoutLink` | P6, P2's `Text` and `Template` | One test per client. A template matches a `{param}`. A query string is ignored. A declared link narrows two candidates to one. Two candidates with no link give an unmatched call. A cross-project match with no link warns. A helper that wraps the client is not matched |
+| P9 | Tests: test functions, fixtures and their `Injects` edges, `usefixtures`, `autouse`, `impact --tests` | P6b, P8 | A fixture in a parent `conftest.py` is found, and a nearer one wins. An `autouse` fixture reaches every test below it. `impact --tests` lists pytest node ids, and a test class method as `file::Class::test` |
+| P10 | API contracts in `impact`: request, response and nested use, route paths, consumers from `Requests` edges and declared links | P8, P9 | `Invoice` in a response, and nested in `InvoiceList`. A declared link is shown as "call site unknown". Nesting stops at 5 levels |
+| P7 | Acme Shop with FastAPI and stage 2, end to end | P4, P6, P6b, P8, P9, P10, 5G | The walk above, on the SQLite store. The results of 2b, 2e and 2c in the fixture section. Indexing twice changes nothing. `validate` passes |
 
 ## Open points
 
@@ -554,8 +678,9 @@ None at present. Each point below was settled by the project owner.
 - **Read every file, then analyse from each root.** Reading only what an entry reaches would miss code loaded by name, read libraries in part, drop tests and break incremental reading.
 - **The framework is set on a binary only.** A project default would save one line per binary, at the cost of a precedence rule and one more way for sources to disagree.
 - **A compose command never replaces `entry`.** It can give a binary's framework and app. A disagreement is the `EntryCommandMismatch` warning.
-- **A route's full path is computed by stage 2d and stored in its own record.** Computing it at query time would keep `search` from finding it. Storing it on the route node, as codegraph does, would mean rewriting route nodes in other files whenever a prefix changes.
+- **A route's full path is computed by stage 2c and stored in its own record.** Computing it at query time would keep `search` from finding it. Storing it on the route node, as codegraph does, would mean rewriting route nodes in other files whenever a prefix changes.
 - **Three framework edge kinds:** `Mounts`, `Handles`, `Injects`. Reusing `References` would make "which routes use this provider" a filter over every reference, and leave no edge from a route to its app.
 - **Type-only imports are marked in Release 1.** Reach would otherwise follow imports that never run.
 - **Provenance stays `TreeSitter`; every resolved edge records `resolved_by`.** A new `Flow` provenance would explain only flow edges. `Heuristic` would understate edges that are never wrong within the workspace.
+- **Three cross-repository answers are in Release 1:** HTTP calls in Python matched to routes, the tests to run for a change, and API contracts. Links stay declared; a matched call with no declared link is a warning (ADR 0018).
 - **Types from callers run for up to 10 rounds by default,** set by `analysis.flow_rounds`. `status` reports when the limit is hit.

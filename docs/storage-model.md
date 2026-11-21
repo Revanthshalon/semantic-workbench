@@ -78,7 +78,7 @@ CREATE TABLE nodes (
   declared_type   TEXT,
   default_value   TEXT,
   param_source    TEXT CHECK (param_source IN ('path', 'query', 'header', 'cookie', 'body', 'form', 'file')),
-  role            TEXT CHECK (role IN ('app', 'router', 'middleware', 'exception_handler', 'lifecycle_hook', 'model')),
+  role            TEXT CHECK (role IN ('app', 'router', 'middleware', 'exception_handler', 'lifecycle_hook', 'fixture', 'model')),
   router_prefix   TEXT,
   -- RouteData
   route_method    TEXT CHECK (route_method IN
@@ -119,7 +119,8 @@ CREATE TABLE edges (
                      ('tree_sitter', 'scip', 'manifest', 'compose', 'declared', 'heuristic')),
   resolved_by      TEXT CHECK (resolved_by IN
                      ('import', 'self_member', 'same_file', 'project', 'cross_project', 're_export',
-                      'annotation', 'local_inference', 'inherited', 'flow', 'framework')),
+                      'annotation', 'local_inference', 'inherited', 'flow', 'framework',
+                      'route_match')),
   note             TEXT,
   import_specifier TEXT,
   import_alias     TEXT,
@@ -127,25 +128,31 @@ CREATE TABLE edges (
   dependency_scope TEXT CHECK (dependency_scope IN ('build', 'dev')),
   protocol         TEXT CHECK (protocol IN ('http', 'grpc', 'database')),
   mount_prefix     TEXT,
+  request_method   TEXT CHECK (request_method IN
+                     ('get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace')),
+  request_path     TEXT,
   CHECK ((kind = 'imports')     = (import_specifier IS NOT NULL)),
   CHECK (import_alias IS NULL OR kind = 'imports'),
   CHECK ((kind = 'imports')     = (import_type_only IS NOT NULL)),
   CHECK ((kind = 'depends_on')  = (dependency_scope IS NOT NULL)),
   CHECK ((kind = 'connects_to') = (protocol IS NOT NULL)),
   CHECK (mount_prefix IS NULL OR kind = 'mounts'),
+  CHECK ((kind = 'requests')    = (request_method IS NOT NULL)),
+  CHECK ((kind = 'requests')    = (request_path IS NOT NULL)),
   CHECK ((site_path IS NULL) = (site_line IS NULL)
      AND (site_path IS NULL) = (site_column IS NULL)),
   CHECK (note IS NULL OR provenance = 'declared'),
   CHECK (resolved_by IS NULL OR provenance IN ('tree_sitter', 'scip')),
   CHECK (resolved_by IS NOT 'flow' OR kind IN ('calls', 'instantiates')),
-  CHECK ((kind IN ('mounts', 'handles', 'injects')) = (resolved_by IS 'framework'))
+  CHECK ((kind IN ('mounts', 'handles', 'injects')) = (resolved_by IS 'framework')),
+  CHECK ((kind = 'requests') = (resolved_by IS 'route_match'))
 );
 
 CREATE UNIQUE INDEX edges_identity ON edges
   (source, target, kind, ifnull(site_path, ''), ifnull(site_line, -1), ifnull(site_column, -1));
 CREATE INDEX edges_source_kind ON edges (source, kind);
 CREATE INDEX edges_target_kind ON edges (target, kind);
-CREATE INDEX edges_flow        ON edges (resolved_by) WHERE resolved_by = 'flow';
+CREATE INDEX edges_stage_two   ON edges (resolved_by) WHERE resolved_by IN ('flow', 'route_match');
 
 CREATE TABLE files (
   project      TEXT NOT NULL,
@@ -188,7 +195,7 @@ CREATE TABLE call_sites (
 CREATE TABLE local_bindings (
   in_node       TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
   name          TEXT NOT NULL CHECK (name <> ''),
-  shape         TEXT NOT NULL CHECK (shape IN ('call', 'name', 'literal', 'other')),
+  shape         TEXT NOT NULL CHECK (shape IN ('call', 'name', 'text', 'template', 'literal', 'other')),
   shape_value   TEXT,
   assigned_once INTEGER NOT NULL CHECK (assigned_once IN (0, 1)),
   PRIMARY KEY (in_node, name),
@@ -224,12 +231,25 @@ CREATE TABLE route_paths (
 CREATE UNIQUE INDEX route_paths_identity ON route_paths (route, ifnull(binary, ''), full_path);
 CREATE INDEX route_paths_path ON route_paths (full_path);
 
+CREATE TABLE unmatched_http_calls (
+  id          INTEGER PRIMARY KEY,
+  from_node   TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  site_path   TEXT NOT NULL,
+  site_line   INTEGER NOT NULL,
+  site_column INTEGER NOT NULL,
+  method      TEXT NOT NULL CHECK (method IN
+                ('get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace')),
+  path        TEXT NOT NULL CHECK (path <> ''),
+  candidates  TEXT NOT NULL DEFAULT '[]',
+  CHECK (json_array_length(candidates) <> 1)
+);
+
 CREATE TABLE warnings (
   id      INTEGER PRIMARY KEY,
   code    TEXT NOT NULL CHECK (code IN
             ('network_name_unknown', 'link_without_shared_network', 'dependency_path_not_a_project',
              'framework_mismatch', 'framework_app_not_found', 'entry_command_mismatch',
-             'flow_round_limit')),
+             'flow_round_limit', 'http_call_without_link')),
   subject TEXT REFERENCES nodes (id) ON DELETE CASCADE,
   message TEXT NOT NULL CHECK (message <> '')
 );
@@ -311,8 +331,9 @@ The data of an edge kind has typed columns, and the table checks that each is fi
 | `protocol` | `connects_to`, always | `http`, `grpc` or `database` |
 | `import_type_only` | `imports`, always | `1` when the import only serves type checking |
 | `mount_prefix` | `mounts`, when there is one | The path prefix the mount adds, or `{?}` |
+| `request_method`, `request_path` | `requests`, always | The method of the call, and the path as written, with unknown parts as `{?}` |
 
-`resolved_by` holds the rule that resolved the edge, and is empty on an edge not made by resolution. The table refuses it on any provenance but `tree_sitter` and `scip`, refuses `flow` on any kind but `calls` and `instantiates`, and requires `framework` on exactly `mounts`, `handles` and `injects`. `edges_flow` serves deleting the flow edges at every index.
+`resolved_by` holds the rule that resolved the edge, and is empty on an edge not made by resolution. The table refuses it on any provenance but `tree_sitter` and `scip`, refuses `flow` on any kind but `calls` and `instantiates`, requires `framework` on exactly `mounts`, `handles` and `injects`, and requires `route_match` on exactly `requests`. `edges_stage_two` serves deleting the edges of stage 2 at every index.
 
 A kind that gains data later gets its own column in a new format version.
 
@@ -330,11 +351,11 @@ One row per unresolved reference. Deleting a node deletes the references that ap
 
 ### `call_sites` and `local_bindings`
 
-One row per call site, and one per local binding, read in stage 1. Deleting a node deletes the call sites and bindings it holds, so they are replaced with their file. Stage 2 reads them all at every index. `shape_value` holds the name for `call` and `name`, the literal's kind for `literal`, and nothing for `other`.
+One row per call site, and one per local binding, read in stage 1. Deleting a node deletes the call sites and bindings it holds, so they are replaced with their file. Stage 2 reads them all at every index. `shape_value` holds the name for `call` and `name`, the value for `text` and `template` (unknown parts written `{?}`), the literal's kind for `literal`, and nothing for `other`.
 
-### `inferred_types`, `reach` and `route_paths`
+### `inferred_types`, `reach`, `route_paths` and `unmatched_http_calls`
 
-The results of stage 2. They are deleted and written again at every index, together with every edge whose `resolved_by` is `flow`. `route_paths_path` serves `search` by full path; the search matches any part of the path. `reach_root` serves "everything this binary may run"; the primary key serves "which roots run this node".
+The results of stage 2. They are deleted and written again at every index, together with every edge whose `resolved_by` is `flow` or `route_match`. An unmatched HTTP call keeps its candidates as a JSON array of node ids, and never exactly one: a single candidate is a `requests` edge instead. `route_paths_path` serves `search` by full path; the search matches any part of the path. `reach_root` serves "everything this binary may run"; the primary key serves "which roots run this node".
 
 ### `warnings`
 
@@ -376,6 +397,9 @@ The domain types are the first guard. The schema is the second, for the rules th
 | `type_only` on every import, and only on imports | `CHECK` on `import_type_only` |
 | U2: `complete` exactly when the path has no `{?}` | `CHECK` |
 | U3: one route path per route, binary and full path | `route_paths_identity` |
+| `requests` data, and only on `requests` | `CHECK` on `request_method` and `request_path` |
+| M1, in part: the caller exists | Foreign key |
+| M2: never exactly one candidate | `CHECK` |
 | C1, L1 in part, Y1 in part, H1 in part: the nodes named exist | Foreign keys |
 | C3: one call site per node and site | `UNIQUE` |
 | L3: one binding per function and name | Primary key |
@@ -424,8 +448,8 @@ The workspace layer is rebuilt on every index, inside the same transaction.
 
 Stage 2 runs after every file is in and every reference has been tried, inside the same transaction.
 
-1. Delete every edge whose `resolved_by` is `flow`, and every row of `inferred_types`, `reach` and `route_paths`. Set `flow_resolved` back to `0` on every reference.
-2. Insert the `flow` edges, inferred types, reach records and route paths the run computed, and set `flow_resolved` to `1` on each reference a `flow` edge resolved.
+1. Delete every edge whose `resolved_by` is `flow` or `route_match`, and every row of `inferred_types`, `reach`, `route_paths` and `unmatched_http_calls`. Set `flow_resolved` back to `0` on every reference.
+2. Insert the `flow` and `requests` edges, inferred types, reach records, route paths and unmatched HTTP calls the run computed, and set `flow_resolved` to `1` on each reference a `flow` edge resolved.
 
 Deleting first keeps the results free of leftovers from a call site that is gone. Stage 2 always works on the whole graph, so nothing is lost.
 
@@ -454,6 +478,7 @@ The rest of the program reaches the store through one port, so a second store ca
 | The roots that reach a node, and the nodes a root reaches | `node`, `impact` |
 | Files that no root reaches | `files --unreached` |
 | The route paths of a route, and the routes whose full path holds a text | `node`, `search` |
+| The unmatched HTTP calls in a node | `node` |
 | Write one index, as described above, with the results of stage 2 | `index` |
 
 **The store never walks.** A walk is done step by step above the port: ask for the edges of a set of nodes, decide where to go next, ask again. Each step is one query on `edges_source_kind` or `edges_target_kind`. `impact` and `explore` therefore behave the same on any store.

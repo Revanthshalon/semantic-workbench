@@ -5,7 +5,7 @@ date: 2026-11-21
 
 # What a web framework does with code is held by three edge kinds of their own, and a route's full path by a record of its own
 
-A FastAPI app mounts routers, a router mounts routes, a route runs a handler, and a route or a provider has the framework call other providers. These are three code edge kinds: `Mounts` (with its prefix, which may be unknown), `Handles` and `Injects`. Each may join only certain kinds of node (rule E11). A route's full path joins prefixes from other files, so stage 2d computes it and stores it as a route path, with the binary that serves it. No route node changes.
+A FastAPI app mounts routers, a router mounts routes, a route runs a handler, and a route or a provider has the framework call other providers. These are three code edge kinds: `Mounts` (with its prefix, which may be unknown), `Handles` and `Injects`. Each may join only certain kinds of node (rule E11). A route's full path joins prefixes from other files, so stage 2c computes it and stores it as a route path, with the binary that serves it. No route node changes.
 
 ## Considered options
 
@@ -15,8 +15,9 @@ A FastAPI app mounts routers, a router mounts routes, a route runs a handler, an
 
 ## Consequences
 
-- Edge kinds go from 22 to 25. `Mounts`, `Handles` and `Injects` always record `resolved_by: framework`.
+- Edge kinds go from 22 to 25, and to 26 with `Requests` (ADR 0018). `Mounts`, `Handles` and `Injects` always record `resolved_by: framework`.
+- pytest fixtures reuse `Injects`: a test function or fixture injects the fixtures it names.
 - Route paths are rebuilt at every index with the other results of stage 2. A part the code computes is written `{?}`, and the path is marked incomplete.
 - Reach follows `Mounts` downwards, then `Handles` and `Injects`, so a provider used only through `Depends` is still reached.
 
-Details: [domain-model.md](../domain-model.md#framework-edges), [python-parsing.md](../python-parsing.md#stage-2d-route-paths).
+Details: [domain-model.md](../domain-model.md#framework-edges), [python-parsing.md](../python-parsing.md#stage-2c-route-paths).

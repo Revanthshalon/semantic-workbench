@@ -117,7 +117,7 @@ The fields:
 | `return_type`, `declared_type` | text, optional | The annotation as written |
 | `default` | text, optional | A default value as written, cut at 80 characters |
 | `source` | `ParamSource`, optional | `Parameter` only: `Path`, `Query`, `Header`, `Cookie`, `Body`, `Form` or `File` |
-| `role` | `FrameworkRole`, optional | What a framework makes of the node, when the node's own file shows it: `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook` or `Model` |
+| `role` | `FrameworkRole`, optional | What a framework makes of the node, when the node's own file shows it: `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture` (pytest) or `Model` |
 | `method` | `HttpMethod` | `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`, `Trace` or `WebSocket` |
 | `path` | text, optional | A route's local path, as written. Empty when it is not a literal |
 | `status_code` | number, optional | |
@@ -135,7 +135,7 @@ A role suits only some kinds (rule N10):
 | Role | Kinds |
 |---|---|
 | `App`, `Router` | `Variable` |
-| `Middleware`, `ExceptionHandler`, `LifecycleHook` | `Function`, `Method` |
+| `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture` | `Function`, `Method` |
 | `Model` | `Class` |
 
 ### Node identity
@@ -188,7 +188,7 @@ An id of 64 bits is short enough for an AI to read and repeat. Two nodes sharing
 |---|---|---|---|
 | `source` | `NodeId` | yes | The node the edge starts at |
 | `target` | `NodeId` | yes | The node the edge ends at |
-| `kind` | `EdgeKind` | yes | One of the 25 kinds listed in [graph-model.md](./graph-model.md#edge-kinds), with its data |
+| `kind` | `EdgeKind` | yes | One of the 26 kinds listed in [graph-model.md](./graph-model.md#edge-kinds), with its data |
 | `site` | `Site` | no | Where in a file the relationship occurs, when it has a place |
 | `provenance` | `Provenance` | yes | How the edge came to exist |
 | `resolved_by` | `Resolution` | no | The rule that resolved the reference this edge came from. Empty for an edge not made by resolution. See [How an edge was resolved](#how-an-edge-was-resolved) |
@@ -204,6 +204,7 @@ The data is part of the kind, so a kind can never carry another kind's data.
 | `DependsOn` | `scope`: `Build` or `Dev` |
 | `ConnectsTo` | `protocol`: `Http`, `Grpc` or `Database` |
 | `Mounts` | `prefix`: the path prefix the mount adds, optional. A `Prefix` is `Literal(text)`, or `Unknown` when the code gives it by an expression |
+| `Requests` | `method`: the HTTP method of the call. `path`: the path as written in the call, with unknown parts as `{?}` |
 | The other twenty-one | none |
 
 ### Provenance
@@ -235,19 +236,21 @@ Provenance says where the facts came from. `resolved_by` says which rule connect
 | `LocalInference` | A local name assigned once from a class, or from a function with a `Returns` edge |
 | `Inherited` | A member found in a resolved base class |
 | `Flow` | The receiver is a parameter typed by its callers. Right when the workspace holds every caller |
-| `Framework` | A framework profile's reference |
+| `Framework` | A framework profile's reference, including a pytest fixture |
+| `RouteMatch` | An HTTP client call matched to a route path |
 
 [python-parsing.md](./python-parsing.md#how-an-edge-was-resolved) says when each applies for Python.
 
 ### Framework edges
 
-Three code edge kinds hold what a web framework does with code. Each is made by resolving a reference the framework profile records, so each has `resolved_by: Framework`.
+Four code edge kinds hold what a web framework does with code, and what calls it over HTTP. `Mounts`, `Handles` and `Injects` are made by resolving a reference a framework profile records, so each has `resolved_by: Framework`. `Requests` is made by matching an HTTP client call to a route path, so it has `resolved_by: RouteMatch`.
 
 | Kind | From | To | Data | Says | Read by |
 |---|---|---|---|---|---|
 | `Mounts` | A `Variable` with role `App` or `Router` | A `Variable` with role `App` or `Router`, or a `Route` | `prefix`, optional | The source serves the target, under the prefix. From `include_router`, `mount` and a route decorator on a router or app | Route paths, `node` on a route, reach (downwards), `impact` |
 | `Handles` | A `Route` | A `Function` or `Method` | none | This function runs when the route is called | Reach, `impact` from a handler to its endpoints and services, `callers` |
-| `Injects` | A `Function`, `Method` or `Route`, or a `Variable` with role `Router` | A `Function`, `Method` or `Class` | none | The framework calls the target and passes the result in, as FastAPI's `Depends` does | Reach, `impact` from a provider to every route that uses it, "which providers does this route use" |
+| `Injects` | A `Function`, `Method` or `Route`, or a `Variable` with role `Router` | A `Function`, `Method` or `Class` | none | The framework calls the target and passes the result in, as FastAPI's `Depends` does, and as pytest does with a fixture | Reach, `impact` from a provider to every route that uses it, "which providers does this route use", the tests to run |
+| `Requests` | A `Function`, `Method` or `File` | A `Route` | `method`, `path` | This code calls the route over HTTP: from another project, or from a test through `TestClient` | Reach, `impact`, the tests to run, API contracts, `node` on a route |
 
 ### Edge rules
 
@@ -263,9 +266,9 @@ Three code edge kinds hold what a web framework does with code. Each is made by 
 | E8 | A `Service` has exactly one of `Runs` or `BuiltFrom`. An `ExternalService` has neither | Graph |
 | E9 | A `Binary` has exactly one `EntryPoint`, and it leads to a `File` of the same project | Graph |
 | E10 | A `Runs` edge leads to a binary of the project whose folder the service is built from | Graph |
-| E11 | A framework edge joins only these: `Mounts` from a `Variable` with role `App` or `Router` to such a `Variable` or to a `Route`. `Handles` from a `Route` to a `Function` or `Method`. `Injects` from a `Function`, `Method`, `Route` or `Variable` with role `Router` to a `Function`, `Method` or `Class` | Graph |
+| E11 | A framework edge joins only these: `Mounts` from a `Variable` with role `App` or `Router` to such a `Variable` or to a `Route`. `Handles` from a `Route` to a `Function` or `Method`. `Injects` from a `Function`, `Method`, `Route` or `Variable` with role `Router` to a `Function`, `Method` or `Class`. `Requests` from a `Function`, `Method` or `File` to a `Route` | Graph |
 | E12 | An edge with `resolved_by: Flow` starts at a callable, or a node inside one, whose callable has at least one parameter with an [inferred type](#inferred-type) | Graph |
-| E13 | `resolved_by` is given only on a code edge with provenance `TreeSitter` or `Scip`. `Flow` is given only on `Calls` and `Instantiates`. `Framework` is given only on `Mounts`, `Handles` and `Injects`, and those three always have it | Build |
+| E13 | `resolved_by` is given only on a code edge with provenance `TreeSitter` or `Scip`. `Flow` is given only on `Calls` and `Instantiates`. `Framework` is given only on `Mounts`, `Handles` and `Injects`, and those three always have it. `RouteMatch` is given only on `Requests`, and `Requests` always has it | Build |
 
 ## The containment tree
 
@@ -344,7 +347,9 @@ An `Argument` is a `position` (from 0) or a `keyword`, and a `Shape`. A `Shape` 
 |---|---|
 | `Call(name)` | A call of a name: `Invoice(...)`, `make_invoice()`. Resolution decides whether it creates an instance of a class or calls a function |
 | `Name(name)` | A bare or dotted name: `repo`, `self.repo` |
-| `Literal(kind)` | A string, number, bytes, bool, `None`, list, dict, set or tuple literal |
+| `Text(value)` | A string literal, with its value |
+| `Template(value)` | An f-string, or strings joined with `+`, with each unknown part written `{?}` |
+| `Literal(kind)` | Any other literal: number, bytes, bool, `None`, list, dict, set or tuple |
 | `Other` | Anything else |
 
 | Id | Rule | Enforced |
@@ -389,7 +394,7 @@ A parameter's class, carried from its callers by stage 2b. It exists only when e
 
 ## Reach
 
-That a root may run a code node, found by stage 2c over resolved edges.
+That a root may run a code node, found by stage 2e over resolved edges.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -404,7 +409,7 @@ That a root may run a code node, found by stage 2c over resolved edges.
 
 ## Route path
 
-One full path of a route, and the binary that serves it, found by stage 2d. A route has one for each way its mounts lead to an app.
+One full path of a route, and the binary that serves it, found by stage 2c. A route has one for each way its mounts lead to an app.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -420,6 +425,24 @@ One full path of a route, and the binary that serves it, found by stage 2d. A ro
 | U2 | `complete` is true exactly when `full_path` holds no `{?}` | Build |
 | U3 | No two route paths share `route`, `binary` and `full_path` | Graph |
 | U4 | Every index removes all route paths and writes the ones it computed | Indexer |
+
+## Unmatched HTTP call
+
+An HTTP client call that stage 2d found, and could not match to exactly one route path. It is kept so that `node` can show it with its candidates.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `from` | `NodeId` | The node the call is in |
+| `site` | `Site` | Where the call is |
+| `method` | `HttpMethod` | The method of the call |
+| `path` | text | The path as written, with unknown parts as `{?}` |
+| `candidates` | list of `NodeId` | The routes whose paths matched. Empty when none did |
+
+| Id | Rule | Enforced |
+|---|---|---|
+| M1 | `from` is a node in the graph, and every candidate is a `Route` node | Graph |
+| M2 | There is never exactly one candidate: one candidate is a `Requests` edge instead | Build |
+| M3 | Every index removes all unmatched HTTP calls and every `Requests` edge, and writes the ones it computed | Indexer |
 
 ## Project checkout
 
@@ -457,6 +480,7 @@ Something the indexer noticed that does not stop the run. The warnings of the la
 | `FrameworkAppNotFound` | A FastAPI binary's `app` names no node, or a node that is not an app or a function that returns one | The binary |
 | `EntryCommandMismatch` | A compose command runs a module other than the binary's configured entry | The binary |
 | `FlowRoundLimit` | Carrying types from callers stopped at its round limit before it settled | none |
+| `HttpCallWithoutLink` | An HTTP call matches a route served by a binary of another project, and the caller declares no `http` link to a service that runs that binary | The node the call is in |
 
 | Id | Rule | Enforced |
 |---|---|---|
@@ -475,7 +499,7 @@ The model maps to SQLite as one table per type, with one column per field. This 
 | `files` | One row per file record | |
 | `unresolved_refs` | One row per unresolved reference | |
 | `call_sites`, `local_bindings` | One row per call site, one per local binding | Replaced with their file |
-| `inferred_types`, `reach`, `route_paths` | One row per inferred type, reach record and route path | Replaced at every index, with the edges resolved by `Flow` |
+| `inferred_types`, `reach`, `route_paths`, `unmatched_http_calls` | One row per record | Replaced at every index, with the edges resolved by `Flow` and `RouteMatch` |
 | `warnings` | One row per warning of the last index | |
 | `project_checkouts` | One row per project checkout | |
 | A full-text index | Name, qualified name, doc string and signature of every node | Serves `search` and the first step of `explore` |
@@ -503,6 +527,9 @@ Each query in the [usage guide](./usage-guide.md#commands) works only if the mod
 | `node`'s `reached by`, `files --unreached` | Reach records for the last index only | H1, H2, H3 |
 | `node` on a route, and `search` by full path | Route paths for the last index, from `Mounts` chains that end at an app | E11, N10, U1 to U4 |
 | `node`'s `reached by`, without imports that never run | `type_only` on `Imports` | none: data of the kind |
+| `impact --tests` | Reach from test files, `Injects` to fixtures, `Requests` from `TestClient` | E11, E13, H1 to H3 |
+| `impact`'s API contract | Route paths, `Requests` edges into a route, `TypeOf` from fields, declared `http` links | E11, U1 to U4, E1 |
+| `node`'s HTTP calls on a function | `Requests` edges and unmatched HTTP calls | E11, M1 to M3 |
 
 ## Validating an implementation
 
@@ -542,6 +569,8 @@ The fixture must also show that:
 - The route `GET /{invoice_id}` reaches billing's app through two `Mounts` edges, and has one route path: `GET /v1/invoices/{invoice_id}`, complete, served by `api`.
 - `r` in `process` has the inferred type `InvoiceRepo` from 2 call sites, and `r.save()` is a `Calls` edge to `InvoiceRepo.save` with `resolved_by: Flow`, and its reference is kept.
 - `routes/invoices.py` is reached by `api` only, and `services.py` by `worker` and by the test `test_services.py`.
+- Ledger's `fetch_invoice` has a `Requests` edge to `GET /{invoice_id}`, with `resolved_by: RouteMatch`, and the index raises one `HttpCallWithoutLink` warning about it.
+- `test_get_invoice` has a `Requests` edge to the same route and an `Injects` edge to the fixture `repo`, and `impact` on the handler `--tests` lists it.
 
 ## Decisions made on this page
 
@@ -568,9 +597,10 @@ Points the other pages left open, settled here and confirmed by the project owne
 | Types carried from callers | Only when every call site in the workspace passes the same class. Such edges have `resolved_by: Flow`, and their references are kept. Up to 10 rounds by default, set by `analysis.flow_rounds` |
 | How an edge was resolved | Provenance stays coarse. Every resolved edge records `resolved_by`, the rule that connected it. No `Flow` provenance |
 | Framework edges | `Mounts`, `Handles` and `Injects`, each a kind of its own |
-| A route's full path | Computed by stage 2d and stored as a route path, not on the route node |
+| A route's full path | Computed by stage 2c and stored as a route path, not on the route node |
 | Type-only imports | `Imports` carries `type_only`. Resolution treats them as any import; reach does not follow them |
-| Release 1 | Plain Python binaries and FastAPI binaries |
+| Release 1 | Plain Python binaries and FastAPI binaries, HTTP calls matched to routes, the tests to run for a change, API contracts |
+| HTTP calls in code | Matched to route paths as `Requests` edges. They never create a `ConnectsTo` link; a cross-project match with no declared link is a warning |
 | A binary's framework | Decided before parsing, per binary, from the configuration, then a compose command, then the entry file. A framework's rules read every file that imports it |
 
 ## Open points

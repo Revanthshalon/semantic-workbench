@@ -91,6 +91,7 @@ Some edges need extra data. An import has the text that was imported. A dependen
 | `DependsOn` | When the dependency is needed: build or dev |
 | `ConnectsTo` | The protocol: HTTP, gRPC or database |
 | `Mounts` | The path prefix the mount adds, when there is one: a literal, or unknown when the code computes it |
+| `Requests` | The HTTP method and the path as written in the call |
 | The other twenty-one | Nothing |
 
 The same holds for nodes: a node kind carries its own data (decision 10).
@@ -161,6 +162,16 @@ Reading only the files an entry reaches was considered, to follow the code as it
 | Infer a parameter's type from any caller | Rejected | One wrong caller would give wrong edges with no sign of it |
 | Carry a type only when every caller agrees, and record `resolved_by: flow` on such edges | Adopted | Nothing is guessed within what the workspace shows, and a reader can tell these edges from those read directly |
 
+### 13. HTTP calls in code are matched to routes, and links stay declared
+
+Once routes and their full paths are in the graph, a client call such as `httpx.get(f"{BILLING_URL}/v1/invoices/{id}")` in another project can be matched to the exact route it calls. The match is a code edge, `Requests`, from the calling function to the route. It is what lets `impact` and the API contract go from a model to the code in other repositories that calls it, and lets an API test reach the handler it tests.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| Keep finding HTTP calls for Later (W11) | Rejected | Routes and their full paths are already in the graph, so matching is cheap, and only a workspace graph can do it |
+| Turn a matched call into a `ConnectsTo` link | Rejected | A link is a runtime fact a person declares (ADR 0004). A match is evidence from code, and can be ambiguous when two apps serve the same path |
+| A `Requests` edge to the route, narrowed by declared links, with a warning when a cross-project match has no declared link | Adopted | Code and configuration check each other, and nothing is guessed: an ambiguous call is stored as unmatched |
+
 ## The model that results
 
 ### Node kinds
@@ -174,7 +185,7 @@ Reading only the files an entry reaches was considered, to follow the code as it
 
 | Group | Kinds |
 |---|---|
-| Code (16) | `Contains`, `Calls`, `Imports`, `Exports`, `Extends`, `Implements`, `References`, `TypeOf`, `Returns`, `Instantiates`, `Overrides`, `Decorates`, `Navigates`, `Mounts`, `Handles`, `Injects` |
+| Code (17) | `Contains`, `Calls`, `Imports`, `Exports`, `Extends`, `Implements`, `References`, `TypeOf`, `Returns`, `Instantiates`, `Overrides`, `Decorates`, `Navigates`, `Mounts`, `Handles`, `Injects`, `Requests` |
 | Workspace (9) | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `Joins`, `ConnectsTo`, `Publishes`, `Subscribes` |
 
 | Workspace kind | From | To | Meaning |

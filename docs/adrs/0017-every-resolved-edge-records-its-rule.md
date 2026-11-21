@@ -5,7 +5,7 @@ date: 2026-11-21
 
 # Provenance stays coarse, and every resolved edge records the rule that resolved it
 
-An edge's provenance says where its facts came from: source code read by a parser, a SCIP index, a manifest, a compose file, the configuration, or a guess. It does not say which rule connected a reference to its target, and an AI reading a walk needs that to judge each step. Every edge made by resolving a reference therefore records `resolved_by`: `import`, `self_member`, `same_file`, `project`, `cross_project`, `re_export`, `annotation`, `local_inference`, `inherited`, `flow` or `framework`. codegraph keeps the same distinction, as `provenance` and `resolvedBy`.
+An edge's provenance says where its facts came from: source code read by a parser, a SCIP index, a manifest, a compose file, the configuration, or a guess. It does not say which rule connected a reference to its target, and an AI reading a walk needs that to judge each step. Every edge made by resolving a reference therefore records `resolved_by`: `import`, `self_member`, `same_file`, `project`, `cross_project`, `re_export`, `annotation`, `local_inference`, `inherited`, `flow`, `framework` or `route_match`. codegraph keeps the same distinction, as `provenance` and `resolvedBy`.
 
 ## Considered options
 

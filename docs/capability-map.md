@@ -18,11 +18,11 @@ Nothing is built yet beyond the module scaffold.
 | Area | What it covers | R1 | R2 | R3 | Later |
 |---|---|---|---|---|---|
 | C. Configuration | Finding, reading and checking the workspace configuration | 12 | | 1 | 2 |
-| W. Workspace indexing | Projects, dependencies, compose files, networks, links | 10 | 1 | | 2 |
-| I. Code indexing | Parsing source code and resolving references | 14 | 3 | | 4 |
+| W. Workspace indexing | Projects, dependencies, compose files, networks, links | 11 | 1 | | 2 |
+| I. Code indexing | Parsing source code and resolving references | 15 | 3 | | 4 |
 | G. Graph model | What a node and an edge are | 11 | | | 1 |
 | S. Storage | Where the graph is kept | 3 | | | 1 |
-| Q. Queries | The questions the graph can answer | 9 | | | 2 |
+| Q. Queries | The questions the graph can answer | 11 | | | 2 |
 | U. Command line | The `workbench` commands | 9 | | | 2 |
 | M. MCP server | How AI tools reach the graph | 5 | | | 2 |
 | K. Skills | The written guides every mode shares | 3 | 1 | | |
@@ -67,9 +67,10 @@ The indexer turns the configuration, the dependency manager files and the compos
 | W8 | Create topic and queue nodes, and link edges, from declared links | R1 | Decided | `index`, `neighbors`, `impact` |
 | W9 | Warn about: a link between services that share no network, a network name that cannot be resolved, a dependency path that is not a listed project. Each warning is stored with a code, the node it is about and a message | R1 | Decided | `index`, `status` |
 | W10 | Discover local dependencies from npm, pnpm, yarn and bun files | R2 | Decided | `index`, `deps` |
-| W11 | Find topics, queues and HTTP calls in source code | Later | Decided | not designed |
+| W11 | Find topics and queues in source code | Later | Decided | not designed |
 | W12 | Suggest runtime links with an LLM, stored as inferred edges until confirmed | Later | Decided | its own command, not designed |
 | W13 | Record the branch and commit each project is on, read from its own `.git` folder | R1 | Decided | `index`, `status` |
+| W14 | Find HTTP client calls in Python code (`httpx`, `requests`, `aiohttp`, FastAPI's `TestClient`) and match each to the route it calls, across projects. Declared links narrow the candidates; a cross-project match with no declared link is a warning. See [python-parsing.md](./python-parsing.md#stage-2d-match-http-calls-to-routes) | R1 | Decided | `index`, `node`, `impact`, `status` |
 
 ## I. Code indexing
 
@@ -93,9 +94,10 @@ The indexer turns the configuration, the dependency manager files and the compos
 | I16 | Decide each binary's framework and app before parsing: from the configuration, else the compose command, else the entry file, else none. Warn when they disagree. A framework's rules still read every file that imports it | R1 | Decided | `binaries[].framework`, `binaries[].app`, `index`, `node`, `status` |
 | I17 | Plain Python binary: its start through module-level code, the main guard, `python -m` and callbacks, and the code it reaches | R1 | Decided | `index`, `neighbors`, `impact` |
 | I18 | FastAPI: apps, routers, routes, mounts, providers, parameter sources, models, middleware and hooks. A route's full paths and the binaries that serve them are computed after reading and stored, so search finds them | R1 | Decided | `index`, `node`, `query --kind route`, `impact` |
-| I19 | More Python framework profiles: Flask, Django, Celery, Click, Typer, pytest fixtures | Later | Decided | `index` |
+| I19 | More Python framework profiles: Flask, Django, Celery, Click, Typer | Later | Decided | `index` |
 | I20 | Carry types from callers: a parameter with no annotation takes the class that every call site in the workspace passes, and the calls on it are resolved, each marked as resolved by `flow`. Up to 10 call levels by default (`analysis.flow_rounds`). See [python-parsing.md](./python-parsing.md#stage-2b-carry-types-from-callers) | R1 | Decided | `index`, `callers`, `callees`, `node` |
-| I21 | Reach: which binaries, named modules and tests may run each code node, from their entries over resolved edges; and the files no root reaches. See [python-parsing.md](./python-parsing.md#stage-2c-reach) | R1 | Decided | `index`, `node`, `files --unreached`, `impact` |
+| I21 | Reach: which binaries, named modules and tests may run each code node, from their entries over resolved edges; and the files no root reaches. See [python-parsing.md](./python-parsing.md#stage-2e-reach) | R1 | Decided | `index`, `node`, `files --unreached`, `impact` |
+| I22 | pytest: test functions, and fixtures followed by name, with `usefixtures` and `autouse`. See [python-parsing.md](./python-parsing.md#tests) | R1 | Decided | `index`, `impact --tests` |
 
 ## G. Graph model
 
@@ -141,6 +143,8 @@ The questions the graph answers. The command line and the MCP server both call t
 | Q6 | List dependencies between projects, each with its provenance | R1 | Decided | `deps` |
 | Q10 | List what calls a node and what a node calls, each with the place of the call, across projects. On a class, creating an instance counts as a call | R1 | Decided | `callers`, `callees` |
 | Q11 | List the indexed files by project, each with its language and parse status | R1 | Decided | `files` |
+| Q12 | List the test functions to run for a change, as pytest node ids, through reach, fixtures and API tests. See [python-parsing.md](./python-parsing.md#tests-to-run-for-a-change) | R1 | Decided | `impact --tests` |
+| Q13 | Show the API contract of a class: the routes whose request or response uses it, directly or nested, their full paths, and the code in every project that calls them. See [python-parsing.md](./python-parsing.md#api-contracts) | R1 | Decided | `impact` |
 | Q7 | Report the state of the graph: when it was indexed, how many nodes and edges, which files changed since, warnings, files that failed to parse | R1 | Decided | `status` |
 | Q8 | Go to definition and find references through a language server, at question time | Later | Decided | `lsp` and `projects[].environment` fields, reserved |
 | Q9 | Search by meaning instead of by name | Later | Decided | not designed |

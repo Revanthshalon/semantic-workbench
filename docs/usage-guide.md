@@ -133,7 +133,7 @@ Warnings    1
 
 Ledger's compose file takes that network's name from a variable, so the tool cannot read it. Once the configuration gives the real name, as the [example workspace](./example-workspace.md#the-configuration) does, the warning is gone.
 
-Other warnings `status` can show: a binary whose framework is named one way and built another, an `app` that names no app, a compose command that runs a module other than the binary's entry, and carrying types from callers stopping at its round limit. The last one names `analysis.flow_rounds` in the [configuration](./configuration-guide.md#analysis), which can be raised to carry types deeper.
+Other warnings `status` can show: a binary whose framework is named one way and built another, an `app` that names no app, a compose command that runs a module other than the binary's entry, an HTTP call in one project that matches a route of another with no declared link, and carrying types from callers stopping at its round limit. The last one names `analysis.flow_rounds` in the [configuration](./configuration-guide.md#analysis), which can be raised to carry types deeper.
 
 ### Asking the graph
 
@@ -178,7 +178,8 @@ Some kinds show more:
 |---|---|
 | Any code node | `reached by`: the binaries, named modules and tests that may run it |
 | A parameter | `inferred`: the class its callers pass, and how many call sites agreed, when every caller agrees |
-| A route | Its full paths, such as `GET /v1/invoices/{invoice_id}`, and the binaries that serve them. A part that the code computes is shown as `{?}`, and that path is marked incomplete |
+| A function | Its HTTP calls: each matched route, or the candidates of a call that could not be matched to one |
+| A route | Its callers over HTTP, and its full paths, such as `GET /v1/invoices/{invoice_id}`, with the binaries that serve them. A part that the code computes is shown as `{?}`, and that path is marked incomplete |
 | A binary | Its framework, where that came from, its app, and how many files and nodes it reaches |
 | A project | Its language |
 
@@ -208,6 +209,14 @@ Lists what is affected if a node changes: its blast radius. It works in two part
 
 1. **Through the code.** It walks backwards from the node over calls, imports, inheritance and references, across projects. `--depth` limits this part, 2 by default.
 2. **Through what runs.** From each affected node it finds the binaries that reach it, the services that run them, and then follows the runtime links: who subscribes to a topic the binary publishes, who connects to a service that runs it. Tests that reach an affected node are listed too. A step through an import that only serves type checking is labelled type-only: it breaks type checking, not the running program.
+
+With `--tests`, it lists only the test functions to run for the change, as pytest node ids such as `tests/test_api.py::test_get_invoice`. It finds them through the tests that reach the node, the fixtures they use, and the API tests that call a route with `TestClient`. Give several nodes, or `--file <project>:<path>` for every node of a file:
+
+```bash
+workbench impact billing-api:billing.routes.invoices.get_invoice --tests
+```
+
+When the node is a class used by a route, or a field of one, the result adds an **API contract** section. It lists the routes whose request or response uses the class, directly or through nested fields, with their full paths, and the code that calls each route: Python callers in other projects, tests, and declared links whose call site is unknown.
 
 The result is grouped by project. Each entry shows the edges that led to it, with their provenance, so you can tell a fact read from source from a hand-written link. The [graph model](./graph-model.md#walking-the-graph) works one case through.
 

@@ -127,6 +127,7 @@ pub struct Config {
     pub projects: Vec<Project>,
     pub stacks: Vec<SharedStack>,
     pub storage: Storage,
+    pub analysis: Analysis,            // flow_rounds: u32, 10 by default
     pub notices: Vec<String>,          // one per reserved section that was read and not used
 }
 pub struct Project {

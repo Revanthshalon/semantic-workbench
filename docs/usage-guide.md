@@ -133,7 +133,7 @@ Warnings    1
 
 Ledger's compose file takes that network's name from a variable, so the tool cannot read it. Once the configuration gives the real name, as the [example workspace](./example-workspace.md#the-configuration) does, the warning is gone.
 
-Other warnings `status` can show: a binary whose framework is named one way and built another, an `app` that names no app, a compose command that runs a module other than the binary's entry, and carrying types from callers stopping at its round limit.
+Other warnings `status` can show: a binary whose framework is named one way and built another, an `app` that names no app, a compose command that runs a module other than the binary's entry, and carrying types from callers stopping at its round limit. The last one names `analysis.flow_rounds` in the [configuration](./configuration-guide.md#analysis), which can be raised to carry types deeper.
 
 ### Asking the graph
 
@@ -178,7 +178,7 @@ Some kinds show more:
 |---|---|
 | Any code node | `reached by`: the binaries, named modules and tests that may run it |
 | A parameter | `inferred`: the class its callers pass, and how many call sites agreed, when every caller agrees |
-| A route | Its full paths, such as `GET /v1/invoices/{invoice_id}`, and the binaries that serve it |
+| A route | Its full paths, such as `GET /v1/invoices/{invoice_id}`, and the binaries that serve them. A part that the code computes is shown as `{?}`, and that path is marked incomplete |
 | A binary | Its framework, where that came from, its app, and how many files and nodes it reaches |
 | A project | Its language |
 
@@ -189,13 +189,16 @@ Finds nodes by name.
 ```bash
 workbench query Invoice --kind class
 workbench query invoices --kind route
+workbench query "/v1/invoices" --kind route
 ```
+
+A route is found by its name (`GET /{invoice_id}`) and by any of its full paths (`/v1/invoices/{invoice_id}`).
 
 Each result is a location, not source. Filters: `--kind`, `--project`. Option: `--limit`, 10 by default.
 
 ### `workbench callers` and `workbench callees`
 
-`callers` lists the functions and methods that call a node, each with the file and line of the call. `callees` lists what the node calls. Both cross projects. On a class, creating an instance counts as a call. A call found by carrying types from callers is marked `flow`, so you can tell it from one read directly from the source.
+`callers` lists the functions and methods that call a node, each with the file and line of the call. `callees` lists what the node calls. Both cross projects. On a class, creating an instance counts as a call. Each call also says how it was resolved: through an import, an annotation, a re-export, carried from callers (`flow`), and so on. A call carried from callers rests on every caller passing the same class, so you can tell it from one read directly from the source.
 
 Options: `--depth`, 1 by default, follows the callers of the callers. `--limit`, 20 by default.
 
@@ -204,7 +207,7 @@ Options: `--depth`, 1 by default, follows the callers of the callers. `--limit`,
 Lists what is affected if a node changes: its blast radius. It works in two parts.
 
 1. **Through the code.** It walks backwards from the node over calls, imports, inheritance and references, across projects. `--depth` limits this part, 2 by default.
-2. **Through what runs.** From each affected node it finds the binaries that reach it, the services that run them, and then follows the runtime links: who subscribes to a topic the binary publishes, who connects to a service that runs it. Tests that reach an affected node are listed too.
+2. **Through what runs.** From each affected node it finds the binaries that reach it, the services that run them, and then follows the runtime links: who subscribes to a topic the binary publishes, who connects to a service that runs it. Tests that reach an affected node are listed too. A step through an import that only serves type checking is labelled type-only: it breaks type checking, not the running program.
 
 The result is grouped by project. Each entry shows the edges that led to it, with their provenance, so you can tell a fact read from source from a hand-written link. The [graph model](./graph-model.md#walking-the-graph) works one case through.
 

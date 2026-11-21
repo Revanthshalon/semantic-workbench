@@ -191,6 +191,7 @@ An id of 64 bits is short enough for an AI to read and repeat. Two nodes sharing
 | `kind` | `EdgeKind` | yes | One of the 25 kinds listed in [graph-model.md](./graph-model.md#edge-kinds), with its data |
 | `site` | `Site` | no | Where in a file the relationship occurs, when it has a place |
 | `provenance` | `Provenance` | yes | How the edge came to exist |
+| `resolved_by` | `Resolution` | no | The rule that resolved the reference this edge came from. Empty for an edge not made by resolution. See [How an edge was resolved](#how-an-edge-was-resolved) |
 | `note` | text | no | The free text of a hand-written dependency or link |
 
 ### Edge data
@@ -199,10 +200,10 @@ The data is part of the kind, so a kind can never carry another kind's data.
 
 | Kind | Data |
 |---|---|
-| `Imports` | `specifier`: the import as written. `alias`: the local name it is bound to, optional |
+| `Imports` | `specifier`: the import as written. `alias`: the local name it is bound to, optional. `type_only`: true when the import only serves type checking, such as Python's `if TYPE_CHECKING:` |
 | `DependsOn` | `scope`: `Build` or `Dev` |
 | `ConnectsTo` | `protocol`: `Http`, `Grpc` or `Database` |
-| `Mounts` | `prefix`: the path prefix the mount adds, optional |
+| `Mounts` | `prefix`: the path prefix the mount adds, optional. A `Prefix` is `Literal(text)`, or `Unknown` when the code gives it by an expression |
 | The other twenty-one | none |
 
 ### Provenance
@@ -210,7 +211,6 @@ The data is part of the kind, so a kind can never carry another kind's data.
 | Value | Meaning | Kinds that carry it in Release 1 |
 |---|---|---|
 | `TreeSitter` | Read from source code by a parser | Every code kind |
-| `Flow` | Resolved by carrying types from callers. Right when the workspace holds every caller | `Calls`, `Instantiates` |
 | `Manifest` | Read from a dependency manager's files | `DependsOn` |
 | `Compose` | Read from a compose file | `Runs`, `BuiltFrom`, `Joins`, `Uses` |
 | `Declared` | Written by hand in the configuration | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `ConnectsTo`, `Publishes`, `Subscribes` |
@@ -218,6 +218,36 @@ The data is part of the kind, so a kind can never carry another kind's data.
 | `Heuristic` | Inferred, and may be wrong | none yet |
 
 A `Contains` edge takes its provenance from the child: `Declared` for a declared child, and for a parsed child the reader that parsed it.
+
+### How an edge was resolved
+
+Provenance says where the facts came from. `resolved_by` says which rule connected a reference to its target. It is set on every edge made by resolving a reference, on no other edge, and it is not part of an edge's identity.
+
+| `Resolution` | The rule |
+|---|---|
+| `Import` | A name the file imported |
+| `SelfMember` | `self.<name>`: a member of the class around the reference |
+| `SameFile` | A definition in the same file |
+| `Project` | The name as a qualified name in the project |
+| `CrossProject` | Another project, found through its import names |
+| `ReExport` | Followed through re-exports |
+| `Annotation` | The receiver's declared type |
+| `LocalInference` | A local name assigned once from a class, or from a function with a `Returns` edge |
+| `Inherited` | A member found in a resolved base class |
+| `Flow` | The receiver is a parameter typed by its callers. Right when the workspace holds every caller |
+| `Framework` | A framework profile's reference |
+
+[python-parsing.md](./python-parsing.md#how-an-edge-was-resolved) says when each applies for Python.
+
+### Framework edges
+
+Three code edge kinds hold what a web framework does with code. Each is made by resolving a reference the framework profile records, so each has `resolved_by: Framework`.
+
+| Kind | From | To | Data | Says | Read by |
+|---|---|---|---|---|---|
+| `Mounts` | A `Variable` with role `App` or `Router` | A `Variable` with role `App` or `Router`, or a `Route` | `prefix`, optional | The source serves the target, under the prefix. From `include_router`, `mount` and a route decorator on a router or app | Route paths, `node` on a route, reach (downwards), `impact` |
+| `Handles` | A `Route` | A `Function` or `Method` | none | This function runs when the route is called | Reach, `impact` from a handler to its endpoints and services, `callers` |
+| `Injects` | A `Function`, `Method` or `Route`, or a `Variable` with role `Router` | A `Function`, `Method` or `Class` | none | The framework calls the target and passes the result in, as FastAPI's `Depends` does | Reach, `impact` from a provider to every route that uses it, "which providers does this route use" |
 
 ### Edge rules
 
@@ -234,7 +264,8 @@ A `Contains` edge takes its provenance from the child: `Declared` for a declared
 | E9 | A `Binary` has exactly one `EntryPoint`, and it leads to a `File` of the same project | Graph |
 | E10 | A `Runs` edge leads to a binary of the project whose folder the service is built from | Graph |
 | E11 | A framework edge joins only these: `Mounts` from a `Variable` with role `App` or `Router` to such a `Variable` or to a `Route`. `Handles` from a `Route` to a `Function` or `Method`. `Injects` from a `Function`, `Method`, `Route` or `Variable` with role `Router` to a `Function`, `Method` or `Class` | Graph |
-| E12 | A `Flow` edge starts at a callable, or a node inside one, whose callable has at least one parameter with an [inferred type](#inferred-type) | Graph |
+| E12 | An edge with `resolved_by: Flow` starts at a callable, or a node inside one, whose callable has at least one parameter with an [inferred type](#inferred-type) | Graph |
+| E13 | `resolved_by` is given only on a code edge with provenance `TreeSitter` or `Scip`. `Flow` is given only on `Calls` and `Instantiates`. `Framework` is given only on `Mounts`, `Handles` and `Injects`, and those three always have it | Build |
 
 ## The containment tree
 
@@ -294,7 +325,7 @@ A name the parser saw and could not yet connect to a node: a call, an import, a 
 | R1 | `from` is a node in the graph | Graph |
 | R2 | `kind` is a code edge kind | Build |
 | R3 | No two references share an id | Graph |
-| R4 | A resolved reference is removed, and exactly one edge replaces it, with the same `from`, kind and site. One exception: an `Overrides` reference whose bases all resolved, and none has the name, is removed with no edge | Indexer |
+| R4 | A resolved reference is removed, and exactly one edge replaces it, with the same `from`, kind and site. Two exceptions: an `Overrides` reference whose bases all resolved, and none has the name, is removed with no edge. A reference resolved with `Flow` is kept, marked as resolved by flow, so that it can be tried again when the flow edges are rebuilt at the next index | Indexer |
 
 ## Call site
 
@@ -354,7 +385,7 @@ A parameter's class, carried from its callers by stage 2b. It exists only when e
 | Y1 | `parameter` is a `Parameter` node, and `class` is a `Class`, `Protocol` or `Enum` node | Graph |
 | Y2 | At most one inferred type per parameter | Graph |
 | Y3 | `call_sites` is at least 1 | Build |
-| Y4 | Every index removes all inferred types and every `Flow` edge, and writes the ones it computed | Indexer |
+| Y4 | Every index removes all inferred types and every edge with `resolved_by: Flow`, and writes the ones it computed | Indexer |
 
 ## Reach
 
@@ -370,6 +401,25 @@ That a root may run a code node, found by stage 2c over resolved edges.
 | H1 | `node` is a code node in the graph. A `Binary` root is a `Binary` node; a `Module` or `Test` root is a `File` node | Graph |
 | H2 | No two reach records share `node` and `root` | Graph |
 | H3 | Every index removes all reach records and writes the ones it computed | Indexer |
+
+## Route path
+
+One full path of a route, and the binary that serves it, found by stage 2d. A route has one for each way its mounts lead to an app.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `route` | `NodeId` | The `Route` |
+| `binary` | `NodeId`, optional | The FastAPI binary whose `app` the mounts lead to. Empty when no binary names that app |
+| `method` | `HttpMethod` | The route's method |
+| `full_path` | text | The prefixes and the local path, joined. A part that is not a literal is written `{?}` |
+| `complete` | flag | True when no part is unknown |
+
+| Id | Rule | Enforced |
+|---|---|---|
+| U1 | `route` is a `Route` node. `binary`, when given, is a `Binary` node whose framework is `Fastapi` | Graph |
+| U2 | `complete` is true exactly when `full_path` holds no `{?}` | Build |
+| U3 | No two route paths share `route`, `binary` and `full_path` | Graph |
+| U4 | Every index removes all route paths and writes the ones it computed | Indexer |
 
 ## Project checkout
 
@@ -425,7 +475,7 @@ The model maps to SQLite as one table per type, with one column per field. This 
 | `files` | One row per file record | |
 | `unresolved_refs` | One row per unresolved reference | |
 | `call_sites`, `local_bindings` | One row per call site, one per local binding | Replaced with their file |
-| `inferred_types`, `reach` | One row per inferred type, one per reach record | Replaced at every index, with the `Flow` edges |
+| `inferred_types`, `reach`, `route_paths` | One row per inferred type, reach record and route path | Replaced at every index, with the edges resolved by `Flow` |
 | `warnings` | One row per warning of the last index | |
 | `project_checkouts` | One row per project checkout | |
 | A full-text index | Name, qualified name, doc string and signature of every node | Serves `search` and the first step of `explore` |
@@ -448,10 +498,11 @@ Each query in the [usage guide](./usage-guide.md#commands) works only if the mod
 | `status` | The warnings of the last index, each with its code, and each project's checkout | A2, A3, P1, P4 |
 | `search` | A name and a qualified name on every node | N1 |
 | Every query that crosses projects | Ids that differ when only the scope differs | N2, N6 |
-| `callers`, `callees` with `Flow` edges | A `Flow` edge always rests on an inferred type | E12, Y1, Y2 |
+| `callers`, `callees`, with how each call was resolved | `resolved_by` on every resolved edge; a `Flow` edge always rests on an inferred type | E12, E13, Y1, Y2 |
 | `node` on a parameter | At most one inferred type, with the number of call sites | Y1, Y2, Y3 |
 | `node`'s `reached by`, `files --unreached` | Reach records for the last index only | H1, H2, H3 |
-| `node` on a route: its full paths and binaries | `Mounts` chains that end at an app, and binaries that name their app | E11, N10 |
+| `node` on a route, and `search` by full path | Route paths for the last index, from `Mounts` chains that end at an app | E11, N10, U1 to U4 |
+| `node`'s `reached by`, without imports that never run | `type_only` on `Imports` | none: data of the kind |
 
 ## Validating an implementation
 
@@ -488,8 +539,8 @@ The fixture must also show that:
 `fixtures::acme()` adds the code layer of [python-parsing.md](./python-parsing.md#acme-shop-with-fastapi) and must show that:
 
 - Billing's `api` binary has `framework: Fastapi` and `app: billing.api.app`, and `worker` has `framework: None`.
-- The route `GET /{invoice_id}` reaches billing's app through two `Mounts` edges, with the prefixes `/invoices` and `/v1`.
-- `r` in `process` has the inferred type `InvoiceRepo` from 2 call sites, and `r.save()` is a `Flow` edge to `InvoiceRepo.save`.
+- The route `GET /{invoice_id}` reaches billing's app through two `Mounts` edges, and has one route path: `GET /v1/invoices/{invoice_id}`, complete, served by `api`.
+- `r` in `process` has the inferred type `InvoiceRepo` from 2 call sites, and `r.save()` is a `Calls` edge to `InvoiceRepo.save` with `resolved_by: Flow`, and its reference is kept.
 - `routes/invoices.py` is reached by `api` only, and `services.py` by `worker` and by the test `test_services.py`.
 
 ## Decisions made on this page
@@ -514,17 +565,14 @@ Points the other pages left open, settled here and confirmed by the project owne
 | Node data | Part of the kind, as an edge's data is. A field a kind does not have cannot be set |
 | Language | On the `Project` node, from the configuration, and on the file record, detected. Not on code nodes |
 | How an index builds the graph | Stage 1 reads every file, one at a time. Stage 2 analyses the finished graph from each root and reads no file again |
-| Types carried from callers | Only when every call site in the workspace passes the same class. Such edges carry `Flow` |
+| Types carried from callers | Only when every call site in the workspace passes the same class. Such edges have `resolved_by: Flow`, and their references are kept. Up to 10 rounds by default, set by `analysis.flow_rounds` |
+| How an edge was resolved | Provenance stays coarse. Every resolved edge records `resolved_by`, the rule that connected it. No `Flow` provenance |
+| Framework edges | `Mounts`, `Handles` and `Injects`, each a kind of its own |
+| A route's full path | Computed by stage 2d and stored as a route path, not on the route node |
+| Type-only imports | `Imports` carries `type_only`. Resolution treats them as any import; reach does not follow them |
+| Release 1 | Plain Python binaries and FastAPI binaries |
 | A binary's framework | Decided before parsing, per binary, from the configuration, then a compose command, then the entry file. A framework's rules read every file that imports it |
 
 ## Open points
 
-These wait on the open points of [python-parsing.md](./python-parsing.md#open-points). The model above follows each proposal.
-
-| Point | Proposed, and written above |
-|---|---|
-| `Flow`, or `Heuristic` reused | `Flow` |
-| `Mounts`, `Handles` and `Injects`, or `References` with a role | The three new kinds |
-| A route's full path, stored or derived | Derived at query time; `RouteData` holds the local path only |
-| The round limit of 2b | 5, with the `FlowRoundLimit` warning when it is hit |
-| FastAPI in Release 1 | Yes, as step 5b |
+None at present.

@@ -87,10 +87,10 @@ Some edges need extra data. An import has the text that was imported. A dependen
 
 | Kind | Data it carries |
 |---|---|
-| `Imports` | The import as written, and the local name it is bound to |
+| `Imports` | The import as written, the local name it is bound to, and whether it only serves type checking (`type_only`) |
 | `DependsOn` | When the dependency is needed: build or dev |
 | `ConnectsTo` | The protocol: HTTP, gRPC or database |
-| `Mounts` | The path prefix the mount adds, when there is one |
+| `Mounts` | The path prefix the mount adds, when there is one: a literal, or unknown when the code computes it |
 | The other twenty-one | Nothing |
 
 The same holds for nodes: a node kind carries its own data (decision 10).
@@ -102,12 +102,19 @@ An AI should treat a relationship read from source differently from one that was
 | Provenance | Meaning |
 |---|---|
 | `TreeSitter` | Read from source code by a parser |
-| `Flow` | Resolved by carrying types from callers. Right when the workspace holds every caller |
 | `Scip` | Read from a SCIP index |
 | `Manifest` | Read from a dependency manager's files |
 | `Compose` | Read from a compose file |
 | `Declared` | Written by hand in the configuration |
 | `Heuristic` | Inferred, and may be wrong |
+
+Provenance says where the facts came from. A second field on every edge made by resolving a reference, `resolved_by`, says which rule connected it: an import, `self`, the same file, a re-export, an annotation, local inference, an inherited member, types carried from callers (`flow`) or a framework. codegraph keeps the same distinction, as `provenance` and `resolvedBy`.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| A new provenance, `Flow`, for edges resolved by carrying types from callers | Rejected | It would explain only those edges, and mix "where the facts came from" with "which rule connected them" |
+| Mark those edges `Heuristic` | Rejected | They are never wrong within what the workspace shows, so `Heuristic` understates them |
+| Keep provenance coarse, and record `resolved_by` on every resolved edge | Adopted | Every edge can say why it is there |
 
 ### 8. A node is either parsed from a file or declared
 
@@ -137,9 +144,12 @@ A FastAPI app mounts routers, a router mounts routes, a route is handled by a fu
 
 | Considered | Outcome | Reason |
 |---|---|---|
-| `References`, with a role on the node | Rejected, pending review | "Which providers does this route use" would have to filter every `References` edge |
-| Three new kinds | Adopted, pending review | Each question about a route is one edge kind |
-| Storing a route's full path on the node | Rejected, pending review | The prefixes sit in other files, so a change to one would rewrite route nodes elsewhere. The full path is derived at query time from `Mounts` |
+| `References`, with a role on the node | Rejected | "Which routes use this provider" would be a filter over every reference into it, and nothing would link a route to its app |
+| A route node and a `References` edge to its handler only, with the prefixes composed into the route's name (codegraph) | Rejected | No edge from a route to its router or app, so "which binary serves this route" and "which routes move if this prefix changes" cannot be walked |
+| Three new kinds | Adopted | Each question about a route is one edge kind |
+| Storing a route's full path on the route node | Rejected | The prefixes sit in other files, so a change to one would rewrite route nodes elsewhere |
+| Computing the full path at query time | Rejected | `search` could not find a route by its full path |
+| Computing the full path in stage 2, and storing it as its own record | Adopted | Searchable, and no route node changes. It is rebuilt at every index with the other results of stage 2 |
 
 ### 12. An index reads every file, then analyses from each root
 
@@ -149,7 +159,7 @@ Reading only the files an entry reaches was considered, to follow the code as it
 |---|---|---|
 | Read only what an entry reaches | Rejected | Incomplete, and not incremental |
 | Infer a parameter's type from any caller | Rejected | One wrong caller would give wrong edges with no sign of it |
-| Carry a type only when every caller agrees, and mark such edges `Flow` | Adopted | Nothing is guessed within what the workspace shows, and a reader can tell these edges from those read directly |
+| Carry a type only when every caller agrees, and record `resolved_by: flow` on such edges | Adopted | Nothing is guessed within what the workspace shows, and a reader can tell these edges from those read directly |
 
 ## The model that results
 
@@ -293,7 +303,7 @@ A file that imports `Invoice` and is not an entry file is reached the same way, 
 
 ## What is left out, and why
 
-- **A confidence score on inferred edges.** Nothing produces `Heuristic` edges yet. `Flow` edges need none: they exist only when every caller agrees.
+- **A confidence score on inferred edges.** Nothing produces `Heuristic` edges yet. Edges resolved by `flow` need none: they exist only when every caller agrees.
 - **Timestamps.** The content hash of a file already says whether it changed.
 - **A copy of the source code.** A node stores where its source is. A query reads the file through the node's span, and marks a file that has changed since the last index.
 - **Topics, queues and HTTP calls found in code.** They are declared by hand for now.

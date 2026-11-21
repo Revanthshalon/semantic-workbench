@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-21
 ---
 
@@ -12,7 +12,7 @@ Each binary's framework and app are decided in the workspace layer, before any c
 - **Derive the framework from the graph after parsing.** Rejected: the app would not be known when resolution runs, so a route's chain of mounts would have no fixed end, and the plain-binary rules could not tell a FastAPI entry from one that does nothing.
 - **Run a framework's rules only on the files of binaries declared with it.** Rejected: a router in a library with no binaries would be missed, even when an app mounts it.
 - **A project-level `framework` as the default for its binaries.** Rejected: it saves one line per binary, and costs a precedence rule and one more way for sources to disagree.
-- **Let a compose command stand in for `entry`.** Rejected, pending review: the configuration's `entry` stays the authority, and a disagreement is the `EntryCommandMismatch` warning.
+- **Let a compose command stand in for `entry`.** Rejected: the configuration's `entry` stays the authority, and a disagreement is the `EntryCommandMismatch` warning.
 
 ## Consequences
 

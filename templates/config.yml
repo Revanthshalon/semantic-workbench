@@ -9,7 +9,7 @@
 #   - Paths use `/`.
 #   - Secrets are never written here, only the names of the environment variables that hold them.
 #
-# Sections, in order: version, projects, compose (shared stacks), storage,
+# Sections, in order: version, projects, compose (shared stacks), storage, analysis,
 # then the reserved sections lsp and semantic.
 
 version: 1                     # required; this file format's version. Always 1
@@ -154,6 +154,14 @@ storage:
   # namespace: billing-3f9a    # memgraph only; one per workspace, unique on that Memgraph
   # username: workbench        # memgraph only; optional, Memgraph has no login unless one is set up
   # password_env: MEMGRAPH_PASSWORD   # memgraph only; the variable's name, never the password
+
+# ---------------------------------------------------------------------------------------------
+# analysis: optional; how far `index` analyses the graph after reading every file
+# ---------------------------------------------------------------------------------------------
+analysis:
+  flow_rounds: 10              # optional; default 10; a whole number from 0 to 100. How many call levels
+                               # a type is carried from callers into parameters that have no annotation.
+                               # 0 turns it off. `status` warns when the limit stopped it early
 
 # ---------------------------------------------------------------------------------------------
 # Reserved sections: read and checked for shape, not used in the first release

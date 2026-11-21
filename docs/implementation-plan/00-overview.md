@@ -199,13 +199,14 @@ Later slices use these names. A slice that has to change one changes it here in 
 | `Node`, `NodeKind`, `Scope`, `Origin`, `Span` | A node. `Node::parsed(...)` and `Node::declared(...)` build one and compute its id. `Node::parsed` takes the file's `Language` to check rule N9, and does not store it |
 | `NodeData`, `ProjectData`, `BinaryData`, `Callable`, `TypeDecl`, `Member`, `RouteData`, `Doc` | The data a node kind carries |
 | `Framework`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `Fastapi`, `Angular`, `None`; `Declared`, `Compose`, `Entry`; `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
-| `Edge`, `EdgeKind`, `Provenance`, `Site` | An edge. `EdgeKind` carries its data: `Imports { specifier, alias }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix }`. `Provenance` includes `Flow` |
+| `Edge`, `EdgeKind`, `Provenance`, `Site` | An edge. `EdgeKind` carries its data: `Imports { specifier, alias, type_only }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix }`. An edge made by resolution records `resolved_by: Option<Resolution>` |
+| `Resolution`, `Prefix` | `Import`, `SelfMember`, `SameFile`, `Project`, `CrossProject`, `ReExport`, `Annotation`, `LocalInference`, `Inherited`, `Flow`, `Framework`; `Literal(String)` or `Unknown` |
 | `DependencyScope`, `Protocol` | `Build` or `Dev`; `Http`, `Grpc` or `Database` |
 | `Language`, `DependencyManager` | `Python`, `TypeScript`; `Uv`, `Poetry`, `Npm`, `Pnpm`, `Yarn`, `Bun` |
 | `FileRecord`, `ParseStatus` | A file record |
 | `UnresolvedReference` | A reference waiting to be resolved |
 | `CallSite`, `Argument`, `Shape`, `LocalBinding` | What stage 1 records about calls and local names |
-| `InferredType`, `Reach`, `Root` | What stage 2 computes |
+| `InferredType`, `Reach`, `Root`, `RoutePath` | What stage 2 computes |
 | `Warning`, `WarningCode` | A warning |
 | `ProjectCheckout` | A project's branch and commit |
 | `Graph` | Nodes, edges, file records, references, warnings and checkouts together. `fn validate(&self) -> Vec<RuleViolation>` |
@@ -232,6 +233,7 @@ pub trait GraphStore {
     async fn inferred_type(&self, parameter: &NodeId) -> Result<Option<InferredType>, StoreError>;
     async fn reached_by(&self, node: &NodeId) -> Result<Vec<Root>, StoreError>;
     async fn reached_from(&self, root: &Root) -> Result<Vec<NodeId>, StoreError>;
+    async fn route_paths(&self, route: &NodeId) -> Result<Vec<RoutePath>, StoreError>;
     async fn unreached_files(&self, filter: &FileFilter) -> Result<Vec<FileRecord>, StoreError>;
     async fn counts(&self) -> Result<Counts, StoreError>;
     async fn meta(&self) -> Result<StoreMeta, StoreError>;
@@ -258,7 +260,7 @@ pub trait IndexWriter {
 | `FileFilter` | `{ project: Option<ProjectId>, status: Option<ParseStatus> }` |
 | `FileRef` | `{ project: ProjectId, path: RelPath }` |
 | `ParsedFile` | `{ record: FileRecord, nodes: Vec<Node>, edges: Vec<Edge>, unresolved: Vec<UnresolvedReference>, call_sites: Vec<CallSite>, bindings: Vec<LocalBinding> }` |
-| `Analysis` | `{ flow_edges: Vec<Edge>, inferred: Vec<InferredType>, reach: Vec<Reach>, warnings: Vec<Warning> }`, the results of stage 2. `replace_analysis` deletes the previous ones first |
+| `Analysis` | `{ flow_edges: Vec<Edge>, flow_resolved: Vec<ReferenceId>, inferred: Vec<InferredType>, reach: Vec<Reach>, route_paths: Vec<RoutePath>, warnings: Vec<Warning> }`, the results of stage 2. `search` also matches route paths. `replace_analysis` deletes the previous ones first |
 | `Counts` | `{ nodes: u64, edges: u64, files: u64 }` |
 | `StoreMeta` | `{ format_version: u32, workbench_version: String, indexed_at: Option<String> }` |
 | `WorkspaceLayer` | `{ nodes: Vec<Node>, edges: Vec<Edge>, warnings: Vec<Warning>, checkouts: Vec<ProjectCheckout> }` |

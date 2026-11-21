@@ -30,7 +30,7 @@ Nothing is released yet. No dates are set; the order is what is decided.
 | 3 | SQLite store behind one port | S1 to S3 | specified in [storage-model.md](./storage-model.md) |
 | 4 | Workspace indexing: projects, binaries, local dependencies, compose, networks, links | W1 to W9, W13, G10 | [step 4](./implementation-plan/step-4-workspace-indexing.md) |
 | 5 | Python parsing and reference resolution, within and across projects | I1 to I6, I10 | [step 5](./implementation-plan/step-5-python-parsing.md) |
-| 5b | All of Python, plain binaries and FastAPI, types from callers and reach (proposed) | C14, I14 to I18, I20, I21, G11, G12 | [python-parsing.md](./python-parsing.md#plan) |
+| 5b | All of Python, plain binaries and FastAPI, types from callers, reach and route paths | C14, C15, I14 to I18, I20, I21, G11, G12 | [python-parsing.md](./python-parsing.md#plan) |
 | 6 | Queries: explore, node, search, callers, callees, impact, neighbours, files, dependencies, status | Q1 to Q7, Q10, Q11 | [step 6](./implementation-plan/step-6-queries.md) |
 | 7 | Command line and installation | U1 to U8, U11 | [step 7](./implementation-plan/step-7-command-line.md) |
 | 8 | MCP server: the graph tools, the `developer-support` mode, the skills | M1 to M3, M5, M6, K2 | [step 8](./implementation-plan/step-8-mcp-server.md) |

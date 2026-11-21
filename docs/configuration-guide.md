@@ -264,6 +264,18 @@ Optional. `workbench init` writes it.
 | `backend` | `sqlite` | The first release accepts only `sqlite` |
 | `path` | `.workbench/graph.db` | The graph file |
 
+## `analysis`
+
+Optional. How far `index` analyses the graph once every file is read. [python-parsing.md](./python-parsing.md#how-the-graph-is-built) describes the analysis.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `flow_rounds` | `10` | How many call levels a type is carried from callers into parameters that have no annotation. A whole number from `0` to `100`. `0` turns it off |
+
+- **Each round carries types one call deeper.** Most code settles in 2 to 4 rounds, and the analysis stops as soon as a round changes nothing.
+- **When the limit stops it early,** `index` and `status` warn, with the number of parameters still changing. Raise the number to carry types deeper, at the cost of a longer index.
+- **Hitting the limit makes nothing wrong.** Deeper parameters stay untyped, and the calls on them stay unresolved.
+
 ## Reserved sections
 
 These are part of the format so that a configuration written today stays valid later. The first release checks their shape and does not use them. See the [roadmap](./roadmap.md).
@@ -310,7 +322,7 @@ The shape that is checked:
 10. No project has two identical links.
 11. A compose file appears in one stack only. No two stacks have the same Compose name.
 12. A Compose name uses lowercase letters, digits, `-` and `_`, and starts with a letter or digit.
-13. `storage.backend` is `sqlite`.
+13. `storage.backend` is `sqlite`. `analysis.flow_rounds` is a whole number from `0` to `100`.
 
 **When the files on disk are read** (`index`):
 

@@ -67,11 +67,13 @@ Each slice is one pull request. The [overview](./00-overview.md#working-in-paral
 **Produces:**
 
 ```rust
-pub struct Manifest { pub local_paths: Vec<(PathBuf, DependencyScope)>, pub import_names: Vec<String> }
+pub struct Manifest { pub local_paths: Vec<(PathBuf, DependencyScope)>, pub import_names: Vec<String>, pub scripts: BTreeMap<String, String> }
 pub fn read_pyproject(text: &str, manager: DependencyManager, packages_on_disk: &[String]) -> Result<Manifest, ManifestError>;
 ```
 
 Local paths come from `[tool.uv.sources]` entries with a `path` for uv, and from dependencies with a `path` under `[tool.poetry.dependencies]` and `[tool.poetry.group.*.dependencies]` for poetry. A dependency in a dev group, or in uv's `dev-dependencies`, has scope `Dev`.
+
+Scripts come from `[project.scripts]`, and from `[tool.poetry.scripts]` for poetry: each name and the `module:function` it points to. Stage 2f uses them to find the command a compose service runs.
 
 Import names are taken, in this order, from the first source that gives any: the `packages` the manifest declares; `packages_on_disk`, the folders with an `__init__.py` directly under `src/` or the project root; the project's name with `-` turned into `_`.
 
@@ -85,6 +87,7 @@ Import names are taken, in this order, from the first source that gives any: the
 | `registry_dependency_is_ignored` | `requests = "^2"` gives no path |
 | `import_name_comes_from_declared_packages` | `packages = [{ include = "shared_api" }]` gives `shared_api` |
 | `import_name_falls_back_to_the_disk_then_the_name` | Each fallback in turn |
+| `scripts_are_read` | `[project.scripts]` `ledger-consumer = "ledger.consumer:main"` gives that entry; `[tool.poetry.scripts]` the same |
 | `broken_toml_is_an_error` | `ManifestError::Syntax` |
 
 **Commit:** `feat(index): read local dependencies from pyproject.toml`
@@ -120,7 +123,7 @@ Files are merged in the order given: a later file adds services and networks and
 |---|---|
 | `acme_infrastructure_file` | Name `acme-infra`; `kafka` and `postgres` have no build context; network `backbone` is `Stated("acme-backbone")` |
 | `acme_billing_file` | `api` and `worker` have build targets `api` and `worker`, and each joins `default` and `backbone` |
-| `acme_ledger_file` | `backbone` is `Unreadable`; neither service has a build target; `consumer` has the command `python -m ledger.consumer` |
+| `acme_ledger_file` | `backbone` is `Unreadable`; neither service has a build target; `consumer` has the command `python -m ledger.consumer run` |
 | `list_command_is_joined` | `command: ["uvicorn", "billing.api:app"]` gives `uvicorn billing.api:app` |
 | `later_file_overrides_build_target` | The second file's target wins |
 | `later_file_adds_a_service` | Two services after the merge |

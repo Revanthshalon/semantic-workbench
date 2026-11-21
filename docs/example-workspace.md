@@ -66,7 +66,7 @@ The network name comes from an environment variable, and the team starts this fi
 ```yaml
 services:
   api:      {build: ., networks: [backbone]}
-  consumer: {build: ., command: python -m ledger.consumer, networks: [backbone]}
+  consumer: {build: ., command: python -m ledger.consumer run, networks: [backbone]}
 networks:
   backbone: {external: true, name: "${BACKBONE_NET}"}
 ```

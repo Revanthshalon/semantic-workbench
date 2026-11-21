@@ -92,7 +92,9 @@ Some edges need extra data. An import has the text that was imported. A dependen
 | `ConnectsTo` | The protocol: HTTP, gRPC or database |
 | `Mounts` | The path prefix the mount adds, when there is one: a literal, or unknown when the code computes it |
 | `Requests` | The HTTP method and the path as written in the call |
-| The other twenty-one | Nothing |
+| `Sends` | The topic, queue or stream name |
+| `Invokes` | The command words of the compose command |
+| The other twenty-two | Nothing |
 
 The same holds for nodes: a node kind carries its own data (decision 10).
 
@@ -172,21 +174,32 @@ Once routes and their full paths are in the graph, a client call such as `httpx.
 | Turn a matched call into a `ConnectsTo` link | Rejected | A link is a runtime fact a person declares (ADR 0004). A match is evidence from code, and can be ambiguous when two apps serve the same path |
 | A `Requests` edge to the route, narrowed by declared links, with a warning when a cross-project match has no declared link | Adopted | Code and configuration check each other, and nothing is guessed: an ambiguous call is stored as unmatched |
 
+### 14. Messages and commands are matched like HTTP calls
+
+A producer's `send("invoice.created", ...)` and a consumer's loop over the same topic are matched to the declared `Topic` node, as `Sends` and `Receives` edges from the code to the topic, with the class each side carries. A compose service that runs `python -m ledger.consumer run` is linked to the command `run` of that binary, as an `Invokes` edge to a `Command` node.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| Create topics and queues from the names found in code | Rejected | A name in code can be a typo or another environment's topic. Topics stay declared (ADR 0004); a name with no declared topic is a warning |
+| Let reach follow `Sends` and `Receives` | Rejected | Sending a message does not run the handler in this process. The walk across a topic belongs to `impact`, which says it crosses one |
+| Link a service to its binary only | Rejected | `impact` would name every service that runs a binary, even one that runs another of its commands |
+| A `Command` node per `argparse` parser and subcommand, and an `Invokes` edge computed in stage 2 | Adopted | Commands exist only after parsing, so the edge cannot be built with the workspace layer. The same node kind will serve Click and Typer |
+
 ## The model that results
 
 ### Node kinds
 
 | Group | Kinds |
 |---|---|
-| Code (23) | `File`, `Module`, `Class`, `Struct`, `Interface`, `Trait`, `Protocol`, `Function`, `Method`, `Property`, `Field`, `Variable`, `Constant`, `Enum`, `EnumMember`, `TypeAlias`, `Namespace`, `Parameter`, `Import`, `Export`, `Route`, `Component`, `Union` |
+| Code (24) | `File`, `Module`, `Class`, `Struct`, `Interface`, `Trait`, `Protocol`, `Function`, `Method`, `Property`, `Field`, `Variable`, `Constant`, `Enum`, `EnumMember`, `TypeAlias`, `Namespace`, `Parameter`, `Import`, `Export`, `Route`, `Component`, `Union`, `Command` |
 | Workspace (9) | `Workspace`, `Project`, `Binary`, `Stack`, `Service`, `ExternalService`, `Network`, `Topic`, `Queue` |
 
 ### Edge kinds
 
 | Group | Kinds |
 |---|---|
-| Code (17) | `Contains`, `Calls`, `Imports`, `Exports`, `Extends`, `Implements`, `References`, `TypeOf`, `Returns`, `Instantiates`, `Overrides`, `Decorates`, `Navigates`, `Mounts`, `Handles`, `Injects`, `Requests` |
-| Workspace (9) | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `Joins`, `ConnectsTo`, `Publishes`, `Subscribes` |
+| Code (19) | `Contains`, `Calls`, `Imports`, `Exports`, `Extends`, `Implements`, `References`, `TypeOf`, `Returns`, `Instantiates`, `Overrides`, `Decorates`, `Navigates`, `Mounts`, `Handles`, `Injects`, `Requests`, `Sends`, `Receives` |
+| Workspace (10) | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `Joins`, `ConnectsTo`, `Publishes`, `Subscribes`, `Invokes` |
 
 | Workspace kind | From | To | Meaning |
 |---|---|---|---|
@@ -199,6 +212,7 @@ Once routes and their full paths are in the graph, a client call such as `httpx.
 | `ConnectsTo` | Project, Binary | Project, Service, ExternalService | Reaches it over HTTP, gRPC or a database protocol |
 | `Publishes` | Project, Binary | Topic, Queue | Sends messages to it |
 | `Subscribes` | Project, Binary | Topic, Queue | Receives messages from it |
+| `Invokes` | Service | Command | Runs this command of its binary. Found in stage 2, from the service's compose command |
 
 `Contains` does all grouping, and makes the graph one tree with the workspace node at its root: workspace to project, stack and network, project to binary and file, file to class, stack to service and external service, external service to its topics and queues.
 

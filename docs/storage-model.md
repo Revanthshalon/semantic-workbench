@@ -88,6 +88,11 @@ CREATE TABLE nodes (
   route_path      TEXT,
   route_status    INTEGER,
   route_tags      TEXT NOT NULL DEFAULT '[]',
+  -- CommandData
+  command_program TEXT,
+  command_path    TEXT,
+  command_help    TEXT,
+  command_options TEXT,
   CHECK ((scope_type = 'workspace') = (scope_name IS NULL)),
   CHECK ((path IS NULL) = (start_line IS NULL)
      AND (path IS NULL) = (start_column IS NULL)
@@ -101,6 +106,10 @@ CREATE TABLE nodes (
   CHECK (router_prefix IS NULL OR role IS 'router'),
   CHECK (router_tags = '[]' OR role IS 'router'),
   CHECK (kind <> 'route' OR route_path IS NOT NULL),
+  CHECK ((kind = 'command') = (command_program IS NOT NULL)
+     AND (kind = 'command') = (command_path IS NOT NULL)
+     AND (kind = 'command') = (command_options IS NOT NULL)),
+  CHECK (command_help IS NULL OR kind = 'command'),
   CHECK ((kind = 'route') = (route_method IS NOT NULL)),
   CHECK (kind = 'route' OR (route_path IS NULL AND route_status IS NULL AND route_tags = '[]'))
 );
@@ -124,7 +133,7 @@ CREATE TABLE edges (
   resolved_by      TEXT CHECK (resolved_by IN
                      ('import', 'self_member', 'same_file', 'project', 'cross_project', 're_export',
                       'annotation', 'local_inference', 'inherited', 'flow', 'framework',
-                      'route_match')),
+                      'route_match', 'message_match', 'command_match')),
   note             TEXT,
   import_specifier TEXT,
   import_alias     TEXT,
@@ -136,6 +145,8 @@ CREATE TABLE edges (
   request_method   TEXT CHECK (request_method IN
                      ('get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace', 'websocket')),
   request_path     TEXT,
+  message_name     TEXT,
+  invoke_words     TEXT,
   CHECK ((kind = 'imports')     = (import_specifier IS NOT NULL)),
   CHECK (import_alias IS NULL OR kind = 'imports'),
   CHECK ((kind = 'imports')     = (import_type_only IS NOT NULL)),
@@ -145,20 +156,25 @@ CREATE TABLE edges (
   CHECK ((kind = 'mounts')      = (mount_tags IS NOT NULL)),
   CHECK ((kind = 'requests')    = (request_method IS NOT NULL)),
   CHECK ((kind = 'requests')    = (request_path IS NOT NULL)),
+  CHECK ((kind = 'sends')       = (message_name IS NOT NULL)),
+  CHECK ((kind = 'invokes')     = (invoke_words IS NOT NULL)),
   CHECK ((site_path IS NULL) = (site_line IS NULL)
      AND (site_path IS NULL) = (site_column IS NULL)),
   CHECK (note IS NULL OR provenance = 'declared'),
-  CHECK (resolved_by IS NULL OR provenance IN ('tree_sitter', 'scip')),
+  CHECK (resolved_by IS NULL OR provenance IN ('tree_sitter', 'scip')
+         OR (kind = 'invokes' AND provenance = 'compose')),
   CHECK (resolved_by IS NOT 'flow' OR kind IN ('calls', 'instantiates')),
   CHECK ((kind IN ('mounts', 'handles', 'injects')) = (resolved_by IS 'framework')),
-  CHECK ((kind = 'requests') = (resolved_by IS 'route_match'))
+  CHECK ((kind = 'requests') = (resolved_by IS 'route_match')),
+  CHECK ((kind IN ('sends', 'receives')) = (resolved_by IS 'message_match')),
+  CHECK ((kind = 'invokes') = (resolved_by IS 'command_match'))
 );
 
 CREATE UNIQUE INDEX edges_identity ON edges
   (source, target, kind, ifnull(site_path, ''), ifnull(site_line, -1), ifnull(site_column, -1));
 CREATE INDEX edges_source_kind ON edges (source, kind);
 CREATE INDEX edges_target_kind ON edges (target, kind);
-CREATE INDEX edges_stage_two   ON edges (resolved_by) WHERE resolved_by IN ('flow', 'route_match');
+CREATE INDEX edges_stage_two   ON edges (resolved_by) WHERE resolved_by IN ('flow', 'route_match', 'message_match', 'command_match');
 
 CREATE TABLE files (
   project      TEXT NOT NULL,
@@ -279,12 +295,35 @@ CREATE TABLE unmatched_http_calls (
   CHECK (json_array_length(candidates) <> 1)
 );
 
+CREATE TABLE unmatched_messages (
+  id          INTEGER PRIMARY KEY,
+  from_node   TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  site_path   TEXT NOT NULL,
+  site_line   INTEGER NOT NULL,
+  site_column INTEGER NOT NULL,
+  direction   TEXT NOT NULL CHECK (direction IN ('send', 'receive')),
+  name        TEXT NOT NULL CHECK (name <> ''),
+  broker      TEXT REFERENCES nodes (id) ON DELETE CASCADE,
+  candidates  TEXT NOT NULL DEFAULT '[]',
+  CHECK (json_array_length(candidates) <> 1)
+);
+
+CREATE TABLE message_payloads (
+  topic     TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  node      TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  direction TEXT NOT NULL CHECK (direction IN ('send', 'receive')),
+  class     TEXT NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+  PRIMARY KEY (topic, node, direction, class)
+) WITHOUT ROWID;
+
+CREATE INDEX message_payloads_class ON message_payloads (class);
+
 CREATE TABLE warnings (
   id      INTEGER PRIMARY KEY,
   code    TEXT NOT NULL CHECK (code IN
             ('network_name_unknown', 'link_without_shared_network', 'dependency_path_not_a_project',
              'framework_mismatch', 'framework_app_not_found', 'entry_command_mismatch',
-             'flow_round_limit', 'http_call_without_link')),
+             'flow_round_limit', 'http_call_without_link', 'message_without_link', 'command_not_found')),
   subject TEXT REFERENCES nodes (id) ON DELETE CASCADE,
   message TEXT NOT NULL CHECK (message <> '')
 );
@@ -348,6 +387,7 @@ One row per node, for both layers. Each column is the field of the same name in 
 | `role` | `variable` (`app`, `router`), `function` and `method` (`middleware`, `exception_handler`, `lifecycle_hook`), `class` (`model`) |
 | `router_prefix` | A node whose role is `router`, when the prefix is known |
 | `route_method`, `route_path`, `route_status`, `route_tags` | `route`. `route_method` always |
+| `command_program`, `command_path`, `command_options`, `command_help` | `command`. All but `command_help` always; the path and the options are JSON arrays |
 - **The kind is not checked by the table.** There are 32 kinds and the list grows with each language. The domain types already refuse an unknown kind.
 - **`nodes_qualified_name`** serves the `scope:qualified name` form of naming a node.
 - **`nodes_file`** serves "every node in this file", which `node --file` and the replacing of a file both need.
@@ -367,6 +407,8 @@ The data of an edge kind has typed columns, and the table checks that each is fi
 | `import_type_only` | `imports`, always | `1` when the import only serves type checking |
 | `mount_prefix` | `mounts`, when there is one | The path prefix the mount adds, as a template |
 | `mount_tags` | `mounts`, always | The tags the mount adds, a JSON array |
+| `message_name` | `sends`, always | The topic, queue or stream name |
+| `invoke_words` | `invokes`, always | The command words of the compose command |
 | `request_method`, `request_path` | `requests`, always | The method of the call, and the path as written, with unknown parts as `{?}` |
 
 `resolved_by` holds the rule that resolved the edge, and is empty on an edge not made by resolution. The table refuses it on any provenance but `tree_sitter` and `scip`, refuses `flow` on any kind but `calls` and `instantiates`, requires `framework` on exactly `mounts`, `handles` and `injects`, and requires `route_match` on exactly `requests`. `edges_stage_two` serves deleting the edges of stage 2 at every index.
@@ -435,7 +477,10 @@ The domain types are the first guard. The schema is the second, for the rules th
 | U3: one route path per route, binary and full path | `route_paths_identity` |
 | `requests` data, and only on `requests` | `CHECK` on `request_method` and `request_path` |
 | M1, in part: the caller exists | Foreign key |
-| M2: never exactly one candidate | `CHECK` |
+| M2, G2: never exactly one candidate | `CHECK` |
+| D2: one payload per topic, node, direction and class | Primary key |
+| Command data on commands only, and always | `CHECK` on the `command_` columns |
+| `sends` and `invokes` data on their kinds only | `CHECK` on `message_name` and `invoke_words` |
 | C1, L1 in part, Y1 in part, H1 in part: the nodes named exist | Foreign keys |
 | C3: one call site per node and site | `UNIQUE` |
 | L3: one binding per place, name and site | `UNIQUE` |
@@ -486,8 +531,8 @@ The workspace layer is rebuilt on every index, inside the same transaction.
 
 Stage 2 runs after every file is in and every reference has been tried, inside the same transaction.
 
-1. Delete every edge whose `resolved_by` is `flow` or `route_match`, and every row of `inferred_types`, `reach`, `route_paths` (with their providers) and `unmatched_http_calls`. Set `flow_resolved` back to `0` on every reference.
-2. Insert the `flow` and `requests` edges, inferred types, reach records, route paths and unmatched HTTP calls the run computed, and set `flow_resolved` to `1` on each reference a `flow` edge resolved.
+1. Delete every edge whose `resolved_by` is `flow`, `route_match`, `message_match` or `command_match`, and every row of `inferred_types`, `reach`, `route_paths` (with their providers), `unmatched_http_calls`, `unmatched_messages` and `message_payloads`. Set `flow_resolved` back to `0` on every reference.
+2. Insert the `flow`, `requests`, `sends`, `receives` and `invokes` edges, the payloads, the unmatched messages, inferred types, reach records, route paths and unmatched HTTP calls the run computed, and set `flow_resolved` to `1` on each reference a `flow` edge resolved.
 
 Deleting first keeps the results free of leftovers from a call site that is gone. Stage 2 always works on the whole graph, so nothing is lost.
 
@@ -518,6 +563,7 @@ The rest of the program reaches the store through one port, so a second store ca
 | Files that no root reaches | `files --unreached` |
 | The route paths of a route, and the routes whose full path holds a text | `node`, `search` |
 | The unmatched HTTP calls in a node | `node` |
+| The unmatched messages in a node, and the payloads of a topic or of a class | `node`, `impact` |
 | Write one index, as described above, with the results of stage 2 | `index` |
 
 **The store never walks.** A walk is done step by step above the port: ask for the edges of a set of nodes, decide where to go next, ask again. Each step is one query on `edges_source_kind` or `edges_target_kind`. `impact` and `explore` therefore behave the same on any store.

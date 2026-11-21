@@ -108,7 +108,7 @@ The fields:
 | `language` | `Language` | `Python` or `TypeScript` |
 | `framework` | `Framework` | `Fastapi`, `Angular` or `None` |
 | `app` | text, optional | The qualified name of a FastAPI binary's app, such as `billing.api.app` |
-| `framework_source` | `FrameworkSource` | Where `framework` came from: `Declared` (the configuration), `Compose` (a compose command) or `Entry` (the entry file) |
+| `framework_source` | `FrameworkSource` | Where `framework` came from: `Declared` (the configuration), `Compose` (a compose command), `Dockerfile` (a Dockerfile's `CMD` or `ENTRYPOINT`) or `Entry` (the entry file) |
 | `doc` | text, optional | The doc string |
 | `signature` | text, optional | The declaration as written, on one line |
 | `visibility` | `Visibility`, optional | `Public`, `Private`, `Protected` or `Internal` |
@@ -222,6 +222,7 @@ The data is part of the kind, so a kind can never carry another kind's data.
 | `TreeSitter` | Read from source code by a parser | Every code kind |
 | `Manifest` | Read from a dependency manager's files | `DependsOn` |
 | `Compose` | Read from a compose file | `Runs`, `BuiltFrom`, `Joins`, `Uses`, `Invokes` |
+| `Dockerfile` | Read from a Dockerfile: the command line a service runs | `Runs`, `Invokes` |
 | `Declared` | Written by hand in the configuration | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `ConnectsTo`, `Publishes`, `Subscribes` |
 | `Scip` | Read from a SCIP index | none yet |
 | `Heuristic` | Inferred, and may be wrong | none yet |
@@ -280,7 +281,7 @@ Six code edge kinds hold what a web framework does with code, what calls it over
 | E10 | A `Runs` edge leads to a binary of the project whose folder the service is built from | Graph |
 | E11 | A framework edge joins only these: `Mounts` from a `Variable` with role `App` or `Router` to such a `Variable` or to a `Route`. `Handles` from a `Route` to a `Function` or `Method`. `Injects` from a `Function`, `Method`, `Route` or `Variable` with role `Router` to a `Function`, `Method` or `Class`. `Requests` from a `Function`, `Method` or `File` to a `Route`. `Handles` may also start at a `Command`. `Sends` from a `Function`, `Method` or `File`, and `Receives` from a `Function` or `Method`, to a `Topic` or `Queue` | Graph |
 | E12 | An edge with `resolved_by: Flow` rests on at least one [inferred type](#inferred-type): of a parameter of its callable, of the return of a function its receiver came from, of a field, or of a name bound more than once | Graph |
-| E13 | `resolved_by` is given only on a code edge with provenance `TreeSitter` or `Scip`, and on `Invokes`. `Flow` is given only on `Calls` and `Instantiates`. `Framework` is given only on `Mounts`, `Handles` and `Injects`, and those three always have it. `RouteMatch` is given only on `Requests`, `MessageMatch` only on `Sends` and `Receives`, and `CommandMatch` only on `Invokes`, and each of those kinds always has its value | Build |
+| E13 | `resolved_by` is given only on a code edge with provenance `TreeSitter` or `Scip`, and on `Invokes` (provenance `Compose` or `Dockerfile`). `Flow` is given only on `Calls` and `Instantiates`. `Framework` is given only on `Mounts`, `Handles` and `Injects`, and those three always have it. `RouteMatch` is given only on `Requests`, `MessageMatch` only on `Sends` and `Receives`, and `CommandMatch` only on `Invokes`, and each of those kinds always has its value | Build |
 
 ## The containment tree
 
@@ -552,7 +553,8 @@ Something the indexer noticed that does not stop the run. The warnings of the la
 | `DependencyPathNotAProject` | A dependency manager's file names a local path that is not a listed project | The project whose file names it |
 | `FrameworkMismatch` | The configuration or a compose command names one framework for a binary, and its entry file builds another, or names none while it builds an app | The binary |
 | `FrameworkAppNotFound` | A FastAPI binary's `app` names no node, or a node that is not an app or a function that returns one | The binary |
-| `EntryCommandMismatch` | A compose command runs a module other than the binary's configured entry | The binary |
+| `EntryCommandMismatch` | A service's command line, from compose or its Dockerfile, runs a module other than the binary's configured entry | The binary |
+| `DockerfileUnreadable` | A service's Dockerfile is missing, or cannot be read | The service |
 | `FlowRoundLimit` | Carrying types and text through calls stopped at its round limit before it settled | none |
 | `HttpCallWithoutLink` | An HTTP call matches a route served by a binary of another project, and the caller declares no `http` link to a service that runs that binary | The node the call is in |
 | `MessageWithoutLink` | A producer or consumer names a topic or queue that is not declared, or one the caller's project declares no link for | The node that sends or receives |
@@ -682,6 +684,7 @@ Points the other pages left open, settled here and confirmed by the project owne
 | Release 1 | Plain Python binaries and FastAPI binaries, HTTP calls matched to routes, the tests to run for a change, API contracts |
 | HTTP calls in code | Matched to route paths as `Requests` edges. They never create a `ConnectsTo` link; a cross-project match with no declared link is a warning |
 | Messages in code | Matched to declared topics and queues as `Sends` and `Receives` edges, with their payloads. Topics and queues are still created only from the configuration |
+| Dockerfiles | Read for the command line a service runs: its binary when nothing else names it, its framework, and the command it invokes. Facts from them have the `Dockerfile` provenance |
 | Commands | `argparse` parsers and subcommands are `Command` nodes. A compose service is linked to the command it runs by `Invokes`, computed in stage 2 |
 | A binary's framework | Decided before parsing, per binary, from the configuration, then a compose command, then the entry file. A framework's rules read every file that imports it |
 

@@ -63,7 +63,7 @@ CREATE TABLE nodes (
   language        TEXT CHECK (language IN ('python', 'typescript')),
   -- BinaryData
   framework        TEXT CHECK (framework IN ('fastapi', 'angular', 'none')),
-  framework_source TEXT CHECK (framework_source IN ('declared', 'compose', 'entry')),
+  framework_source TEXT CHECK (framework_source IN ('declared', 'compose', 'dockerfile', 'entry')),
   app              TEXT,
   -- Doc, Callable, TypeDecl, Member
   doc             TEXT,
@@ -129,7 +129,7 @@ CREATE TABLE edges (
   site_line        INTEGER,
   site_column      INTEGER,
   provenance       TEXT NOT NULL CHECK (provenance IN
-                     ('tree_sitter', 'scip', 'manifest', 'compose', 'declared', 'heuristic')),
+                     ('tree_sitter', 'scip', 'manifest', 'compose', 'dockerfile', 'declared', 'heuristic')),
   resolved_by      TEXT CHECK (resolved_by IN
                      ('import', 'self_member', 'same_file', 'project', 'cross_project', 're_export',
                       'annotation', 'local_inference', 'inherited', 'flow', 'framework',
@@ -162,7 +162,7 @@ CREATE TABLE edges (
      AND (site_path IS NULL) = (site_column IS NULL)),
   CHECK (note IS NULL OR provenance = 'declared'),
   CHECK (resolved_by IS NULL OR provenance IN ('tree_sitter', 'scip')
-         OR (kind = 'invokes' AND provenance = 'compose')),
+         OR (kind = 'invokes' AND provenance IN ('compose', 'dockerfile'))),
   CHECK (resolved_by IS NOT 'flow' OR kind IN ('calls', 'instantiates')),
   CHECK ((kind IN ('mounts', 'handles', 'injects')) = (resolved_by IS 'framework')),
   CHECK ((kind = 'requests') = (resolved_by IS 'route_match')),
@@ -323,7 +323,7 @@ CREATE TABLE warnings (
   code    TEXT NOT NULL CHECK (code IN
             ('network_name_unknown', 'link_without_shared_network', 'dependency_path_not_a_project',
              'framework_mismatch', 'framework_app_not_found', 'entry_command_mismatch',
-             'flow_round_limit', 'http_call_without_link', 'message_without_link', 'command_not_found')),
+             'flow_round_limit', 'http_call_without_link', 'message_without_link', 'command_not_found', 'dockerfile_unreadable')),
   subject TEXT REFERENCES nodes (id) ON DELETE CASCADE,
   message TEXT NOT NULL CHECK (message <> '')
 );
@@ -523,7 +523,7 @@ The workspace layer is rebuilt on every index, inside the same transaction.
 
 1. Write every workspace node the run produces, by id. A node that is already there is updated in place, so the edges that touch it stay.
 2. Delete every workspace node the run did not produce.
-3. Delete every edge whose provenance is `manifest`, `compose` or `declared`, and insert the ones the run produces.
+3. Delete every edge whose provenance is `manifest`, `compose`, `dockerfile` or `declared`, except `invokes` edges, which stage 2 writes, and insert the ones the run produces.
 4. Delete all warnings, and insert the ones the run raised.
 5. Write the checkout of every project the run indexed, replacing its row.
 

@@ -23,7 +23,7 @@ Each language has three layers:
 These decide every row below.
 
 1. **A node holds only what its own file says.** The parser sees one file at a time. Anything that needs another file, such as what a base class is or which app mounts a router, is an edge made by resolution or a fact derived at query time. A file that has not changed therefore never needs to be parsed again because another file changed.
-2. **A binary's framework is known before parsing.** The workspace layer decides it for each binary, together with the binary's app object. It reads the configuration, then the compose command of the services that run the binary, then the binary's entry file. See [How a binary's framework is decided](#how-a-binarys-framework-is-decided).
+2. **A binary's framework is known before parsing.** The workspace layer decides it for each binary, together with the binary's app object. It reads the binary's entry in the configuration, then the compose command of the services that run the binary, then the binary's entry file. See [How a binary's framework is decided](#how-a-binarys-framework-is-decided).
 3. **A profile's rules still run on any file that imports the framework.** A router module is never an entry, and it may sit in a library project with no binaries at all. So the configuration decides what a binary *is*, and the import decides which rules read a file. The two never disagree about a file: they answer different questions.
 4. **Nothing is guessed.** A reference that the rules below cannot resolve stays unresolved. Every edge here has the `TreeSitter` provenance.
 5. **Deterministic.** The same files give the same nodes, ids and edges, in every run and on every machine.
@@ -117,12 +117,13 @@ The workspace layer decides it, in [step 4](./implementation-plan/step-4-workspa
 | Order | Source | Gives | Example |
 |---|---|---|---|
 | 1 | The configuration: `binaries[].framework` and `binaries[].app` | The framework, and the app | `{name: api, entry: src/billing/main.py, framework: fastapi, app: billing.app:create_app}` |
-| 2 | The configuration: the project's `framework` | The default for every binary of the project | `framework: fastapi` on the project |
-| 3 | The compose `command` of a service that runs the binary | The framework, and the app | `uvicorn billing.api:app`, `fastapi run src/billing/api.py`, `gunicorn -k uvicorn.workers.UvicornWorker billing.api:app` |
-| 4 | The entry file | The framework, and the app | It imports from `fastapi`, and binds `FastAPI(...)` to a name at module level, or defines a function that returns one |
-| 5 | None of the above | `none`: a plain binary | Billing's `worker` |
+| 2 | The compose `command` of a service that runs the binary | The framework, and the app | `uvicorn billing.api:app`, `fastapi run src/billing/api.py`, `gunicorn -k uvicorn.workers.UvicornWorker billing.api:app` |
+| 3 | The entry file | The framework, and the app | It imports from `fastapi`, and binds `FastAPI(...)` to a name at module level, or defines a function that returns one |
+| 4 | None of the above | `none`: a plain binary | Billing's `worker` |
 
-Source 4 reads only the entry file, with the same tree-sitter grammar, and only its imports and module-level statements. It is cheap, and it runs again whenever the entry file's content hash changes.
+The framework is set on a binary only, never on a project. A project's library files need no setting: the framework's rules read every file that imports it (principle 3).
+
+Source 3 reads only the entry file, with the same tree-sitter grammar, and only its imports and module-level statements. It is cheap, and it runs again whenever the entry file's content hash changes.
 
 **What is stored.** The binary's node carries `framework` (`fastapi` or `none`), `app` (the app's qualified name, such as `billing.api.app`) and `framework_source` (`declared`, `compose` or `entry`). `node` on a binary shows all three.
 
@@ -276,9 +277,9 @@ Nothing below is applied yet. Each change is made in its own page when this page
 |---|---|
 | [domain-model.md](./domain-model.md) | Node kinds carry typed data per kind (`Callable`, `TypeDecl`, `Member`, `RouteData`), with the language capability check at build time, as proposed for the domain design. New fields: `declared_type`, `default`, `source` on `Parameter`. New `FrameworkRole`: `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Model`. A route's qualified name, as above, as an exception to "the language's own dotted path" |
 | [domain-model.md](./domain-model.md), [graph-model.md](./graph-model.md) | Three new code edge kinds, 22 → 25: `Mounts { prefix: Option<String> }`, `Handles`, `Injects`. A new graph rule for their ends: `Mounts` from an app or router to a router, app or route; `Handles` from a route to a function or method; `Injects` from a function, method, route or router to a function, method or class |
-| [configuration-guide.md](./configuration-guide.md), [`templates/config.yml`](../templates/config.yml), [step 2](./implementation-plan/step-2-configuration.md) (applied) | Two optional fields on `binaries[]`: `framework` (`fastapi` or `none` for Python, `angular` for TypeScript) and `app` (`module:attribute`, as uvicorn writes it). The project's `framework` accepts `fastapi` and becomes the default for its binaries. Check rule 5 grows: a framework suits the project's language, and `app` is given only with `fastapi`. Read-time rule: `app` is a valid `module:attribute` |
+| [configuration-guide.md](./configuration-guide.md), [`templates/config.yml`](../templates/config.yml), [step 2](./implementation-plan/step-2-configuration.md) (applied) | Two optional fields on `binaries[]`: `framework` (`fastapi` or `none` for Python, `angular` or `none` for TypeScript) and `app` (`module:attribute`, as uvicorn writes it). The project-level `framework` is removed; `framework: angular` moves onto each binary. Check rule 5 grows: a binary's framework suits its project's language, and `app` is given only with `fastapi` and has the form `module:attribute` |
 | [domain-model.md](./domain-model.md) | A `Binary` carries data: `framework`, `app`, `framework_source`. Three new warning codes: `FrameworkMismatch`, `FrameworkAppNotFound`, `EntryCommandMismatch` |
-| [step 4](./implementation-plan/step-4-workspace-indexing.md) | A new task: decide each binary's framework from the four sources, and raise the warnings |
+| [step 4](./implementation-plan/step-4-workspace-indexing.md) | A new task: decide each binary's framework from the three sources, then `none`, and raise the warnings |
 | [domain-model.md](./domain-model.md) | Rule R4 gains one exception: an `Overrides` reference whose bases all resolved, and none has the name, is dropped instead of kept |
 | [storage-model.md](./storage-model.md) | Columns for the new node data and the `Mounts` prefix. A new format version: the store is rebuilt, per ADR 0008 |
 | [capability-map.md](./capability-map.md) | Rows I14 to I19 and G11, G12 (done with this page) |
@@ -291,7 +292,7 @@ Each phase ends in something tested on its own. The phases follow step 5 and use
 
 | Phase | Delivers | Needs | Tested by |
 |---|---|---|---|
-| P0 | Binary framework: the two new configuration fields, the four sources in order, the stored data, the three warnings | Step 2's 2C, step 4's 4B, 4E | One test per source. A higher source beats a lower one and raises `FrameworkMismatch`. A factory app needs the configuration. `python -m` against a different entry raises `EntryCommandMismatch` |
+| P0 | Binary framework: the two new configuration fields, the three sources in order, then `none`, the stored data, the three warnings | Step 2's 2C, step 4's 4B, 4E | One test per source. A higher source beats a lower one and raises `FrameworkMismatch`. A factory app needs the configuration. `python -m` against a different entry raises `EntryCommandMismatch` |
 | P1 | Core definitions: every node kind and every detail in the tables above | Step 5's 5B, the typed node data | One test per row of the definitions and details tables, on strings of Python |
 | P2 | Core references: `Implements`, `Overrides`, `TypeOf`, `Returns`, `References`, `Exports` | P1, 5C | One test per row of the references table |
 | P3 | Resolution: re-exports, following annotations, local inference, inherited members | P2, 5D, 5E | A re-export chain across projects. A cycle in re-exports ends. `invoice.total()` through an annotation. An unannotated receiver stays unresolved |
@@ -308,4 +309,5 @@ Each phase ends in something tested on its own. The phases follow step 5 and use
 4. **New edge kinds, or reuse.** `Mounts`, `Handles` and `Injects` could be `References` with a role on the node. Proposed: new kinds, because a query that asks "which providers does this route use" should not have to filter `References`.
 5. **Type-only imports.** An import under `if TYPE_CHECKING:` breaks type checking but not the running program. Marking it needs a flag on `Imports`. Proposed: Later.
 6. **The compose command never replaces `entry`.** It can give a binary's framework and app, but the entry stays what the configuration names, and a disagreement is a warning. Proposed as written. The alternative is to let a command such as `uvicorn billing.api:app` stand in for `entry`, so a binary could be declared with less.
-7. **Angular's `framework`, on the project or on the binary.** Today `framework: angular` sits on the project. With this page, the project's field is the default and a binary's field overrides it, for both languages. Proposed: keep both, so an Angular workspace with one app writes nothing new.
+
+**Settled:** the framework is set on a binary only. The project-level `framework` is removed, and `framework: angular` moves from `web-app` onto its binaries. A project default would save one line per binary, and would cost a precedence rule and one more way for sources to disagree.

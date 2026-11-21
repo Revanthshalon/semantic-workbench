@@ -47,7 +47,7 @@ A person describes the workspace once, in `.workbench/config.yml`.
 | C10 | Check every cross-reference: project ids, binaries, services, stacks, networks | R1 | Decided | `check`, `index` |
 | C11 | Runtime scope for local dependencies | Later | Decided | `dependencies.local[].scope` |
 | C12 | Declare external services that no compose file describes | Later | Decided | not designed |
-| C14 | Declare a binary's framework and its app object by hand, when the compose command and the entry file cannot tell. The project's `framework` is the default for its binaries | R1 | Open | `binaries[].framework`, `binaries[].app`, `projects[].framework` |
+| C14 | Declare a binary's framework and its app object by hand, when the compose command and the entry file cannot tell. A framework is set on a binary only, never on a project | R1 | Open | `binaries[].framework`, `binaries[].app` |
 | C13 | Read and check `mcp/config.yml` and the context files: every field, every default, and that each project named under `branches` exists | R3 | Decided | `check`, `mcp` |
 
 ## W. Workspace indexing

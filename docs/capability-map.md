@@ -17,10 +17,10 @@ Nothing is built yet beyond the module scaffold.
 
 | Area | What it covers | R1 | R2 | R3 | Later |
 |---|---|---|---|---|---|
-| C. Configuration | Finding, reading and checking the workspace configuration | 10 | | 1 | 2 |
+| C. Configuration | Finding, reading and checking the workspace configuration | 11 | | 1 | 2 |
 | W. Workspace indexing | Projects, dependencies, compose files, networks, links | 10 | 1 | | 2 |
-| I. Code indexing | Parsing source code and resolving references | 7 | 3 | | 3 |
-| G. Graph model | What a node and an edge are | 9 | | | 1 |
+| I. Code indexing | Parsing source code and resolving references | 12 | 3 | | 4 |
+| G. Graph model | What a node and an edge are | 11 | | | 1 |
 | S. Storage | Where the graph is kept | 3 | | | 1 |
 | Q. Queries | The questions the graph can answer | 9 | | | 2 |
 | U. Command line | The `workbench` commands | 9 | | | 2 |
@@ -47,6 +47,7 @@ A person describes the workspace once, in `.workbench/config.yml`.
 | C10 | Check every cross-reference: project ids, binaries, services, stacks, networks | R1 | Decided | `check`, `index` |
 | C11 | Runtime scope for local dependencies | Later | Decided | `dependencies.local[].scope` |
 | C12 | Declare external services that no compose file describes | Later | Decided | not designed |
+| C14 | Declare a binary's framework and its app object by hand, when the compose command and the entry file cannot tell. The project's `framework` is the default for its binaries | R1 | Open | `binaries[].framework`, `binaries[].app`, `projects[].framework` |
 | C13 | Read and check `mcp/config.yml` and the context files: every field, every default, and that each project named under `branches` exists | R3 | Decided | `check`, `mcp` |
 
 ## W. Workspace indexing
@@ -86,6 +87,12 @@ The indexer turns the configuration, the dependency manager files and the compos
 | I11 | Resolve references with a language server, started inside the project's own environment | Later | Decided | `lsp` and `projects[].environment` fields, reserved |
 | I12 | Parse Go | Later | Decided | `projects[].language` |
 | I13 | Write node summaries with an LLM | Later | Decided | its own command, not designed |
+| I14 | Read every Python definition and its details: protocols, enums, parameters, fields, type aliases, visibility, annotations, defaults. See [python-parsing.md](./python-parsing.md#the-language-core) | R1 | Open | `index`, `node` |
+| I15 | Read every Python reference: base classes as extends or implements, overrides, types in annotations, functions used as values, `__all__`. Resolve through re-exports, annotated receivers and one step of local inference | R1 | Open | `index`, `callers`, `impact` |
+| I16 | Decide each binary's framework and app before parsing: from the configuration, else the compose command, else the entry file, else none. Warn when they disagree. A framework's rules still read every file that imports it | R1 | Open | `binaries[].framework`, `binaries[].app`, `index`, `node`, `status` |
+| I17 | Plain Python binary: its start through module-level code, the main guard, `python -m` and callbacks, and the code it reaches | R1 | Open | `index`, `neighbors`, `impact` |
+| I18 | FastAPI: apps, routers, routes, mounts, providers, parameter sources, models, middleware and hooks. A route's full path and its binary are derived | R1 | Open | `index`, `node`, `query --kind route`, `impact` |
+| I19 | More Python framework profiles: Flask, Django, Celery, Click, Typer, pytest fixtures | Later | Decided | `index` |
 
 ## G. Graph model
 
@@ -103,6 +110,8 @@ Explained in [graph-model.md](./graph-model.md) and specified, with the rules to
 | G8 | File records with a content hash and a parse status; unresolved references with their own identity | R1 | Decided | 1D |
 | G9 | A confidence score on inferred edges | Later | Decided | none |
 | G10 | A checkout for each project: the branch and commit the graph was built from | R1 | Decided | 1D |
+| G11 | Node data typed per kind, and checked against what the node's language can express | R1 | Open | 1B |
+| G12 | Edge kinds for frameworks: `Mounts` with its prefix, `Handles`, `Injects`, each with rules for the node kinds it joins | R1 | Open | 1C, 1E |
 
 ## S. Storage
 
@@ -212,6 +221,7 @@ Behaviour that every command shares.
 
 | Rows | What needs deciding |
 |---|---|
+| C14, I14 to I18, G11, G12 | Comprehensive Python and the FastAPI profile. Proposed in [python-parsing.md](./python-parsing.md), with its own [open points](./python-parsing.md#open-points): language on nodes, a route's full path stored or derived, FastAPI in Release 1, new edge kinds or reuse |
 | K2 | How a skill reaches the AI tool. Proposed: as an MCP prompt and as an MCP resource |
 | O5 to O9 | The operational tools: their names, arguments and limits. The list is a proposal drafted from the sample context file |
 | O2 | Whether a context file may hold a password. The sample allows `ssh.password`; the workspace configuration forbids secrets in files |

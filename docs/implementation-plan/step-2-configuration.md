@@ -136,6 +136,11 @@ pub struct Project {
     pub dependencies: Dependencies, pub binaries: Vec<Binary>,
     pub links: Vec<Link>, pub compose: Option<ProjectStack>,
 }
+pub struct Binary {
+    pub name: String, pub entry: RelPath,
+    pub framework: Option<Framework>,  // Fastapi | Angular | None; the project's when absent
+    pub app: Option<AppRef>,           // module:attribute; only with Fastapi
+}
 pub struct Link { pub target: LinkTarget, pub via: Via, pub binary: Option<String>, pub note: Option<String> }
 pub enum LinkTarget { Service { name: String, stack: Option<ComposeName> }, Project(ProjectId) }
 pub enum Via { Http, Grpc, Database, Topic { name: String, role: Role }, Queue { name: String, role: Role } }

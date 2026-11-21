@@ -42,11 +42,19 @@ projects:
         - project: shared-api  # required; a project id in this file, and not this project
           scope: build         # optional: build | dev. Default: build. Roadmap: runtime
           note: imported only through a plugin loader   # optional, free text
+    framework: fastapi         # optional; the default framework of this project's binaries.
+                               # python: fastapi | none; typescript: angular | none. Default: decided per binary
     binaries:                  # optional; hand-written, never detected
       - name: api              # required; unique within the project
-        entry: src/billing/api.py     # required; relative to the project; the file must exist
+        entry: src/billing/main.py    # required; relative to the project; the file must exist
+        framework: fastapi     # optional; overrides the project's `framework`. Default: read from a compose
+                               # command that runs this binary, else from the entry file, else none
+        app: billing.app:create_app   # optional, fastapi only; the app as module:attribute, as uvicorn writes it.
+                               # An app object or a function that returns one. Needed only when neither a
+                               # compose command nor the entry file names it, such as an app factory
       - name: worker
         entry: src/billing/worker.py
+        framework: none        # a plain binary; this overrides the project's fastapi
     links:                     # optional; runtime links the code does not reveal, hand-written
       - service: kafka         # the target: exactly one of `service` or `project`. A service is named as in a compose file
         stack: billing-stack   # with `service` only: the Compose name of the target's stack, needed when
@@ -88,7 +96,7 @@ projects:
   - id: web-app
     path: ../shared/web        # may sit outside the workspace root
     language: typescript
-    framework: angular         # optional; angular only for now, and only with typescript
+    framework: angular         # optional; the default for this project's binaries; as on billing-api above
     dependency_manager: pnpm
     dependencies:
       discover: false          # use only what is listed under `local`

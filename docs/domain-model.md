@@ -2,7 +2,7 @@
 
 The types of the knowledge graph and the rules they must keep. This is the page to implement against and to validate against.
 
-[graph-model.md](./graph-model.md) explains why the model looks this way. This page says exactly what it is. [storage-model.md](./storage-model.md) says how it is kept in SQLite. [python-parsing.md](./python-parsing.md) says what Python fills in, and how the two stages of an index produce the call sites, local bindings, inferred types and reach defined here. Terms are defined in [GLOSSARY.md](./GLOSSARY.md). The running example is the [Acme Shop workspace](./example-workspace.md).
+[graph-model.md](./graph-model.md) explains why the model looks this way. This page says exactly what it is. [storage-model.md](./storage-model.md) says how it is kept in SQLite. [python-parsing.md](./python-parsing.md) says what Python fills in, and how the two stages of an index produce the call sites, bindings, returns, inferred types, route paths, HTTP matches and reach defined here. Terms are defined in [GLOSSARY.md](./GLOSSARY.md). The running example is the [Acme Shop workspace](./example-workspace.md).
 
 > **Nothing here is written yet.** The types belong in `src/domain`. They depend on nothing outside it: no SQLite, no parser, no configuration loader.
 
@@ -117,9 +117,9 @@ The fields:
 | `return_type`, `declared_type` | text, optional | The annotation as written |
 | `default` | text, optional | A default value as written, cut at 80 characters |
 | `source` | `ParamSource`, optional | `Parameter` only: `Path`, `Query`, `Header`, `Cookie`, `Body`, `Form` or `File` |
-| `role` | `FrameworkRole`, optional | What a framework makes of the node, when the node's own file shows it: `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture` (pytest) or `Model` |
+| `role` | `FrameworkRole`, optional | What a framework makes of the node, when the node's own file shows it: `App`, `Router { prefix, tags }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture` (pytest) or `Model` |
 | `method` | `HttpMethod` | `Get`, `Post`, `Put`, `Patch`, `Delete`, `Head`, `Options`, `Trace` or `WebSocket` |
-| `path` | text, optional | A route's local path, as written. Empty when it is not a literal |
+| `path` | `Template` | A route's local path: text, a name whose text stage 2b works out, or unknown |
 | `status_code` | number, optional | |
 | `tags` | list of text | Defaults to empty |
 
@@ -203,8 +203,8 @@ The data is part of the kind, so a kind can never carry another kind's data.
 | `Imports` | `specifier`: the import as written. `alias`: the local name it is bound to, optional. `type_only`: true when the import only serves type checking, such as Python's `if TYPE_CHECKING:` |
 | `DependsOn` | `scope`: `Build` or `Dev` |
 | `ConnectsTo` | `protocol`: `Http`, `Grpc` or `Database` |
-| `Mounts` | `prefix`: the path prefix the mount adds, optional. A `Prefix` is `Literal(text)`, or `Unknown` when the code gives it by an expression |
-| `Requests` | `method`: the HTTP method of the call. `path`: the path as written in the call, with unknown parts as `{?}` |
+| `Mounts` | `prefix`: the path prefix the mount adds, a `Template`, optional. `tags`: the tags the mount adds |
+| `Requests` | `method`: the HTTP method of the call. `path`: the call's path, with what stage 2b could fill in filled, and unknown parts as `{?}` |
 | The other twenty-one | none |
 
 ### Provenance
@@ -243,7 +243,7 @@ Provenance says where the facts came from. `resolved_by` says which rule connect
 
 ### Framework edges
 
-Four code edge kinds hold what a web framework does with code, and what calls it over HTTP. `Mounts`, `Handles` and `Injects` are made by resolving a reference a framework profile records, so each has `resolved_by: Framework`. `Requests` is made by matching an HTTP client call to a route path, so it has `resolved_by: RouteMatch`.
+Four code edge kinds hold what a web framework does with code, and what calls it over HTTP. `Mounts`, `Handles` and `Injects` are made by resolving a reference a framework profile records, so each has `resolved_by: Framework`. `Requests` is made by matching an HTTP client call to a route path, so it has `resolved_by: RouteMatch`. An `Injects` edge from an app or router that has the same site as a `Mounts` edge from that node was given at the mount, and applies only to routes reached through it.
 
 | Kind | From | To | Data | Says | Read by |
 |---|---|---|---|---|---|
@@ -267,7 +267,7 @@ Four code edge kinds hold what a web framework does with code, and what calls it
 | E9 | A `Binary` has exactly one `EntryPoint`, and it leads to a `File` of the same project | Graph |
 | E10 | A `Runs` edge leads to a binary of the project whose folder the service is built from | Graph |
 | E11 | A framework edge joins only these: `Mounts` from a `Variable` with role `App` or `Router` to such a `Variable` or to a `Route`. `Handles` from a `Route` to a `Function` or `Method`. `Injects` from a `Function`, `Method`, `Route` or `Variable` with role `Router` to a `Function`, `Method` or `Class`. `Requests` from a `Function`, `Method` or `File` to a `Route` | Graph |
-| E12 | An edge with `resolved_by: Flow` starts at a callable, or a node inside one, whose callable has at least one parameter with an [inferred type](#inferred-type) | Graph |
+| E12 | An edge with `resolved_by: Flow` rests on at least one [inferred type](#inferred-type): of a parameter of its callable, of the return of a function its receiver came from, of a field, or of a name bound more than once | Graph |
 | E13 | `resolved_by` is given only on a code edge with provenance `TreeSitter` or `Scip`. `Flow` is given only on `Calls` and `Instantiates`. `Framework` is given only on `Mounts`, `Handles` and `Injects`, and those three always have it. `RouteMatch` is given only on `Requests`, and `Requests` always has it | Build |
 
 ## The containment tree
@@ -332,7 +332,7 @@ A name the parser saw and could not yet connect to a node: a call, an import, a 
 
 ## Call site
 
-One call expression, with its arguments as written. Stage 1 records it from the call's own file, and it is replaced with its file. Stage 2 uses it to carry types from callers.
+One call expression, with its arguments as written. Stage 1 records it from the call's own file, and it is replaced with its file. Stage 2 uses it to carry types and text through calls, and to find HTTP calls.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -346,11 +346,16 @@ An `Argument` is a `position` (from 0) or a `keyword`, and a `Shape`. A `Shape` 
 | Shape | Written as |
 |---|---|
 | `Call(name)` | A call of a name: `Invoice(...)`, `make_invoice()`. Resolution decides whether it creates an instance of a class or calls a function |
-| `Name(name)` | A bare or dotted name: `repo`, `self.repo` |
+| `Name(name)` | A bare or dotted name: `repo`, `self.repo`, `settings.API_PREFIX` |
 | `Text(value)` | A string literal, with its value |
-| `Template(value)` | An f-string, or strings joined with `+`, with each unknown part written `{?}` |
-| `Literal(kind)` | Any other literal: number, bytes, bool, `None`, list, dict, set or tuple |
+| `Template(parts)` | An f-string, `str.format` on a literal, or strings joined with `+`. Each part is `Text(value)`, `Hole(name)` for a bare or dotted name, or `Unknown` |
+| `Item(name, accessor)` | An element of a named value. `accessor` is `Iter` (a `for` target), `Index` (a subscript), `Keys`, `Values` or `Items`, for iteration over those methods of a dict |
+| `Collection(kind, elements)` | A `List`, `Set`, `Tuple` or `Dict` literal or comprehension, with the shapes of its elements (the values, for a dict) |
+| `Spread(name)` | `*name` or `**name` passed as an argument |
+| `Literal(kind)` | Any other literal: number, bytes, bool or `None` |
 | `Other` | Anything else |
+
+A `Template` is also the type of a route's local path and of a prefix (`Mounts`, `Router`): text, or a name whose text stage 2b works out, or unknown.
 
 | Id | Rule | Enforced |
 |---|---|---|
@@ -358,38 +363,55 @@ An `Argument` is a `position` (from 0) or a `keyword`, and a `Shape`. A `Shape` 
 | C2 | Each argument has a position or a keyword, never both. Positions run from 0 without a gap | Build |
 | C3 | No two call sites share `from` and `site` | Graph |
 
-## Local binding
+## Binding
 
-One name assigned inside a function, with the shape of its value. Stage 1 records it from its own file, and it is replaced with its file.
+One assignment of a name, with the shape of its value. Stage 1 records one per assignment, from its own file, and they are replaced with their file. A `for` target and a `with ... as` target are bindings too.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `in` | `NodeId` | The function or method |
-| `name` | text | The name assigned |
-| `shape` | `Shape` | The shape of the first value assigned |
-| `assigned_once` | flag | True when the name is assigned exactly once in the function |
+| `in` | `NodeId` | Where the name lives: the `File` for a module-level name, the `Function` or `Method` for a local name, the `Class` for `self.<name> = ...` in any of its methods and for a class attribute |
+| `name` | text | The name assigned, without `self.` |
+| `site` | `Site` | Where the assignment is. For a value of shape `Call`, the call site of the same place holds its arguments, such as a client's `base_url` |
+| `shape` | `Shape` | The shape of the value |
+
+A name is bound once when it has exactly one binding in its `in`.
 
 | Id | Rule | Enforced |
 |---|---|---|
-| L1 | `in` is a `Function` or `Method` node in the graph | Graph |
+| L1 | `in` is a `File`, `Function`, `Method` or `Class` node in the graph | Graph |
 | L2 | `name` is not empty | Build |
-| L3 | No two bindings share `in` and `name` | Graph |
+| L3 | No two bindings share `in`, `name` and `site` | Graph |
+
+## Return
+
+One way a function or method returns, with the shape of its value. A bare `return` is a return of `None`, and so is the end of a body that can be reached without a `return` or a `raise`. Stage 1 records them from their own file, and they are replaced with their file.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `in` | `NodeId` | The `Function` or `Method` |
+| `site` | `Site` | The `return`, or the last line of a body that can end without one |
+| `shape` | `Shape` | The shape of the value returned |
+
+| Id | Rule | Enforced |
+|---|---|---|
+| B1 | `in` is a `Function` or `Method` node in the graph | Graph |
+| B2 | No two returns share `in` and `site` | Graph |
 
 ## Inferred type
 
-A parameter's class, carried from its callers by stage 2b. It exists only when every call site in the workspace agrees.
+A node's class, worked out by stage 2b. It exists only when all of the node's evidence agrees.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `parameter` | `NodeId` | The `Parameter` |
-| `class` | `NodeId` | The class every call site passes |
-| `call_sites` | number | How many call sites agreed |
+| `node` | `NodeId` | A `Parameter` (evidence: its call sites), a `Function` or `Method` (its returns), a `Field` (its bindings), or a `Variable` or `Constant` bound more than once (its bindings) |
+| `class` | `NodeId` | The class all of the evidence gives |
+| `evidence` | number | How many call sites, returns or bindings agreed |
 
 | Id | Rule | Enforced |
 |---|---|---|
-| Y1 | `parameter` is a `Parameter` node, and `class` is a `Class`, `Protocol` or `Enum` node | Graph |
-| Y2 | At most one inferred type per parameter | Graph |
-| Y3 | `call_sites` is at least 1 | Build |
+| Y1 | `node` is a `Parameter`, `Function`, `Method`, `Field`, `Variable` or `Constant` node, and `class` is a `Class`, `Protocol` or `Enum` node | Graph |
+| Y2 | At most one inferred type per node | Graph |
+| Y3 | `evidence` is at least 1 | Build |
 | Y4 | Every index removes all inferred types and every edge with `resolved_by: Flow`, and writes the ones it computed | Indexer |
 
 ## Reach
@@ -416,8 +438,11 @@ One full path of a route, and the binary that serves it, found by stage 2c. A ro
 | `route` | `NodeId` | The `Route` |
 | `binary` | `NodeId`, optional | The FastAPI binary whose `app` the mounts lead to. Empty when no binary names that app |
 | `method` | `HttpMethod` | The route's method |
-| `full_path` | text | The prefixes and the local path, joined. A part that is not a literal is written `{?}` |
+| `full_path` | text | The prefixes and the local path, joined, with names filled in by stage 2b. A part whose value exists only at run time is written `{?}` |
 | `complete` | flag | True when no part is unknown |
+| `uses_defaults` | flag | True when a part was filled from a settings default, which the environment may change |
+| `providers` | list of `NodeId` | The providers that run for this path: from the route, its handler, each router and app on the chain, and each mount on the chain |
+| `tags` | list of text | The tags of the route, its routers and its mounts |
 
 | Id | Rule | Enforced |
 |---|---|---|
@@ -425,6 +450,7 @@ One full path of a route, and the binary that serves it, found by stage 2c. A ro
 | U2 | `complete` is true exactly when `full_path` holds no `{?}` | Build |
 | U3 | No two route paths share `route`, `binary` and `full_path` | Graph |
 | U4 | Every index removes all route paths and writes the ones it computed | Indexer |
+| U5 | Every provider is a `Function`, `Method` or `Class` node | Graph |
 
 ## Unmatched HTTP call
 
@@ -479,7 +505,7 @@ Something the indexer noticed that does not stop the run. The warnings of the la
 | `FrameworkMismatch` | The configuration or a compose command names one framework for a binary, and its entry file builds another, or names none while it builds an app | The binary |
 | `FrameworkAppNotFound` | A FastAPI binary's `app` names no node, or a node that is not an app or a function that returns one | The binary |
 | `EntryCommandMismatch` | A compose command runs a module other than the binary's configured entry | The binary |
-| `FlowRoundLimit` | Carrying types from callers stopped at its round limit before it settled | none |
+| `FlowRoundLimit` | Carrying types and text through calls stopped at its round limit before it settled | none |
 | `HttpCallWithoutLink` | An HTTP call matches a route served by a binary of another project, and the caller declares no `http` link to a service that runs that binary | The node the call is in |
 
 | Id | Rule | Enforced |
@@ -498,7 +524,7 @@ The model maps to SQLite as one table per type, with one column per field. This 
 | `edges` | One row per edge | The data of a kind has its own typed columns, empty for the twenty-one kinds that carry none. The table checks that each is filled in for its own kind only. Unique on source, target, kind and site |
 | `files` | One row per file record | |
 | `unresolved_refs` | One row per unresolved reference | |
-| `call_sites`, `local_bindings` | One row per call site, one per local binding | Replaced with their file |
+| `call_sites`, `bindings`, `returns` | One row per call site, binding and return | Replaced with their file |
 | `inferred_types`, `reach`, `route_paths`, `unmatched_http_calls` | One row per record | Replaced at every index, with the edges resolved by `Flow` and `RouteMatch` |
 | `warnings` | One row per warning of the last index | |
 | `project_checkouts` | One row per project checkout | |

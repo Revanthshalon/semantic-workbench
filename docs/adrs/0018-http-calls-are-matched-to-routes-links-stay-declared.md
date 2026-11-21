@@ -18,6 +18,6 @@ ADR 0004 put every runtime link in the configuration, because a wrong edge costs
 - Declared `http` links narrow a call's candidates to the routes served by the linked services. Code and configuration check each other.
 - A call that matches a route served by another project's binary, with no declared link to it, raises the `HttpCallWithoutLink` warning, which names the link to add.
 - `TestClient(app)` calls are matched within that app, so API tests reach the handlers they test, and `impact --tests` finds them.
-- Calls made through your own helper functions are not matched in Release 1. Callers in TypeScript come with TypeScript parsing in Release 2. Topics and queues in code stay Later (W11).
+- Calls made inside your own helper functions and client classes are matched too: stage 2b carries the path text to each caller, and the edge starts at the caller. Callers in TypeScript come with TypeScript parsing in Release 2. Topics and queues in code stay Later (W11).
 
 Details: [python-parsing.md](../python-parsing.md#stage-2d-match-http-calls-to-routes), [graph-model.md](../graph-model.md#13-http-calls-in-code-are-matched-to-routes-and-links-stay-declared).

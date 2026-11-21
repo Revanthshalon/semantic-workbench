@@ -160,7 +160,8 @@ storage:
 # ---------------------------------------------------------------------------------------------
 analysis:
   flow_rounds: 10              # optional; default 10; a whole number from 0 to 100. How many call levels
-                               # a type is carried from callers into parameters that have no annotation.
+                               # types and text are carried through calls: types into unannotated parameters,
+                               # returns and fields, text into the paths of HTTP calls made inside helpers.
                                # 0 turns it off. `status` warns when the limit stopped it early
 
 # ---------------------------------------------------------------------------------------------

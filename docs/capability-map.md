@@ -48,7 +48,7 @@ A person describes the workspace once, in `.workbench/config.yml`.
 | C11 | Runtime scope for local dependencies | Later | Decided | `dependencies.local[].scope` |
 | C12 | Declare external services that no compose file describes | Later | Decided | not designed |
 | C14 | Declare a binary's framework and its app object by hand, when the compose command and the entry file cannot tell. A framework is set on a binary only, never on a project | R1 | Decided | `binaries[].framework`, `binaries[].app` |
-| C15 | Set how many call levels a type is carried from callers, from 0 (off) to 100. Default 10 | R1 | Decided | `analysis.flow_rounds` |
+| C15 | Set how many call levels types and text are carried through calls, from 0 (off) to 100. Default 10 | R1 | Decided | `analysis.flow_rounds` |
 | C13 | Read and check `mcp/config.yml` and the context files: every field, every default, and that each project named under `branches` exists | R3 | Decided | `check`, `mcp` |
 
 ## W. Workspace indexing
@@ -70,7 +70,7 @@ The indexer turns the configuration, the dependency manager files and the compos
 | W11 | Find topics and queues in source code | Later | Decided | not designed |
 | W12 | Suggest runtime links with an LLM, stored as inferred edges until confirmed | Later | Decided | its own command, not designed |
 | W13 | Record the branch and commit each project is on, read from its own `.git` folder | R1 | Decided | `index`, `status` |
-| W14 | Find HTTP client calls in Python code (`httpx`, `requests`, `aiohttp`, FastAPI's `TestClient`) and match each to the route it calls, across projects. Declared links narrow the candidates; a cross-project match with no declared link is a warning. See [python-parsing.md](./python-parsing.md#stage-2d-match-http-calls-to-routes) | R1 | Decided | `index`, `node`, `impact`, `status` |
+| W14 | Find HTTP client calls in Python code (`httpx`, `requests`, `aiohttp`, `websockets`, `urllib`, FastAPI's `TestClient`), including calls made inside helpers and client classes, and match each to the route it calls, across projects. Declared links narrow the candidates; a cross-project match with no declared link is a warning. See [python-parsing.md](./python-parsing.md#stage-2d-match-http-calls-to-routes) | R1 | Decided | `index`, `node`, `impact`, `status` |
 
 ## I. Code indexing
 
@@ -89,13 +89,13 @@ The indexer turns the configuration, the dependency manager files and the compos
 | I11 | Resolve references with a language server, started inside the project's own environment | Later | Decided | `lsp` and `projects[].environment` fields, reserved |
 | I12 | Parse Go | Later | Decided | `projects[].language` |
 | I13 | Write node summaries with an LLM | Later | Decided | its own command, not designed |
-| I14 | Read every Python definition and its details: protocols, enums, parameters, fields, type aliases, visibility, annotations, defaults. See [python-parsing.md](./python-parsing.md#the-language-core) | R1 | Decided | `index`, `node` |
+| I14 | Read every Python definition and its details: stub files (`.pyi`), protocols, enums, parameters, fields, type aliases, visibility, annotations, defaults. See [python-parsing.md](./python-parsing.md#the-language-core) | R1 | Decided | `index`, `node` |
 | I15 | Read every Python reference: base classes as extends or implements, overrides, types in annotations, functions used as values, `__all__`, imports that only serve type checking. Resolve through re-exports, annotated receivers and one step of local inference | R1 | Decided | `index`, `callers`, `impact` |
 | I16 | Decide each binary's framework and app before parsing: from the configuration, else the compose command, else the entry file, else none. Warn when they disagree. A framework's rules still read every file that imports it | R1 | Decided | `binaries[].framework`, `binaries[].app`, `index`, `node`, `status` |
 | I17 | Plain Python binary: its start through module-level code, the main guard, `python -m` and callbacks, and the code it reaches | R1 | Decided | `index`, `neighbors`, `impact` |
 | I18 | FastAPI: apps, routers, routes, mounts, providers, parameter sources, models, middleware and hooks. A route's full paths and the binaries that serve them are computed after reading and stored, so search finds them | R1 | Decided | `index`, `node`, `query --kind route`, `impact` |
 | I19 | More Python framework profiles: Flask, Django, Celery, Click, Typer | Later | Decided | `index` |
-| I20 | Carry types from callers: a parameter with no annotation takes the class that every call site in the workspace passes, and the calls on it are resolved, each marked as resolved by `flow`. Up to 10 call levels by default (`analysis.flow_rounds`). See [python-parsing.md](./python-parsing.md#stage-2b-carry-types-from-callers) | R1 | Decided | `index`, `callers`, `callees`, `node` |
+| I20 | Carry types and text through calls: parameters typed by every caller, return types, field types, names bound more than once, element types of collections and dicts, `*args` forwarding, and the text of values, carried to callers of helpers and into client classes. Calls on them resolve, marked as resolved by `flow`. Up to 10 call levels by default (`analysis.flow_rounds`). See [python-parsing.md](./python-parsing.md#stage-2b-carry-types-and-text-through-calls) | R1 | Decided | `index`, `callers`, `callees`, `node` |
 | I21 | Reach: which binaries, named modules and tests may run each code node, from their entries over resolved edges; and the files no root reaches. See [python-parsing.md](./python-parsing.md#stage-2e-reach) | R1 | Decided | `index`, `node`, `files --unreached`, `impact` |
 | I22 | pytest: test functions, and fixtures followed by name, with `usefixtures` and `autouse`. See [python-parsing.md](./python-parsing.md#tests) | R1 | Decided | `index`, `impact --tests` |
 

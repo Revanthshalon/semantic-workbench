@@ -18,7 +18,7 @@ Following the code from each binary's entry file, and reading only what it reach
 
 ## Consequences
 
-- Stage 1 also records each call's arguments and each local name's value, by their shape, so stage 2 needs no file.
+- Stage 1 also records each call's arguments, each assignment's value and each return's value, by their shape, so stage 2 needs no file.
 - Stage 2 runs in full at every index. Its results (edges resolved by `flow`, inferred types, reach, route paths) are deleted and written again in the same transaction. Running it only from what changed is Later.
 - "Not reached" means not reached through resolved edges. It is a hint, never proof that code is dead.
 

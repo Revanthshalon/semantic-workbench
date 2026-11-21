@@ -102,7 +102,7 @@ Builds the graph, or brings it up to date.
 - A file whose content is unchanged since the last run is skipped.
 - A changed file has its old nodes and edges removed and is read again.
 - The workspace layer (projects, dependencies, compose files, networks, links) is rebuilt on every run. It is small. Each binary's framework is decided here, before any code is read: from its `framework` in the configuration, else a compose command that runs it, else its entry file.
-- Every file is read, whether or not a binary reaches it. Once all files are in, the index analyses the whole graph without reading files again: it resolves references, carries types from callers to parameters that have no annotation, and records which binaries and tests reach each node. This analysis runs in full on every index. [python-parsing.md](./python-parsing.md#how-the-graph-is-built) describes it.
+- Every file is read, whether or not a binary reaches it. Once all files are in, the index analyses the whole graph without reading files again: it resolves references, carries types and text through calls (so unannotated parameters, returns and fields get a class, and HTTP calls made inside helpers get their paths), matches HTTP calls to routes, and records which binaries and tests reach each node. This analysis runs in full on every index. [python-parsing.md](./python-parsing.md#how-the-graph-is-built) describes it.
 - Files that `.gitignore` excludes are never read, nor are `.git`, `node_modules`, `.venv` and `.workbench`, nor anything a project's `exclude` patterns match.
 - One `index` runs at a time per workspace; a second one stops with an error. Queries and the MCP server keep working while it runs, and see the graph as it was until it finishes.
 - An index that fails changes nothing.
@@ -177,7 +177,7 @@ Some kinds show more:
 | Node | Also shows |
 |---|---|
 | Any code node | `reached by`: the binaries, named modules and tests that may run it |
-| A parameter | `inferred`: the class its callers pass, and how many call sites agreed, when every caller agrees |
+| A parameter, function, field or variable | `inferred`: the class worked out for it, and how many call sites, returns or bindings agreed, when all of them agree |
 | A function | Its HTTP calls: each matched route, or the candidates of a call that could not be matched to one |
 | A route | Its callers over HTTP, and its full paths, such as `GET /v1/invoices/{invoice_id}`, with the binaries that serve them. A part that the code computes is shown as `{?}`, and that path is marked incomplete |
 | A binary | Its framework, where that came from, its app, and how many files and nodes it reaches |

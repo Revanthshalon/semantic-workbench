@@ -46,7 +46,7 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 | 1A | Value types: `NodeId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash`, `Span`, `Site` | | [domain-model.md](../domain-model.md#value-types) |
 | 1B | `Node`, its kinds, scope, origin, identity and data. Rules N1 to N5, N8 to N10 | 1A | [domain-model.md](../domain-model.md#node) |
 | 1C | `Edge`, its kinds and data, provenance with `Flow`. Rules E1 to E4 | 1A | [domain-model.md](../domain-model.md#edge) |
-| 1D | `FileRecord`, `UnresolvedReference`, `CallSite`, `LocalBinding`, `InferredType`, `Reach`, `Warning`, `ProjectCheckout`. Rules C2, L2, Y3 | 1A | [domain-model.md](../domain-model.md#file-record) |
+| 1D | `FileRecord`, `UnresolvedReference`, `CallSite`, `Binding`, `Return`, `InferredType`, `Reach`, `Warning`, `ProjectCheckout`. Rules C2, L2, Y3, M2 | 1A | [domain-model.md](../domain-model.md#file-record) |
 | 1E | `Graph`, `validate` with every Graph rule, and the Acme Shop fixture | 1B, 1C, 1D | [domain-model.md](../domain-model.md#validating-an-implementation) |
 | C0 | Contracts: the ports, the query result types, `MemoryStore`, the shared store tests, every crate | 1E | [below](#slice-c0-contracts) |
 | 2A | Find the workspace | | [step 2](./step-2-configuration.md) |
@@ -200,12 +200,12 @@ Later slices use these names. A slice that has to change one changes it here in 
 | `NodeData`, `ProjectData`, `BinaryData`, `Callable`, `TypeDecl`, `Member`, `RouteData`, `Doc` | The data a node kind carries |
 | `Framework`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `Fastapi`, `Angular`, `None`; `Declared`, `Compose`, `Entry`; `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
 | `Edge`, `EdgeKind`, `Provenance`, `Site` | An edge. `EdgeKind` carries its data: `Imports { specifier, alias, type_only }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix }`, `Requests { method, path }`. An edge made by resolution records `resolved_by: Option<Resolution>` |
-| `Resolution`, `Prefix` | `Import`, `SelfMember`, `SameFile`, `Project`, `CrossProject`, `ReExport`, `Annotation`, `LocalInference`, `Inherited`, `Flow`, `Framework`, `RouteMatch`; `Literal(String)` or `Unknown` |
+| `Resolution`, `Template` | `Import`, `SelfMember`, `SameFile`, `Project`, `CrossProject`, `ReExport`, `Annotation`, `LocalInference`, `Inherited`, `Flow`, `Framework`, `RouteMatch`; parts `Text(String)`, `Hole(String)` or `Unknown`, for a route's path, a prefix and a template value |
 | `DependencyScope`, `Protocol` | `Build` or `Dev`; `Http`, `Grpc` or `Database` |
 | `Language`, `DependencyManager` | `Python`, `TypeScript`; `Uv`, `Poetry`, `Npm`, `Pnpm`, `Yarn`, `Bun` |
 | `FileRecord`, `ParseStatus` | A file record |
 | `UnresolvedReference` | A reference waiting to be resolved |
-| `CallSite`, `Argument`, `Shape`, `LocalBinding` | What stage 1 records about calls and local names |
+| `CallSite`, `Argument`, `Shape`, `Binding`, `Return` | What stage 1 records about calls, assignments and returns |
 | `InferredType`, `Reach`, `Root`, `RoutePath`, `UnmatchedHttpCall` | What stage 2 computes |
 | `Warning`, `WarningCode` | A warning |
 | `ProjectCheckout` | A project's branch and commit |
@@ -247,7 +247,7 @@ pub trait IndexWriter {
     async fn unresolved(&mut self) -> Result<Vec<UnresolvedReference>, StoreError>;
     async fn resolve(&mut self, reference: &UnresolvedReference, edge: Edge) -> Result<(), StoreError>;
     async fn rebuild_workspace_layer(&mut self, layer: WorkspaceLayer) -> Result<(), StoreError>;
-    async fn call_sites(&mut self) -> Result<(Vec<CallSite>, Vec<LocalBinding>), StoreError>;
+    async fn call_sites(&mut self) -> Result<(Vec<CallSite>, Vec<Binding>, Vec<Return>), StoreError>;
     async fn replace_analysis(&mut self, analysis: Analysis) -> Result<(), StoreError>;
     async fn commit(self) -> Result<(), StoreError>;
 }
@@ -260,7 +260,7 @@ pub trait IndexWriter {
 | `NodeFilter` | `{ kinds: Vec<NodeKind>, project: Option<ProjectId> }` |
 | `FileFilter` | `{ project: Option<ProjectId>, status: Option<ParseStatus> }` |
 | `FileRef` | `{ project: ProjectId, path: RelPath }` |
-| `ParsedFile` | `{ record: FileRecord, nodes: Vec<Node>, edges: Vec<Edge>, unresolved: Vec<UnresolvedReference>, call_sites: Vec<CallSite>, bindings: Vec<LocalBinding> }` |
+| `ParsedFile` | `{ record: FileRecord, nodes: Vec<Node>, edges: Vec<Edge>, unresolved: Vec<UnresolvedReference>, call_sites: Vec<CallSite>, bindings: Vec<Binding>, returns: Vec<Return> }` |
 | `Analysis` | `{ flow_edges: Vec<Edge>, flow_resolved: Vec<ReferenceId>, inferred: Vec<InferredType>, reach: Vec<Reach>, route_paths: Vec<RoutePath>, requests: Vec<Edge>, unmatched_http_calls: Vec<UnmatchedHttpCall>, warnings: Vec<Warning> }`, the results of stage 2. `search` also matches route paths. `replace_analysis` deletes the previous ones first |
 | `Counts` | `{ nodes: u64, edges: u64, files: u64 }` |
 | `StoreMeta` | `{ format_version: u32, workbench_version: String, indexed_at: Option<String> }` |
@@ -289,7 +289,7 @@ pub trait LanguageParser {
     /// Reads only imports and module-level statements of a binary's entry file.
     fn probe_framework(&self, module_path: &str, source: &[u8]) -> Option<FrameworkProbe>;
 }
-pub struct ParsedSource { pub nodes: Vec<Node>, pub edges: Vec<Edge>, pub unresolved: Vec<UnresolvedReference>, pub call_sites: Vec<CallSite>, pub bindings: Vec<LocalBinding> }
+pub struct ParsedSource { pub nodes: Vec<Node>, pub edges: Vec<Edge>, pub unresolved: Vec<UnresolvedReference>, pub call_sites: Vec<CallSite>, pub bindings: Vec<Binding>, pub returns: Vec<Return> }
 pub struct FrameworkProbe { pub framework: Framework, pub app: Option<String> }
 ```
 

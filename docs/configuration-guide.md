@@ -270,7 +270,7 @@ Optional. How far `index` analyses the graph once every file is read. [python-pa
 
 | Field | Default | Meaning |
 |---|---|---|
-| `flow_rounds` | `10` | How many call levels a type is carried from callers into parameters that have no annotation. A whole number from `0` to `100`. `0` turns it off |
+| `flow_rounds` | `10` | How many call levels types and text are carried through calls: types into parameters, returns and fields that have no annotation, and text into the paths of HTTP calls made inside helpers. A whole number from `0` to `100`. `0` turns it off |
 
 - **Each round carries types one call deeper.** Most code settles in 2 to 4 rounds, and the analysis stops as soon as a round changes nothing.
 - **When the limit stops it early,** `index` and `status` warn, with the number of parameters still changing. Raise the number to carry types deeper, at the cost of a longer index.

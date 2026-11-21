@@ -113,7 +113,7 @@ Provenance says where the facts came from. A second field on every edge made by 
 
 | Considered | Outcome | Reason |
 |---|---|---|
-| A new provenance, `Flow`, for edges resolved by carrying types from callers | Rejected | It would explain only those edges, and mix "where the facts came from" with "which rule connected them" |
+| A new provenance, `Flow`, for edges resolved by types inferred in stage 2b | Rejected | It would explain only those edges, and mix "where the facts came from" with "which rule connected them" |
 | Mark those edges `Heuristic` | Rejected | They are never wrong within what the workspace shows, so `Heuristic` understates them |
 | Keep provenance coarse, and record `resolved_by` on every resolved edge | Adopted | Every edge can say why it is there |
 

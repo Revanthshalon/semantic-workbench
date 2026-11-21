@@ -6,7 +6,7 @@
 
 **Tech stack:** `toml`, the YAML crate of step 2.
 
-**Spec:** [example-workspace.md](../example-workspace.md), [graph-model.md](../graph-model.md), [configuration-guide.md](../configuration-guide.md) rules 14 to 19, [domain-model.md](../domain-model.md). Capabilities W1 to W9, W13, G10.
+**Spec:** [example-workspace.md](../example-workspace.md), [graph-model.md](../graph-model.md), [configuration-guide.md](../configuration-guide.md) rules 14 to 19, [domain-model.md](../domain-model.md), [python-parsing.md](../python-parsing.md#how-a-binarys-framework-is-decided). Capabilities W1 to W9, W13, G10, C14, I16.
 
 **Read first:** [00-overview.md](./00-overview.md).
 
@@ -14,7 +14,8 @@
 
 ## Global constraints
 
-- This step parses no source code. A binary's entry file gets a `File` node and a file record with `GrammarUnavailable`; step 5 replaces it when the language is parsed.
+- This step parses no source code, with one exception: each binary's entry file is probed for its framework, through `LanguageParser::probe_framework`, which reads only imports and module-level statements. A binary's entry file gets a `File` node and a file record with `GrammarUnavailable`; step 5 replaces it when the language is parsed.
+- A binary's framework is decided here, before any code is parsed, and stored on its node.
 - Nothing is run. Docker is never called, and compose files are only read.
 - A broken rule from 14 to 19 stops the index before anything is written. A warning never stops it.
 - The layer built here must pass `Graph::validate` with no violation.
@@ -38,6 +39,7 @@
 | `src/adapters/driven/parse/compose.rs` | Reading and merging compose files |
 | `src/use_cases/index/stacks.rs` | Compose names, network names, matching services |
 | `src/use_cases/index/workspace_layer.rs` | Building nodes, edges and warnings |
+| `src/use_cases/index/frameworks.rs` | Deciding each binary's framework and app |
 | `src/use_cases/index/mod.rs` | The `IndexWorkspace` use case |
 | `tests/fixtures/acme/` | The Acme Shop workspace as files |
 
@@ -51,7 +53,8 @@ Each slice is one pull request. The [overview](./00-overview.md#working-in-paral
 | 4B | 2 | 1A | `parse/compose.rs` |
 | 4C | 3 | C0 | `fs/files.rs`, `fs/git.rs` |
 | 4D | 4 | 2C, 4B | `index/stacks.rs` |
-| 4E | 5 | 1E, 2C, 4A, 4D | `index/workspace_layer.rs` |
+| 4H | 7 | C0, 2C, 4B | `index/frameworks.rs` |
+| 4E | 5 | 1E, 2C, 4A, 4D, 4H | `index/workspace_layer.rs` |
 | 4F | the fixture files | | `tests/fixtures/acme/` |
 | 4G | 6 | C0, 4C, 4E, 4F | `index/mod.rs` |
 
@@ -99,7 +102,7 @@ pub struct ComposeStack {
     pub networks: BTreeMap<String, ComposeNetwork>,
     pub skipped_keys: Vec<String>,
 }
-pub struct ComposeService { pub build_context: Option<String>, pub build_target: Option<String>, pub networks: Vec<String>, pub position: Span }
+pub struct ComposeService { pub build_context: Option<String>, pub build_target: Option<String>, pub command: Option<String>, pub networks: Vec<String>, pub position: Span }
 pub struct ComposeNetwork { pub name: NetworkName, pub external: bool }
 pub enum NetworkName { Stated(String), Unreadable(String), Unstated }
 
@@ -107,7 +110,7 @@ pub fn read_compose(files: &[(RelPath, String)]) -> Result<ComposeStack, Compose
 pub fn discover_compose_files(project_files: &[String]) -> Vec<String>;
 ```
 
-Files are merged in the order given: a later file adds services and networks and replaces a service's build target. `build: .` and `build: { context: . }` are the same. A service that lists no network joins `default`, and a `default` network exists even when the file does not declare it. A network name containing `${` is `Unreadable`.
+Files are merged in the order given: a later file adds services and networks and replaces a service's build target and command. A `command` written as a list is joined with spaces. `build: .` and `build: { context: . }` are the same. A service that lists no network joins `default`, and a `default` network exists even when the file does not declare it. A network name containing `${` is `Unreadable`.
 
 `discover_compose_files` returns the first of `compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml` that is present, followed by its override file when that is present too.
 
@@ -117,7 +120,8 @@ Files are merged in the order given: a later file adds services and networks and
 |---|---|
 | `acme_infrastructure_file` | Name `acme-infra`; `kafka` and `postgres` have no build context; network `backbone` is `Stated("acme-backbone")` |
 | `acme_billing_file` | `api` and `worker` have build targets `api` and `worker`, and each joins `default` and `backbone` |
-| `acme_ledger_file` | `backbone` is `Unreadable`; neither service has a build target |
+| `acme_ledger_file` | `backbone` is `Unreadable`; neither service has a build target; `consumer` has the command `python -m ledger.consumer` |
+| `list_command_is_joined` | `command: ["uvicorn", "billing.api:app"]` gives `uvicorn billing.api:app` |
 | `later_file_overrides_build_target` | The second file's target wins |
 | `later_file_adds_a_service` | Two services after the merge |
 | `service_without_networks_joins_default` | `networks == ["default"]` |
@@ -202,6 +206,7 @@ pub struct LayerInput<'a> {
     pub workspace_name: &'a str, pub config: &'a Config,
     pub manifests: &'a BTreeMap<ProjectId, Manifest>, pub stacks: &'a [ResolvedStack],
     pub checkouts: &'a BTreeMap<ProjectId, Checkout>, pub existing_entries: &'a BTreeSet<FileRef>,
+    pub frameworks: &'a BTreeMap<(ProjectId, String), DecidedFramework>,   // from task 7
 }
 pub fn build_workspace_layer(input: LayerInput<'_>) -> Result<WorkspaceLayer, Vec<ConfigProblem>>;
 ```
@@ -212,6 +217,7 @@ It builds every node and edge of the workspace layer as [domain-model.md](../dom
 - **Links:** `http` and `grpc` give `ConnectsTo`; `database` gives `ConnectsTo` with `Database`; a topic or queue gives the `Topic` or `Queue` node below the external service, once, and a `Publishes` or `Subscribes` edge. The source is the binary when the link names one, else the project.
 - **Network check:** for a link whose source binary runs in a service, and whose target is a service, the two must share a network with a known real name. If they share none, a `LinkWithoutSharedNetwork` warning. A source that runs in no service is on the host and is not checked.
 - **Entry files:** a `File` node and a `GrammarUnavailable` record for each binary's `entry`.
+- **Node data:** each `Project` node carries its configured `language`. Each `Binary` node carries the `framework`, `app` and `framework_source` decided by task 7, and that task's warnings are added to the layer's.
 - **Rules 17 to 19** of the configuration guide.
 
 **Tests:**
@@ -232,6 +238,52 @@ It builds every node and edge of the workspace layer as [domain-model.md](../dom
 
 **Commit:** `feat(index): build the workspace layer of the graph`
 
+## Task 7: Decide each binary's framework
+
+**Files:** create `src/use_cases/index/frameworks.rs`.
+
+**Produces:**
+
+```rust
+pub struct DecidedFramework { pub framework: Framework, pub app: Option<String>, pub source: FrameworkSource }
+pub struct FrameworkInput<'a> {
+    pub config: &'a Config,
+    pub commands: &'a BTreeMap<(ProjectId, String), Vec<String>>,   // compose commands of the services that run each binary
+    pub probes: &'a BTreeMap<(ProjectId, String), Option<FrameworkProbe>>,   // from LanguageParser::probe_framework on each entry
+}
+pub fn decide_frameworks(input: FrameworkInput<'_>) -> (BTreeMap<(ProjectId, String), DecidedFramework>, Vec<Warning>);
+```
+
+For each binary, the first source that gives an answer wins:
+
+1. The binary's `framework` and `app` in the configuration. Source `Declared`.
+2. A compose command of a service that runs the binary. `uvicorn <module>:<attr>`, `fastapi run <path>` and `gunicorn ... -k uvicorn.workers.UvicornWorker <module>:<attr>` give `Fastapi` and the app. Source `Compose`.
+3. The probe of the entry file. Source `Entry`.
+4. Otherwise `None`, source `Entry`.
+
+An `app` written as `module:attr` is stored as the qualified name `module.attr`.
+
+Warnings, each with the binary as subject:
+- `FrameworkMismatch`: a higher source names one framework, and the probe finds another, or finds an app when the higher source said `None`.
+- `EntryCommandMismatch`: a `python -m <module>` command names a module other than the configured entry's.
+
+`FrameworkAppNotFound` is raised by step 5, once the code is indexed and the app can be looked up.
+
+**Tests**, on values only:
+
+| Test | Asserts |
+|---|---|
+| `configuration_wins` | `framework: fastapi` in the configuration and no probe gives `Fastapi`, `Declared` |
+| `uvicorn_command_gives_fastapi_and_the_app` | `uvicorn billing.api:app` gives `app == "billing.api.app"`, `Compose` |
+| `gunicorn_with_uvicorn_worker_gives_fastapi` | `Compose` |
+| `entry_probe_gives_fastapi` | A probe with `app` and no other source gives `Entry` |
+| `nothing_gives_none` | `None`, `Entry` |
+| `configuration_none_with_an_app_in_the_entry_warns` | `None` and one `FrameworkMismatch` |
+| `module_command_against_another_entry_warns` | `python -m ledger.consumer` with entry `src/ledger/worker.py` gives one `EntryCommandMismatch` |
+| `acme_binaries` | Billing's `api` is `Fastapi` with `billing.api.app`; `worker` and ledger's `consumer` are `None`; `web-app`'s `admin` is `Angular`, `Declared` |
+
+**Commit:** `feat(index): decide each binary's framework`
+
 ## Task 6: The use case, end to end
 
 **Files:** create `src/use_cases/index/mod.rs`, `tests/fixtures/acme/`.
@@ -248,7 +300,7 @@ impl<S: GraphStore, F: Files, G: Git> IndexWorkspace<S, F, G> {
 }
 ```
 
-`run` loads the configuration, reads every manifest, compose file and checkout, builds the layer, runs `Graph::validate`, and writes with `begin_index`, `rebuild_workspace_layer` and `commit`. A problem or a violation returns `IndexError` before `begin_index`.
+`run` loads the configuration, reads every manifest, compose file and checkout, probes each binary's entry file, decides the frameworks, builds the layer, runs `Graph::validate`, and writes with `begin_index`, `rebuild_workspace_layer` and `commit`. A problem or a violation returns `IndexError` before `begin_index`.
 
 **Tests**, against `MemoryStore` and the fixture on disk:
 
@@ -265,5 +317,6 @@ impl<S: GraphStore, F: Files, G: Git> IndexWorkspace<S, F, G> {
 ## Done when
 
 - The Acme Shop fixture indexes into SQLite with exactly the counts of the domain model, and passes every rule.
-- Each of the three warnings has a test that raises it, and each of rules 14 to 19 a test that breaks it.
+- Each of the five warnings this step raises has a test that raises it, and each of rules 14 to 19 a test that breaks it.
+- Every binary has a decided framework, and every project its language.
 - Indexing twice gives the same graph.

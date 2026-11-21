@@ -133,7 +133,7 @@ Warnings    1
 
 Ledger's compose file takes that network's name from a variable, so the tool cannot read it. Once the configuration gives the real name, as the [example workspace](./example-workspace.md#the-configuration) does, the warning is gone.
 
-Other warnings `status` can show: a binary whose framework is named one way and built another, an `app` that names no app, a compose command that runs a module other than the binary's entry, an HTTP call in one project that matches a route of another with no declared link, and carrying types from callers stopping at its round limit. The last one names `analysis.flow_rounds` in the [configuration](./configuration-guide.md#analysis), which can be raised to carry types deeper.
+Other warnings `status` can show: a binary whose framework is named one way and built another, an `app` that names no app, a compose command that runs a module other than the binary's entry, an HTTP call in one project that matches a route of another with no declared link, a message to a topic or queue with no declared link, a compose command that names no command of its binary, and carrying types from callers stopping at its round limit. The last one names `analysis.flow_rounds` in the [configuration](./configuration-guide.md#analysis), which can be raised to carry types deeper.
 
 ### Asking the graph
 
@@ -178,7 +178,10 @@ Some kinds show more:
 |---|---|
 | Any code node | `reached by`: the binaries, named modules and tests that may run it |
 | A parameter, function, field or variable | `inferred`: the class worked out for it, and how many call sites, returns or bindings agreed, when all of them agree |
-| A function | Its HTTP calls: each matched route, or the candidates of a call that could not be matched to one |
+| A function | Its HTTP calls: each matched route, or the candidates of a call that could not be matched to one. Its messages: the topics and queues it sends to or handles |
+| A binary | Its commands, when it is a command-line program |
+| A command | Its options, its handler, and the services that run it |
+| A topic or queue | The code in every project that sends to it and handles it, and the classes they carry |
 | A route | Its callers over HTTP, and its full paths, such as `GET /v1/invoices/{invoice_id}`, with the binaries that serve them. A part that the code computes is shown as `{?}`, and that path is marked incomplete |
 | A binary | Its framework, where that came from, its app, and how many files and nodes it reaches |
 | A project | Its language |
@@ -191,6 +194,7 @@ Finds nodes by name.
 workbench query Invoice --kind class
 workbench query invoices --kind route
 workbench query "/v1/invoices" --kind route
+workbench query replay --kind command
 ```
 
 A route is found by its name (`GET /{invoice_id}`) and by any of its full paths (`/v1/invoices/{invoice_id}`).
@@ -215,6 +219,10 @@ With `--tests`, it lists only the test functions to run for the change, as pytes
 ```bash
 workbench impact billing-api:billing.routes.invoices.get_invoice --tests
 ```
+
+When the node is a class carried on a topic or queue, the result adds an **event contract** section: the topics and queues, and the code that sends and handles the class, with any sender and handler that disagree on the class flagged.
+
+A function that handles a command is followed through the command to the services that run that command, and no others.
 
 When the node is a class used by a route, or a field of one, the result adds an **API contract** section. It lists the routes whose request or response uses the class, directly or through nested fields, with their full paths, and the code that calls each route: Python callers in other projects, tests, and declared links whose call site is unknown.
 

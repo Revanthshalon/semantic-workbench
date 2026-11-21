@@ -86,6 +86,10 @@ _Avoid_: Endpoint, URL, API
 A function or class that a framework calls to supply a value to a route or to another provider, such as one named in FastAPI's `Depends`.
 _Avoid_: Dependency (that is a local dependency), injectable
 
+**Command**:
+One thing a command-line binary can be told to do, such as `ledger-consumer replay`, with its options and the code that runs it.
+_Avoid_: Subcommand, verb, task
+
 **Root**:
 A place from which code starts to run: a binary's entry file, a module named in a command, or a test file.
 _Avoid_: Entry (that is a binary's file), starting point

@@ -73,7 +73,7 @@ Where a node came from. It is one of two things.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `id` | `NodeId` | yes | Computed from the fields below |
-| `kind` | `NodeKind` | yes | One of the 32 kinds listed in [graph-model.md](./graph-model.md#node-kinds) |
+| `kind` | `NodeKind` | yes | One of the 33 kinds listed in [graph-model.md](./graph-model.md#node-kinds) |
 | `name` | text | yes | The short name, such as `Invoice` |
 | `qualified_name` | text | yes | The full name within the scope, such as `shared_api.models.Invoice` |
 | `scope` | `Scope` | yes | What the node belongs to |
@@ -97,6 +97,7 @@ The data is part of the kind, as an edge's is, so a kind can never carry another
 | `Class`, `Struct`, `Interface`, `Trait`, `Protocol`, `Enum`, `Union`, `TypeAlias`, `Component` | `TypeDecl { doc, signature, visibility, is_abstract, is_exported, decorators, type_parameters, role }` |
 | `Field`, `Variable`, `Constant`, `Parameter` | `Member { visibility, is_static, is_exported, declared_type, default, source, role }` |
 | `Route` | `RouteData { method, path, status_code, tags }` |
+| `Command` | `CommandData { program, path, help, options }` |
 | `File`, `Module`, `Namespace` | `Doc { doc }` |
 | `EnumMember`, `Import`, `Export` | none |
 
@@ -107,7 +108,7 @@ The fields:
 | `language` | `Language` | `Python` or `TypeScript` |
 | `framework` | `Framework` | `Fastapi`, `Angular` or `None` |
 | `app` | text, optional | The qualified name of a FastAPI binary's app, such as `billing.api.app` |
-| `framework_source` | `FrameworkSource` | Where `framework` came from: `Declared` (the configuration), `Compose` (a compose command) or `Entry` (the entry file) |
+| `framework_source` | `FrameworkSource` | Where `framework` came from: `Declared` (the configuration), `Compose` (a compose command), `Dockerfile` (a Dockerfile's `CMD` or `ENTRYPOINT`) or `Entry` (the entry file) |
 | `doc` | text, optional | The doc string |
 | `signature` | text, optional | The declaration as written, on one line |
 | `visibility` | `Visibility`, optional | `Public`, `Private`, `Protected` or `Internal` |
@@ -122,6 +123,10 @@ The fields:
 | `path` | `Template` | A route's local path: text, a name whose text stage 2b works out, or unknown |
 | `status_code` | number, optional | |
 | `tags` | list of text | Defaults to empty |
+| `program` | text | A command's program, such as `ledger-consumer` |
+| `path` (command) | list of text | The subcommand words below the program, such as `["replay"]`. Empty for the program itself |
+| `help` | text, optional | The help text given to the parser |
+| `options` | list of text | Each option and positional argument, as written: `--from`, `source` |
 
 What each language can express. A value outside its row is refused when the node is built (rule N9):
 
@@ -165,6 +170,7 @@ An id of 64 bits is short enough for an AI to read and repeat. Two nodes sharing
 | `Topic`, `Queue` | The external service's name, `/`, the topic or queue name | `kafka/invoice.created` |
 | `File` | The file's path | `src/billing/worker.py` |
 | `Route` | Its handler's qualified name, `@`, the method and the local path. Its `name` is the method and the local path | `billing.routes.invoices.get_invoice@GET /{invoice_id}` |
+| `Command` | The module, `@`, the program and the path. Its `name` is the program and the path | `ledger.consumer@ledger-consumer replay` |
 | Other code kinds | The language's own dotted path | `shared_api.models.Invoice` |
 
 ### Node rules
@@ -188,7 +194,7 @@ An id of 64 bits is short enough for an AI to read and repeat. Two nodes sharing
 |---|---|---|---|
 | `source` | `NodeId` | yes | The node the edge starts at |
 | `target` | `NodeId` | yes | The node the edge ends at |
-| `kind` | `EdgeKind` | yes | One of the 26 kinds listed in [graph-model.md](./graph-model.md#edge-kinds), with its data |
+| `kind` | `EdgeKind` | yes | One of the 29 kinds listed in [graph-model.md](./graph-model.md#edge-kinds), with its data |
 | `site` | `Site` | no | Where in a file the relationship occurs, when it has a place |
 | `provenance` | `Provenance` | yes | How the edge came to exist |
 | `resolved_by` | `Resolution` | no | The rule that resolved the reference this edge came from. Empty for an edge not made by resolution. See [How an edge was resolved](#how-an-edge-was-resolved) |
@@ -205,7 +211,9 @@ The data is part of the kind, so a kind can never carry another kind's data.
 | `ConnectsTo` | `protocol`: `Http`, `Grpc` or `Database` |
 | `Mounts` | `prefix`: the path prefix the mount adds, a `Template`, optional. `tags`: the tags the mount adds |
 | `Requests` | `method`: the HTTP method of the call. `path`: the call's path, with what stage 2b could fill in filled, and unknown parts as `{?}` |
-| The other twenty-one | none |
+| `Sends` | `name`: the topic, queue or stream name, as 2b filled it in |
+| `Invokes` | `words`: the command words of the compose command, as written |
+| The other twenty-two | none |
 
 ### Provenance
 
@@ -213,7 +221,8 @@ The data is part of the kind, so a kind can never carry another kind's data.
 |---|---|---|
 | `TreeSitter` | Read from source code by a parser | Every code kind |
 | `Manifest` | Read from a dependency manager's files | `DependsOn` |
-| `Compose` | Read from a compose file | `Runs`, `BuiltFrom`, `Joins`, `Uses` |
+| `Compose` | Read from a compose file | `Runs`, `BuiltFrom`, `Joins`, `Uses`, `Invokes` |
+| `Dockerfile` | Read from a Dockerfile: the command line a service runs | `Runs`, `Invokes` |
 | `Declared` | Written by hand in the configuration | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `ConnectsTo`, `Publishes`, `Subscribes` |
 | `Scip` | Read from a SCIP index | none yet |
 | `Heuristic` | Inferred, and may be wrong | none yet |
@@ -238,19 +247,23 @@ Provenance says where the facts came from. `resolved_by` says which rule connect
 | `Flow` | The receiver is a parameter typed by its callers. Right when the workspace holds every caller |
 | `Framework` | A framework profile's reference, including a pytest fixture |
 | `RouteMatch` | An HTTP client call matched to a route path |
+| `MessageMatch` | A producer or consumer matched to a declared topic or queue |
+| `CommandMatch` | A compose command matched to a `Command` of the binary its service runs |
 
 [python-parsing.md](./python-parsing.md#how-an-edge-was-resolved) says when each applies for Python.
 
 ### Framework edges
 
-Four code edge kinds hold what a web framework does with code, and what calls it over HTTP. `Mounts`, `Handles` and `Injects` are made by resolving a reference a framework profile records, so each has `resolved_by: Framework`. `Requests` is made by matching an HTTP client call to a route path, so it has `resolved_by: RouteMatch`. An `Injects` edge from an app or router that has the same site as a `Mounts` edge from that node was given at the mount, and applies only to routes reached through it.
+Six code edge kinds hold what a web framework does with code, what calls it over HTTP, and what sends and handles messages. `Mounts`, `Handles` and `Injects` are made by resolving a reference a framework profile records, so each has `resolved_by: Framework`. `Requests` is made by matching an HTTP client call to a route path, so it has `resolved_by: RouteMatch`. `Sends` and `Receives` are made by matching a producer or consumer to a declared topic or queue, so they have `resolved_by: MessageMatch`. An `Injects` edge from an app or router that has the same site as a `Mounts` edge from that node was given at the mount, and applies only to routes reached through it.
 
 | Kind | From | To | Data | Says | Read by |
 |---|---|---|---|---|---|
 | `Mounts` | A `Variable` with role `App` or `Router` | A `Variable` with role `App` or `Router`, or a `Route` | `prefix`, optional | The source serves the target, under the prefix. From `include_router`, `mount` and a route decorator on a router or app | Route paths, `node` on a route, reach (downwards), `impact` |
-| `Handles` | A `Route` | A `Function` or `Method` | none | This function runs when the route is called | Reach, `impact` from a handler to its endpoints and services, `callers` |
+| `Handles` | A `Route` or a `Command` | A `Function` or `Method` | none | This function runs when the route is called, or when the command is run | Reach, `impact` from a handler to its endpoints and services, `callers` |
 | `Injects` | A `Function`, `Method` or `Route`, or a `Variable` with role `Router` | A `Function`, `Method` or `Class` | none | The framework calls the target and passes the result in, as FastAPI's `Depends` does, and as pytest does with a fixture | Reach, `impact` from a provider to every route that uses it, "which providers does this route use", the tests to run |
 | `Requests` | A `Function`, `Method` or `File` | A `Route` | `method`, `path` | This code calls the route over HTTP: from another project, or from a test through `TestClient` | Reach, `impact`, the tests to run, API contracts, `node` on a route |
+| `Sends` | A `Function`, `Method` or `File` | A `Topic` or `Queue` | `name` | This code sends messages to the topic or queue | `impact`, event contracts, `node` on a topic |
+| `Receives` | A `Function` or `Method` | A `Topic` or `Queue` | none | This code handles the messages of the topic or queue | `impact`, event contracts, `node` on a topic |
 
 ### Edge rules
 
@@ -266,9 +279,9 @@ Four code edge kinds hold what a web framework does with code, and what calls it
 | E8 | A `Service` has exactly one of `Runs` or `BuiltFrom`. An `ExternalService` has neither | Graph |
 | E9 | A `Binary` has exactly one `EntryPoint`, and it leads to a `File` of the same project | Graph |
 | E10 | A `Runs` edge leads to a binary of the project whose folder the service is built from | Graph |
-| E11 | A framework edge joins only these: `Mounts` from a `Variable` with role `App` or `Router` to such a `Variable` or to a `Route`. `Handles` from a `Route` to a `Function` or `Method`. `Injects` from a `Function`, `Method`, `Route` or `Variable` with role `Router` to a `Function`, `Method` or `Class`. `Requests` from a `Function`, `Method` or `File` to a `Route` | Graph |
+| E11 | A framework edge joins only these: `Mounts` from a `Variable` with role `App` or `Router` to such a `Variable` or to a `Route`. `Handles` from a `Route` to a `Function` or `Method`. `Injects` from a `Function`, `Method`, `Route` or `Variable` with role `Router` to a `Function`, `Method` or `Class`. `Requests` from a `Function`, `Method` or `File` to a `Route`. `Handles` may also start at a `Command`. `Sends` from a `Function`, `Method` or `File`, and `Receives` from a `Function` or `Method`, to a `Topic` or `Queue` | Graph |
 | E12 | An edge with `resolved_by: Flow` rests on at least one [inferred type](#inferred-type): of a parameter of its callable, of the return of a function its receiver came from, of a field, or of a name bound more than once | Graph |
-| E13 | `resolved_by` is given only on a code edge with provenance `TreeSitter` or `Scip`. `Flow` is given only on `Calls` and `Instantiates`. `Framework` is given only on `Mounts`, `Handles` and `Injects`, and those three always have it. `RouteMatch` is given only on `Requests`, and `Requests` always has it | Build |
+| E13 | `resolved_by` is given only on a code edge with provenance `TreeSitter` or `Scip`, and on `Invokes` (provenance `Compose` or `Dockerfile`). `Flow` is given only on `Calls` and `Instantiates`. `Framework` is given only on `Mounts`, `Handles` and `Injects`, and those three always have it. `RouteMatch` is given only on `Requests`, `MessageMatch` only on `Sends` and `Receives`, and `CommandMatch` only on `Invokes`, and each of those kinds always has its value | Build |
 
 ## The containment tree
 
@@ -470,6 +483,42 @@ An HTTP client call that stage 2d found, and could not match to exactly one rout
 | M2 | There is never exactly one candidate: one candidate is a `Requests` edge instead | Build |
 | M3 | Every index removes all unmatched HTTP calls and every `Requests` edge, and writes the ones it computed | Indexer |
 
+## Unmatched message
+
+A producer or consumer call that stage 2f found, and could not match to exactly one declared topic or queue.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `from` | `NodeId` | The node that sends, or the function or callback that receives |
+| `site` | `Site` | Where the call is |
+| `direction` | `Send` or `Receive` | |
+| `name` | text | The name, with unknown parts as `{?}` |
+| `broker` | `NodeId`, optional | The external service the connection names, when known |
+| `candidates` | list of `NodeId` | The topics and queues whose names matched. Empty when none did |
+
+| Id | Rule | Enforced |
+|---|---|---|
+| G1 | `from` is a node in the graph, `broker` is an `ExternalService`, and every candidate is a `Topic` or `Queue` | Graph |
+| G2 | There is never exactly one candidate | Build |
+| G3 | Every index removes all unmatched messages and every `Sends` and `Receives` edge, and writes the ones it computed | Indexer |
+
+## Message payload
+
+A project class carried on a topic or queue, as the code that sends or receives builds or reads it.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `topic` | `NodeId` | The `Topic` or `Queue` |
+| `node` | `NodeId` | The node at the start of the `Sends` or `Receives` edge |
+| `direction` | `Send` or `Receive` | |
+| `class` | `NodeId` | The class sent or read |
+
+| Id | Rule | Enforced |
+|---|---|---|
+| D1 | `topic` is a `Topic` or `Queue`, `class` is a `Class`, and a `Sends` or `Receives` edge of that direction joins `node` to `topic` | Graph |
+| D2 | No two payloads share `topic`, `node`, `direction` and `class` | Graph |
+| D3 | Every index removes all payloads and writes the ones it computed | Indexer |
+
 ## Project checkout
 
 Which version of a project the graph was built from. Each project is its own repository, so each has its own. `status` shows it, and the `operational-support` mode compares it with the release branch a [context](./mcp-modes.md#the-release-branch) names for the project.
@@ -504,9 +553,12 @@ Something the indexer noticed that does not stop the run. The warnings of the la
 | `DependencyPathNotAProject` | A dependency manager's file names a local path that is not a listed project | The project whose file names it |
 | `FrameworkMismatch` | The configuration or a compose command names one framework for a binary, and its entry file builds another, or names none while it builds an app | The binary |
 | `FrameworkAppNotFound` | A FastAPI binary's `app` names no node, or a node that is not an app or a function that returns one | The binary |
-| `EntryCommandMismatch` | A compose command runs a module other than the binary's configured entry | The binary |
+| `EntryCommandMismatch` | A service's command line, from compose or its Dockerfile, runs a module other than the binary's configured entry | The binary |
+| `DockerfileUnreadable` | A service's Dockerfile is missing, or cannot be read | The service |
 | `FlowRoundLimit` | Carrying types and text through calls stopped at its round limit before it settled | none |
 | `HttpCallWithoutLink` | An HTTP call matches a route served by a binary of another project, and the caller declares no `http` link to a service that runs that binary | The node the call is in |
+| `MessageWithoutLink` | A producer or consumer names a topic or queue that is not declared, or one the caller's project declares no link for | The node that sends or receives |
+| `CommandNotFound` | A compose service's command words name no `Command` of the binary it runs | The service |
 
 | Id | Rule | Enforced |
 |---|---|---|
@@ -521,11 +573,11 @@ The model maps to SQLite as one table per type, with one column per field. This 
 | Table | Holds | Notes |
 |---|---|---|
 | `nodes` | One row per node | The scope is two columns, its type and its name. The origin is a path and four span columns, all empty for a declared node. The node data is one column per field, empty for kinds whose data has no such field |
-| `edges` | One row per edge | The data of a kind has its own typed columns, empty for the twenty-one kinds that carry none. The table checks that each is filled in for its own kind only. Unique on source, target, kind and site |
+| `edges` | One row per edge | The data of a kind has its own typed columns, empty for the twenty-two kinds that carry none. The table checks that each is filled in for its own kind only. Unique on source, target, kind and site |
 | `files` | One row per file record | |
 | `unresolved_refs` | One row per unresolved reference | |
 | `call_sites`, `bindings`, `returns` | One row per call site, binding and return | Replaced with their file |
-| `inferred_types`, `reach`, `route_paths`, `unmatched_http_calls` | One row per record | Replaced at every index, with the edges resolved by `Flow` and `RouteMatch` |
+| `inferred_types`, `reach`, `route_paths`, `unmatched_http_calls`, `unmatched_messages`, `message_payloads` | One row per record | Replaced at every index, with the edges resolved by `Flow`, `RouteMatch`, `MessageMatch` and `CommandMatch` |
 | `warnings` | One row per warning of the last index | |
 | `project_checkouts` | One row per project checkout | |
 | A full-text index | Name, qualified name, doc string and signature of every node | Serves `search` and the first step of `explore` |
@@ -556,6 +608,8 @@ Each query in the [usage guide](./usage-guide.md#commands) works only if the mod
 | `impact --tests` | Reach from test files, `Injects` to fixtures, `Requests` from `TestClient` | E11, E13, H1 to H3 |
 | `impact`'s API contract | Route paths, `Requests` edges into a route, `TypeOf` from fields, declared `http` links | E11, U1 to U4, E1 |
 | `node`'s HTTP calls on a function | `Requests` edges and unmatched HTTP calls | E11, M1 to M3 |
+| `impact`'s event contract | `Sends` and `Receives` edges, payloads, declared links | E11, E13, D1 to D3 |
+| `impact` through commands, and `node` on a command | `Handles` from commands, `Invokes` from services | E1, E11, E13 |
 
 ## Validating an implementation
 
@@ -597,6 +651,8 @@ The fixture must also show that:
 - `routes/invoices.py` is reached by `api` only, and `services.py` by `worker` and by the test `test_services.py`.
 - Ledger's `fetch_invoice` has a `Requests` edge to `GET /{invoice_id}`, with `resolved_by: RouteMatch`, and the index raises one `HttpCallWithoutLink` warning about it.
 - `test_get_invoice` has a `Requests` edge to the same route and an `Injects` edge to the fixture `repo`, and `impact` on the handler `--tests` lists it.
+- `send_invoice` has a `Sends` edge, and `run_consume` a `Receives` edge, to `kafka/invoice.created`, each with `Invoice` as payload.
+- Ledger's `consumer` binary has the commands `ledger-consumer`, `ledger-consumer run` and `ledger-consumer replay`, and the `consumer` service an `Invokes` edge to `ledger-consumer run`.
 
 ## Decisions made on this page
 
@@ -627,6 +683,9 @@ Points the other pages left open, settled here and confirmed by the project owne
 | Type-only imports | `Imports` carries `type_only`. Resolution treats them as any import; reach does not follow them |
 | Release 1 | Plain Python binaries and FastAPI binaries, HTTP calls matched to routes, the tests to run for a change, API contracts |
 | HTTP calls in code | Matched to route paths as `Requests` edges. They never create a `ConnectsTo` link; a cross-project match with no declared link is a warning |
+| Messages in code | Matched to declared topics and queues as `Sends` and `Receives` edges, with their payloads. Topics and queues are still created only from the configuration |
+| Dockerfiles | Read for the command line a service runs: its binary when nothing else names it, its framework, and the command it invokes. Facts from them have the `Dockerfile` provenance |
+| Commands | `argparse` parsers and subcommands are `Command` nodes. A compose service is linked to the command it runs by `Invokes`, computed in stage 2 |
 | A binary's framework | Decided before parsing, per binary, from the configuration, then a compose command, then the entry file. A framework's rules read every file that imports it |
 
 ## Open points

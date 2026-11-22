@@ -15,7 +15,7 @@ AI tools reach the graph through a UTCP manual, not an MCP server ([ADR 0022](./
 - Python code graph, with FastAPI routes, HTTP calls matched to routes across projects, the tests to run for a change, and API contracts.
 - The workspace layer: projects, binaries, local dependencies, compose files, stacks, services, external services, networks, and hand-written links with their topics and queues.
 - SQLite storage.
-- The command line, and a UTCP manual that describes its query commands so an AI tool calls `workbench` directly. There is no server process.
+- The command line, and a UTCP manual that describes its query commands so an AI tool calls `workbench` directly. There is no server process. The manual's shape and the safety of its arguments are a draft, tagged `TO_REFINE` in [utcp-manual.md](./utcp-manual.md).
 - Installation with Cargo and with Homebrew, on macOS and Linux.
 - The graph changes only when `workbench index` is run.
 - The `developer-support` tool set of the UTCP manual, and the shared skills. `init` also writes the `ops/` folder that operational support will read.

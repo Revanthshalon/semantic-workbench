@@ -257,7 +257,7 @@ Prints the UTCP manual to standard output: a JSON document that describes the qu
 
 ## Connecting an AI tool
 
-Write the manual to a file, and point your AI tool's UTCP client at it. The exact setting depends on the client; check its documentation.
+Write the manual to a file, and point your AI tool's UTCP client at it with a `text` call template, or have the client run `workbench manual` itself with a `cli` call template. The exact setting depends on the client; check its documentation. Both forms are drafted in [the UTCP manual page](./utcp-manual.md#loading-the-manual-draft), tagged `TO_REFINE`.
 
 ```bash
 workbench manual --workspace ~/acme/workspace > ~/acme/workbench.utcp.json
@@ -265,18 +265,21 @@ workbench manual --workspace ~/acme/workspace > ~/acme/workbench.utcp.json
 
 The workspace path is written into every call template, as an absolute path. AI tools usually run a command inside whichever repository you have open, and that is often a project outside the workspace folder. The manual does not change until you generate it again, so generate it again after upgrading `workbench`.
 
-**What the AI tool gets:** one tool per query. Each gives the same answer as its command.
+A tool call is a line of shell that the client builds from the AI tool's arguments, so every argument is checked against a pattern in the manual. [The manual page](./utcp-manual.md#why-arguments-need-care) explains why, and what is still to be confirmed with a real client (`TO_REFINE`).
+
+**What the AI tool gets:** one tool per query, eleven in all. Each gives the same answer as its command. The AI tool must give every argument a tool lists, using its default when it has no other value, and `*` for no filter. The options that only switch something on, such as `--no-source`, `--failed`, `--unreached` and `--edge`, are on the command line only.
 
 | UTCP tool | Command | Use it to |
 |---|---|---|
 | `explore` | `workbench explore` | Answer a question in one call: source, call flow and blast radius. Start here |
-| `node` | `workbench node` | Read one node or one file |
+| `node` | `workbench node` | Read one node |
+| `file` | `workbench node --file` | Read part of one file, with its source |
 | `search` | `workbench query` | Find nodes by name |
 | `callers` | `workbench callers` | See what calls a node |
 | `callees` | `workbench callees` | See what a node calls |
 | `impact` | `workbench impact` | See what a change affects |
 | `neighbors` | `workbench neighbors` | See what is directly related to a node |
-| `files` | `workbench files` | List the indexed files, or those no root reaches |
+| `files` | `workbench files` | List the indexed files |
 | `dependencies` | `workbench deps` | List dependencies between projects |
 | `status` | `workbench status` | See what is in the graph and whether it is current |
 

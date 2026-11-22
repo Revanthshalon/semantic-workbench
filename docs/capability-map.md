@@ -24,7 +24,7 @@ Nothing is built yet beyond the module scaffold.
 | S. Storage | Where the graph is kept | 3 | | | 1 |
 | Q. Queries | The questions the graph can answer | 12 | | | 2 |
 | U. Command line | The `workbench` commands | 9 | | | 2 |
-| M. UTCP manual | How AI tools reach the graph | 5 | | | 2 |
+| M. UTCP manual | How AI tools reach the graph | 6 | | | 2 |
 | K. Skills | The written guides every mode shares | 3 | 1 | | |
 | O. Operational support | Looking into a deployment, read-only | | | 10 | |
 | X. Ground rules | Behaviour every command shares | 9 | | | 1 |
@@ -176,12 +176,13 @@ One binary, `workbench`. The exact commands and flags are in the [usage guide](.
 | Id | Capability | Release | Decision | Where you meet it |
 |---|---|---|---|---|
 | M1 | Describe the query tools in a UTCP manual, a JSON document printed to standard output. The AI tool loads it and calls `workbench` directly. There is no server process | R1 | Decided | `workbench manual` |
-| M2 | One tool per query: `explore`, `node`, `search`, `callers`, `callees`, `impact`, `neighbors`, `files`, `dependencies`, `status`. Each is a call template over its command, with `--json`, so it gives the same answer as the command | R1 | Decided | UTCP tools |
+| M2 | One tool per query: `explore`, `node`, `file`, `search`, `callers`, `callees`, `impact`, `neighbors`, `files`, `dependencies`, `status`. Each is a call template over its command, with `--json`, so it gives the same answer as the command. Every argument is required, with a default, and `*` means no filter ([utcp-manual.md](./utcp-manual.md#arguments-all-required-with-defaults)) | R1 | Decided | UTCP tools |
 | M3 | Never change the graph. Every answer says when the graph was indexed and whether files have changed since | R1 | Decided | every UTCP tool |
 | M4 | Serve the manual by URL and make the commands reachable over HTTP, for shared or remote use | Later | Decided | not designed |
 | M5 | Run in one mode, chosen on the command line. `developer-support` is the default and offers the graph tools | R1 | Decided | `workbench manual --mode <name>` |
 | M6 | Reserve the names `operational-support` and `testing-support`. Until a mode ships, `workbench manual` refuses it, with a message | R1 | Decided | `workbench manual --mode <name>` |
 | M7 | Add a language server's help to `developer-support`: definitions, references and diagnostics | Later | Decided | `lsp` and `projects[].environment` fields, reserved |
+| M8 | Make a tool call safe against shell text in its arguments: every placeholder quoted, every argument allow-listed in the manual's schema, and a test that runs a real shell. Drafted in [utcp-manual.md](./utcp-manual.md#the-solution-draft), `TO_REFINE` | R1 | Open | `workbench manual` |
 
 ## K. Skills
 
@@ -218,7 +219,7 @@ Behaviour that every command shares.
 | Id | Rule | Release | Decision |
 |---|---|---|---|
 | X1 | The graph changes only when `workbench index` is run. No query, and no UTCP tool, re-indexes | R1 | Decided |
-| X2 | Results go to standard output. Messages, warnings and progress go to standard error. `workbench manual` writes only the manual to standard output | R1 | Decided |
+| X2 | Results go to standard output. Messages, warnings and progress go to standard error. `workbench manual` writes only the manual to standard output. With `--json`, a command that succeeds writes nothing to standard error | R1 | Decided |
 | X3 | Exit code `0` for success, `1` for a failure such as a bad configuration or an unreadable store, `2` for a wrong command line | R1 | Decided |
 | X4 | `index` skips what `.gitignore` excludes, plus `.git`, `node_modules`, `.venv` and `.workbench` | R1 | Decided |
 | X5 | One `index` at a time per workspace. Queries keep working while an index runs, and see the graph as it was until the index finishes. An index that fails changes nothing | R1 | Decided |
@@ -232,7 +233,8 @@ Behaviour that every command shares.
 
 | Rows | What needs deciding |
 |---|---|
-| K2 | How a skill reaches the AI tool. Proposed: the manual lists each skill with its file path and description, and the AI tool reads the file |
+| K2 | How a skill reaches the AI tool (`TO_REFINE`). Proposed: the manual lists each skill with its file path and description, and the AI tool reads the file |
 | O5 to O9 | The operational tools: their names, arguments and limits. The list is a proposal drafted from the sample context file |
 | O2 | Whether a context file may hold a password. The sample allows `ssh.password`; the workspace configuration forbids secrets in files |
 | O5, O6 | How a pod or a Compose service on the VM is tied to a service, a binary or a project in the graph |
+| M8 | Whether a real UTCP client enforces the schema or inserts values faithfully. If neither, the fallback options in [utcp-manual.md](./utcp-manual.md#the-solution-draft) apply. `TO_REFINE` |

@@ -85,7 +85,7 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 | 7D | Wiring, and tests that run the binary | 7A, 7B, 7C, 3B, 3C, 4G, 6F | [step 7](./step-7-command-line.md) |
 | 7E | Installation | 7D | [step 7](./step-7-command-line.md) |
 | 8A | The manual document, and modes | C0 | [step 8](./step-8-utcp-manual.md) |
-| 8B | The ten tools, as call templates | 8A, 7A | [step 8](./step-8-utcp-manual.md) |
+| 8B | The eleven tools, as call templates | 8A, 7A | [step 8](./step-8-utcp-manual.md) |
 | 8C | Skills, listed in the manual | 8A | [step 8](./step-8-utcp-manual.md) |
 | 8D | Wiring `workbench manual`, and tests that run the binary | 8B, 8C, 7D | [step 8](./step-8-utcp-manual.md) |
 

@@ -37,6 +37,7 @@ Start with the product vision. Every other page follows from it.
 | [Usage guide](docs/usage-guide.md) | Which commands and UTCP tools are there, and how are they used? |
 | [Configuration guide](docs/configuration-guide.md) | How is `.workbench/config.yml` written? |
 | [Example workspace](docs/example-workspace.md) | What does a real workspace look like, end to end? |
+| [The UTCP manual](docs/utcp-manual.md) | What does `workbench manual` print, and how are tool arguments kept safe? (draft) |
 | [Modes, contexts and skills](docs/modes.md) | What are the modes of the UTCP manual, and what else does `init` write? |
 | [Graph model](docs/graph-model.md) | Why does the graph look the way it does? |
 | [Domain model](docs/domain-model.md) | Which types and rules are implemented and validated against? |

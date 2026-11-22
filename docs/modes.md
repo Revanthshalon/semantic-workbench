@@ -173,7 +173,7 @@ One group of tools for each section of a context file. Every tool takes `context
 
 The graph tools are offered in this mode as well. They give the code context: `kube_logs` shows an error, `explore` shows the code that raised it, and `impact` shows what else that code touches.
 
-Each operational tool is a call to a subcommand of `workbench ops`, such as `workbench ops kube-pods --context staging --json`, so the manual lists it as a call template like the graph tools. Workbench never passes text from the AI tool to a shell on the VM: each subcommand checks its arguments as values, never as shell text, and builds its own remote command from checked arguments.
+Each operational tool is a call to a subcommand of `workbench ops`, such as `workbench ops kube-pods --context staging --json`, so the manual lists it as a call template like the graph tools. Workbench never passes text from the AI tool to a shell on the VM: each subcommand builds its own remote command from checked arguments. The call template that starts a subcommand is a line of shell, so its arguments follow the same rules as the graph tools: [why arguments need care](./utcp-manual.md#why-arguments-need-care) (`TO_REFINE`).
 
 **A mode is a list, not a lock.** The manual of a mode lists only that mode's tools, but a UTCP client runs `workbench` itself, so nothing stops it from running another subcommand. What keeps `developer-support` safe is the rule above: every command, in every mode, only reads. See [ADR 0022](./adrs/0022-ai-tools-reach-the-graph-through-utcp.md).
 

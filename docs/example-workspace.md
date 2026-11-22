@@ -123,10 +123,9 @@ projects:
   - id: web-app
     path: ../web-app
     language: typescript
-    framework: angular
     dependency_manager: pnpm
     binaries:
-      - {name: admin, entry: projects/admin/src/main.ts}
+      - {name: admin, entry: projects/admin/src/main.ts, framework: angular}
     links:
       - {service: api, stack: billing-api, via: http, binary: admin}
 ```

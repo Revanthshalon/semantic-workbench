@@ -71,7 +71,6 @@ Required, with at least one entry. A project is one unit of source code with its
 | `path` | yes | | The project's root folder. No project's path may be the same as, or inside, another's |
 | `language` | yes | | The main language: `python` or `typescript`. The first release reads the source code of Python projects only. A TypeScript project still appears in the graph with its binaries, dependencies and links |
 | `dependency_manager` | yes | | For Python: `poetry` or `uv`. For TypeScript: `npm`, `pnpm`, `yarn` or `bun` |
-| `framework` | no | none | `angular`, and only with `typescript` |
 | `import_names` | no | read from the project's manifest | The names other projects import this one by. Unique across the workspace |
 | `exclude` | no | none | Files to leave out of the graph. See below |
 | `dependencies` | no | discovery on, nothing declared | See below |
@@ -123,8 +122,25 @@ A local dependency is one project using another project's code.
 |---|---|
 | `name` | Required. Unique within the project |
 | `entry` | Required. The file the binary starts at, relative to the project. The file must exist |
+| `framework` | Optional. What the binary is built on. For `python`: `fastapi` or `none`. For `typescript`: `angular` or `none`. Default: read, as described below |
+| `app` | Optional, with `fastapi` only. The app, written `module:attribute` as uvicorn writes it, such as `billing.app:create_app`. It names an app object, or a function that returns one |
 
 Binaries are always written by hand; they are never detected. List them when one project runs as several things, such as an API and a worker. Services and links can then refer to the exact one.
+
+**A binary's framework and app are usually read, not written.** Workbench takes the first of these that gives an answer:
+
+1. The binary's `framework` and `app`.
+2. The compose `command` of a service that runs the binary, such as `uvicorn billing.api:app` or `fastapi run src/billing/api.py`.
+3. The entry file: it imports `fastapi` and builds a `FastAPI(...)` app at module level, or defines a function that returns one.
+4. Otherwise `none`: a plain binary.
+
+A framework is set on a binary, never on a project. Write `app` only when steps 2 and 3 cannot find it, typically for an app factory imported into the entry file from another module. When a lower source disagrees with a higher one, the higher one wins and `index` warns. [python-parsing.md](./python-parsing.md#how-a-binarys-framework-is-decided) explains what each framework changes in the graph.
+
+```yaml
+binaries:
+  - {name: api,    entry: src/billing/main.py, framework: fastapi, app: billing.app:create_app}
+  - {name: worker, entry: src/billing/worker.py}    # read from its files: none
+```
 
 ### `links`: who talks to whom at run time
 
@@ -248,6 +264,18 @@ Optional. `workbench init` writes it.
 | `backend` | `sqlite` | The first release accepts only `sqlite` |
 | `path` | `.workbench/graph.db` | The graph file |
 
+## `analysis`
+
+Optional. How far `index` analyses the graph once every file is read. [python-parsing.md](./python-parsing.md#how-the-graph-is-built) describes the analysis.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `flow_rounds` | `10` | How many call levels types and text are carried through calls: types into parameters, returns and fields that have no annotation, and text into the paths of HTTP calls made inside helpers. A whole number from `0` to `100`. `0` turns it off |
+
+- **Each round carries types one call deeper.** Most code settles in 2 to 4 rounds, and the analysis stops as soon as a round changes nothing.
+- **When the limit stops it early,** `index` and `status` warn, with the number of parameters still changing. Raise the number to carry types deeper, at the cost of a longer index.
+- **Hitting the limit makes nothing wrong.** Deeper parameters stay untyped, and the calls on them stay unresolved.
+
 ## Reserved sections
 
 These are part of the format so that a configuration written today stays valid later. The first release checks their shape and does not use them. See the [roadmap](./roadmap.md).
@@ -286,7 +314,7 @@ The shape that is checked:
 2. `version` is `1`.
 3. There is at least one project. Each project `id` is kebab-case and unique.
 4. No project path is the same as, or inside, another's.
-5. `dependency_manager` suits `language`; `framework: angular` is used only with `typescript`.
+5. `dependency_manager` suits `language`. A binary's `framework` suits its project's `language`: `fastapi` with `python`, `angular` with `typescript`, `none` with either. `app` appears only on a binary whose `framework` is `fastapi`, and has the form `module:attribute`.
 6. Every project named in `dependencies.local`, `links`, `compose[].projects` or `compose[].services` exists. A dependency or a link never names its own project.
 7. Every `binary` named exists in the project it refers to. Binary names are unique within a project.
 8. `import_names` are unique across the workspace.
@@ -294,7 +322,7 @@ The shape that is checked:
 10. No project has two identical links.
 11. A compose file appears in one stack only. No two stacks have the same Compose name.
 12. A Compose name uses lowercase letters, digits, `-` and `_`, and starts with a letter or digit.
-13. `storage.backend` is `sqlite`.
+13. `storage.backend` is `sqlite`. `analysis.flow_rounds` is a whole number from `0` to `100`.
 
 **When the files on disk are read** (`index`):
 
@@ -310,7 +338,7 @@ The shape that is checked:
 | Kind | Effect | Examples |
 |---|---|---|
 | Error | The command stops and nothing is written | Any rule above is broken |
-| Warning | Indexing continues; the warning is shown at the end and by `status` | A network whose real name cannot be read. A link between two services that share no network. A discovered dependency path that is not a listed project |
+| Warning | Indexing continues; the warning is shown at the end and by `status` | A network whose real name cannot be read. A link between two services that share no network. A discovered dependency path that is not a listed project. A binary's framework named one way and built another. An `app` that names no app. A compose command that runs a module other than the binary's `entry` |
 | Log line | Shown with `-v` | A network name from the configuration replaced the one in the file. A reserved section was read and not used |
 
 ## Recipes
@@ -318,6 +346,8 @@ The shape that is checked:
 **Add a project.** Add an entry under `projects` with `id`, `path`, `language` and `dependency_manager`. Run `workbench check`, then `workbench index`.
 
 **One project that runs as an API and a worker.** List both under `binaries`. If their compose services are built with build targets named `api` and `worker`, nothing more is needed. Otherwise map each service to its binary under `services`.
+
+**A FastAPI app built by a factory.** On the binary, write `framework: fastapi` and `app: <module>:<factory function>`.
 
 **A shared database and broker.** List the shared compose file under `files` in a top-level `compose` entry, with the projects that use it. The database and the broker become external services on their own.
 

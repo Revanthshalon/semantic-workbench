@@ -10,6 +10,8 @@
 
 **Read first:** [00-overview.md](./00-overview.md).
 
+**Widened by [python-parsing.md](../python-parsing.md).** That page proposes reading all of Python, plain binaries and FastAPI (I14 to I18). This plan is its first slice, and its phases P1 to P7 follow this plan's tasks.
+
 ## Global constraints
 
 - A file that fails to parse is never an error. It gets a `File` node, a record with `Failed` and the parser's message, and no nodes below it. The index goes on and ends in success.

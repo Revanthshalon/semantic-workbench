@@ -87,10 +87,14 @@ Some edges need extra data. An import has the text that was imported. A dependen
 
 | Kind | Data it carries |
 |---|---|
-| `Imports` | The import as written, and the local name it is bound to |
+| `Imports` | The import as written, the local name it is bound to, and whether it only serves type checking (`type_only`) |
 | `DependsOn` | When the dependency is needed: build or dev |
 | `ConnectsTo` | The protocol: HTTP, gRPC or database |
-| The other nineteen | Nothing |
+| `Mounts` | The path prefix the mount adds, when there is one: a literal, or unknown when the code computes it |
+| `Requests` | The HTTP method and the path as written in the call |
+| The other twenty-one | Nothing |
+
+The same holds for nodes: a node kind carries its own data (decision 10).
 
 ### 7. Every edge says how it came to exist
 
@@ -105,6 +109,14 @@ An AI should treat a relationship read from source differently from one that was
 | `Declared` | Written by hand in the configuration |
 | `Heuristic` | Inferred, and may be wrong |
 
+Provenance says where the facts came from. A second field on every edge made by resolving a reference, `resolved_by`, says which rule connected it: an import, `self`, the same file, a re-export, an annotation, local inference, an inherited member, types carried from callers (`flow`) or a framework. codegraph keeps the same distinction, as `provenance` and `resolvedBy`.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| A new provenance, `Flow`, for edges resolved by types inferred in stage 2b | Rejected | It would explain only those edges, and mix "where the facts came from" with "which rule connected them" |
+| Mark those edges `Heuristic` | Rejected | They are never wrong within what the workspace shows, so `Heuristic` understates them |
+| Keep provenance coarse, and record `resolved_by` on every resolved edge | Adopted | Every edge can say why it is there |
+
 ### 8. A node is either parsed from a file or declared
 
 A code node has a file and a region of that file. A project or a hand-declared topic has neither. So a node's **origin** is one of two things: parsed, with a file and a span, or declared, with nothing. This replaced a mandatory file path and four mandatory position numbers. Lines count from 1 and columns from 0.
@@ -113,7 +125,52 @@ A binary's entry file always gets a file node, even when its language is not par
 
 ### 9. Workspace edges have rules about what they connect
 
-A "joins" edge from a function to a network is a bug. Each of the nine workspace edge kinds may only connect certain kinds of node, and building an edge that breaks its rule is refused. Code edges are not restricted.
+A "joins" edge from a function to a network is a bug. Each of the nine workspace edge kinds may only connect certain kinds of node, and building an edge that breaks its rule is refused. Code edges are not restricted, except the three framework edges of decision 11.
+
+### 10. A node kind carries its own data
+
+The first model gave every node the same optional fields: doc, signature, visibility, flags, decorators, return type. A service could then be async, and a Python method could be protected. So, as with edges, the data is part of the kind.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| One flat set of optional fields | Replaced | Nothing stopped a field that made no sense for the kind or the language |
+| One data type per kind and language (`PyFunction`, `TsFunction`, ...) | Rejected | The number of types multiplies with each language. Languages differ in which values they allow, not in which fields exist |
+| One data type per shape of kind, checked against what the language can express | Adopted | Kinds that look alike share a type: `Callable`, `TypeDecl`, `Member`, `RouteData`. A table per language refuses what it cannot express |
+
+The language is not on code nodes. It is the file's, held by the file record, and the project's main language is on the `Project` node. A binary also carries data: its framework and its app.
+
+### 11. Frameworks add three edge kinds
+
+A FastAPI app mounts routers, a router mounts routes, a route is handled by a function, and a route or a provider injects other providers. These are `Mounts` (with its prefix), `Handles` and `Injects`. Each may only join certain kinds of node.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| `References`, with a role on the node | Rejected | "Which routes use this provider" would be a filter over every reference into it, and nothing would link a route to its app |
+| A route node and a `References` edge to its handler only, with the prefixes composed into the route's name (codegraph) | Rejected | No edge from a route to its router or app, so "which binary serves this route" and "which routes move if this prefix changes" cannot be walked |
+| Three new kinds | Adopted | Each question about a route is one edge kind |
+| Storing a route's full path on the route node | Rejected | The prefixes sit in other files, so a change to one would rewrite route nodes elsewhere |
+| Computing the full path at query time | Rejected | `search` could not find a route by its full path |
+| Computing the full path in stage 2, and storing it as its own record | Adopted | Searchable, and no route node changes. It is rebuilt at every index with the other results of stage 2 |
+
+### 12. An index reads every file, then analyses from each root
+
+Reading only the files an entry reaches was considered, to follow the code as it runs. It would miss code loaded by name, read libraries only in part, drop tests, and break incremental reading. So stage 1 reads every file on its own, and stage 2 analyses the finished graph: it resolves references, carries types from callers, and finds which roots reach each node. [python-parsing.md](./python-parsing.md#how-the-graph-is-built) describes both stages.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| Read only what an entry reaches | Rejected | Incomplete, and not incremental |
+| Infer a parameter's type from any caller | Rejected | One wrong caller would give wrong edges with no sign of it |
+| Carry a type only when every caller agrees, and record `resolved_by: flow` on such edges | Adopted | Nothing is guessed within what the workspace shows, and a reader can tell these edges from those read directly |
+
+### 13. HTTP calls in code are matched to routes, and links stay declared
+
+Once routes and their full paths are in the graph, a client call such as `httpx.get(f"{BILLING_URL}/v1/invoices/{id}")` in another project can be matched to the exact route it calls. The match is a code edge, `Requests`, from the calling function to the route. It is what lets `impact` and the API contract go from a model to the code in other repositories that calls it, and lets an API test reach the handler it tests.
+
+| Considered | Outcome | Reason |
+|---|---|---|
+| Keep finding HTTP calls for Later (W11) | Rejected | Routes and their full paths are already in the graph, so matching is cheap, and only a workspace graph can do it |
+| Turn a matched call into a `ConnectsTo` link | Rejected | A link is a runtime fact a person declares (ADR 0004). A match is evidence from code, and can be ambiguous when two apps serve the same path |
+| A `Requests` edge to the route, narrowed by declared links, with a warning when a cross-project match has no declared link | Adopted | Code and configuration check each other, and nothing is guessed: an ambiguous call is stored as unmatched |
 
 ## The model that results
 
@@ -128,7 +185,7 @@ A "joins" edge from a function to a network is a bug. Each of the nine workspace
 
 | Group | Kinds |
 |---|---|
-| Code (13) | `Contains`, `Calls`, `Imports`, `Exports`, `Extends`, `Implements`, `References`, `TypeOf`, `Returns`, `Instantiates`, `Overrides`, `Decorates`, `Navigates` |
+| Code (17) | `Contains`, `Calls`, `Imports`, `Exports`, `Extends`, `Implements`, `References`, `TypeOf`, `Returns`, `Instantiates`, `Overrides`, `Decorates`, `Navigates`, `Mounts`, `Handles`, `Injects`, `Requests` |
 | Workspace (9) | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `Joins`, `ConnectsTo`, `Publishes`, `Subscribes` |
 
 | Workspace kind | From | To | Meaning |
@@ -149,7 +206,7 @@ A "joins" edge from a function to a network is a bug. Each of the nine workspace
 
 - **Identity:** the id, the kind, the name and the qualified name.
 - **Place:** the scope and the origin.
-- **Details, each optional:** language, doc string, signature, visibility, whether it is exported, async, static or abstract, decorators, type parameters and return type. These are filled in for code nodes and left empty for the rest.
+- **Data, which depends on the kind:** for a callable, its doc string, signature, visibility, flags, decorators, type parameters and return type; for a field, variable or parameter, its declared type and default; for a route, its method and local path; for a project, its language; for a binary, its framework and app. Most workspace kinds carry none.
 
 ### What an edge holds
 
@@ -257,7 +314,7 @@ A file that imports `Invoice` and is not an entry file is reached the same way, 
 
 ## What is left out, and why
 
-- **A confidence score on inferred edges.** Nothing produces inferred edges yet.
+- **A confidence score on inferred edges.** Nothing produces `Heuristic` edges yet. Edges resolved by `flow` need none: they exist only when every caller agrees.
 - **Timestamps.** The content hash of a file already says whether it changed.
 - **A copy of the source code.** A node stores where its source is. A query reads the file through the node's span, and marks a file that has changed since the last index.
 - **Topics, queues and HTTP calls found in code.** They are declared by hand for now.

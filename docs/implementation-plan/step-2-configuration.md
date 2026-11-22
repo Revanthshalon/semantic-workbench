@@ -127,14 +127,20 @@ pub struct Config {
     pub projects: Vec<Project>,
     pub stacks: Vec<SharedStack>,
     pub storage: Storage,
+    pub analysis: Analysis,            // flow_rounds: u32, 10 by default
     pub notices: Vec<String>,          // one per reserved section that was read and not used
 }
 pub struct Project {
     pub id: ProjectId, pub path: RelOrAbsPath, pub language: Language,
-    pub dependency_manager: DependencyManager, pub framework: Option<Framework>,
+    pub dependency_manager: DependencyManager,
     pub import_names: Option<Vec<String>>, pub exclude: Vec<String>,
     pub dependencies: Dependencies, pub binaries: Vec<Binary>,
     pub links: Vec<Link>, pub compose: Option<ProjectStack>,
+}
+pub struct Binary {
+    pub name: String, pub entry: RelPath,
+    pub framework: Option<Framework>,  // Fastapi | Angular | None; absent: read from compose, then the entry file
+    pub app: Option<AppRef>,           // module:attribute; only with Fastapi
 }
 pub struct Link { pub target: LinkTarget, pub via: Via, pub binary: Option<String>, pub note: Option<String> }
 pub enum LinkTarget { Service { name: String, stack: Option<ComposeName> }, Project(ProjectId) }

@@ -6,7 +6,7 @@
 
 **Tech stack:** `serde`, a maintained YAML crate for `serde`, `thiserror`.
 
-**Spec:** [configuration-guide.md](../configuration-guide.md), [mcp-modes.md](../mcp-modes.md#what-init-creates). Capabilities C1 to C10, K1, K3.
+**Spec:** [configuration-guide.md](../configuration-guide.md), [modes.md](../modes.md#what-init-creates). Capabilities C1 to C10, K1, K3.
 
 **Read first:** [00-overview.md](./00-overview.md) for the constraints, the module map and how a task is done.
 
@@ -201,9 +201,9 @@ pub fn init(dir: &Path) -> Result<InitReport, InitError>;
 
 `init` writes these files below `dir/.workbench/`, each from a template embedded with `include_str!`:
 
-`config.yml`, `.gitignore` (one line, `graph.db*`), `skills/workbench/SKILL.md`, `skills/python/SKILL.md`, `mcp/config.yml`, `mcp/contexts/testing.yml`, `mcp/contexts/staging.yml`, `mcp/contexts/production.yml`.
+`config.yml`, `.gitignore` (one line, `graph.db*`), `skills/workbench/SKILL.md`, `skills/python/SKILL.md`, `ops/config.yml`, `ops/contexts/testing.yml`, `ops/contexts/staging.yml`, `ops/contexts/production.yml`.
 
-The three context files come from `templates/mcp/contexts/staging.yml`, with `staging` replaced by the context's name.
+The three context files come from `templates/ops/contexts/staging.yml`, with `staging` replaced by the context's name.
 
 **Tests:**
 
@@ -221,9 +221,9 @@ The three context files come from `templates/mcp/contexts/staging.yml`, with `st
 
 - `load` returns a `Config` for the Acme configuration and for `templates/config.yml`.
 - Every rule from 1 to 13 has a test that breaks only that rule.
-- `init` creates the folder layout of [mcp-modes.md](../mcp-modes.md#what-init-creates).
+- `init` creates the folder layout of [modes.md](../modes.md#what-init-creates).
 
 ## Left open
 
 - **The text of the two skills.** Task 5 needs real content for `workbench` and `python`. The first can be written from the usage guide. The Python best practices need the project owner's conventions.
-- **The files under `mcp/` are written and not read.** Reading and checking them is capability C13, in Release 3.
+- **The files under `ops/` are written and not read.** Reading and checking them is capability C13, in Release 3.

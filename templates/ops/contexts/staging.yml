@@ -1,4 +1,4 @@
-# .workbench/mcp/contexts/staging.yml
+# .workbench/ops/contexts/staging.yml
 version: 1
 branch: release-2.4                 # the release branch deployed to this environment
 branches:                           # optional per-project overrides

@@ -15,7 +15,9 @@
 - Exit code `0` when the command did what was asked, `1` when it could not, `2` when the command line itself was wrong.
 - `index` with warnings, or with files that failed to parse, exits `0`.
 - Results go to standard output and nothing else does. Messages, warnings and progress go to standard error.
-- `--json` prints the `Answer` of the use case as one JSON document, with the same field names as the MCP server returns.
+- With `--json`, a command that succeeds writes nothing to standard error. A UTCP client mixes standard error into the result, so a notice there would break the JSON ([utcp-manual.md](../utcp-manual.md#standard-error)).
+- `--project` and `--kind` accept `*`, which means no filter. The UTCP manual sends it, because a call template cannot leave an argument out.
+- `--json` prints the `Answer` of the use case as one JSON document, with the same field names the UTCP manual relies on.
 - Every command takes `--workspace <dir>` and `-v`. Every command that prints a result takes `--json`.
 - Text output has no colour when standard output is not a terminal.
 
@@ -44,7 +46,7 @@
 | `neighbors <node>` | `--depth <n>`, `--direction in\|out\|both`, `--edge <kind>` (repeatable) | `neighbors` |
 | `files` | `--project <id>`, `--failed` | `files` |
 | `deps` | | `deps` |
-| `mcp` | `--mode <name>` | step 8 |
+| `manual` | `--mode <name>` | step 8 |
 
 ## File structure
 
@@ -84,13 +86,13 @@ Each slice is one pull request. The [overview](./00-overview.md#working-in-paral
 pub struct Cli { pub workspace: Option<PathBuf>, pub verbose: bool, pub json: bool, pub command: Command }
 
 #[derive(clap::Subcommand)]
-pub enum Command { Init, Check, Index { force: bool, project: Option<String> }, Status, Explore { .. }, Node { .. }, Query { .. }, Callers { .. }, Callees { .. }, Impact { .. }, Neighbors { .. }, Files { .. }, Deps, Mcp { mode: String } }
+pub enum Command { Init, Check, Index { force: bool, project: Option<String> }, Status, Explore { .. }, Node { .. }, Query { .. }, Callers { .. }, Callees { .. }, Impact { .. }, Neighbors { .. }, Files { .. }, Deps, Manual { mode: String } }
 
 pub enum Outcome { Done, Failed(String), Usage(String) }
 impl Outcome { pub fn exit_code(&self) -> u8; }      // 0, 1, 2
 ```
 
-The global flags are marked `global = true`, so they may come before or after the command. `Mcp`'s `mode` defaults to `developer-support`.
+The global flags are marked `global = true`, so they may come before or after the command. `Manual`'s `mode` defaults to `developer-support`.
 
 **Tests**, with `Cli::try_parse_from`:
 
@@ -103,7 +105,8 @@ The global flags are marked `global = true`, so they may come before or after th
 | `node_takes_a_node_or_a_file_not_both` | Both together is an error; neither is an error |
 | `unknown_flag_is_a_usage_error` | The error's exit code is `2` |
 | `no_command_is_a_usage_error` | Exit code `2` |
-| `mode_defaults_to_developer_support` | `mcp` alone gives that mode |
+| `mode_defaults_to_developer_support` | `manual` alone gives that mode |
+| `star_means_no_filter` | `--project '*'` and `--kind '*'` parse as no filter, for `query`, `explore` and `files` |
 | `exit_codes_are_0_1_and_2` | For `Done`, `Failed` and `Usage` |
 
 **Commit:** `feat(cli): the command tree and exit codes`
@@ -201,6 +204,7 @@ pub struct Env { pub cwd: PathBuf, pub workspace_var: Option<OsString>, pub stdo
 | `impact_names_all_four_projects` | Standard output holds the four project ids |
 | `json_output_parses_and_has_freshness` | `impact --json` is valid JSON with `result`, `freshness` and `truncated` |
 | `results_go_to_stdout_and_messages_to_stderr` | `index` writes its summary to standard error, and nothing to standard output |
+| `json_success_writes_nothing_to_standard_error` | Each query command with `--json`, on an indexed fixture: standard error is empty, and `-v` is not given |
 | `invalid_configuration_exits_1_and_lists_every_problem` | Exit code `1`, and both problems on standard error |
 | `unknown_flag_exits_2` | Exit code `2` |
 | `no_workspace_exits_1_and_names_the_flag` | The message holds `--workspace` |

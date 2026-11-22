@@ -1,6 +1,6 @@
-# MCP Modes, Contexts and Skills
+# Modes, Contexts and Skills
 
-What `workbench init` puts in `.workbench/` besides the workspace configuration: the skills every mode of the MCP server shares, and the files that tell the operational mode how to reach each deployment.
+What `workbench init` puts in `.workbench/` besides the workspace configuration: the skills every mode of the UTCP manual shares, and the files that tell the operational mode how to reach each deployment.
 
 > **Nothing here is built yet.** The folders are written by `init` in Release 1. Operational support ships in Release 3; see the [roadmap](./roadmap.md). The operational tools on this page are **proposed**: they were drafted from the sample context file and are not confirmed.
 
@@ -16,7 +16,7 @@ Related pages: [usage guide](./usage-guide.md), [configuration guide](./configur
 ├── skills/                     # shared by every mode
 │   ├── workbench/SKILL.md
 │   └── python/SKILL.md
-└── mcp/
+└── ops/
     ├── config.yml              # which contexts there are, and the default
     └── contexts/               # one file per context
         ├── production.yml
@@ -26,24 +26,24 @@ Related pages: [usage guide](./usage-guide.md), [configuration guide](./configur
 
 Commit everything but `graph.db`. `init` never overwrites a file that is already there, so a team's edits to a skill or a context are safe.
 
-Samples of both kinds of file are in [`templates/mcp/`](../templates/mcp/).
+Samples of both kinds of file are in [`templates/ops/`](../templates/ops/).
 
 ## Modes
 
-The MCP server runs in one mode at a time. The mode is chosen on the command line and has no file of its own.
+The UTCP manual is printed for one mode at a time. The mode is chosen on the command line and has no file of its own. The mode decides which tools the manual lists.
 
 ```bash
-workbench mcp --mode developer-support      # the default
-workbench mcp --mode operational-support
+workbench manual --mode developer-support      # the default
+workbench manual --mode operational-support
 ```
 
-An AI tool that needs two modes gets two entries in its MCP configuration, one per mode.
+An AI tool that needs two modes loads two manuals, one per mode.
 
 | Mode | For | Offers | Ships |
 |---|---|---|---|
 | `developer-support` | Writing and changing code | The graph tools, and later the help of a language server | Release 1. The language server is on the roadmap |
 | `operational-support` | Finding the cause of an incident and proposing a resolution | Read-only tools that look into a deployment, plus the graph tools for code context | Release 3 |
-| `testing-support` | Not decided | Nothing | The name is reserved. The server refuses to start in it |
+| `testing-support` | Not decided | Nothing | The name is reserved. `workbench manual` refuses it |
 
 No mode changes the graph, the code or anything that runs. Every tool in every mode only reads.
 
@@ -63,12 +63,12 @@ This is the one part of Workbench that uses the network. It connects only to the
 
 ### `testing-support`
 
-A name and nothing more. `workbench mcp --mode testing-support` stops with a message that the mode is not available yet.
+A name and nothing more. `workbench manual --mode testing-support` stops with a message that the mode is not available yet.
 
-## `mcp/config.yml`: the contexts
+## `ops/config.yml`: the contexts
 
 ```yaml
-# .workbench/mcp/config.yml
+# .workbench/ops/config.yml
 default_context: staging
 contexts:
   production: contexts/production.yml
@@ -79,11 +79,11 @@ contexts:
 | Field | Required | Meaning |
 |---|---|---|
 | `default_context` | yes | The context a tool uses when it is given none. It must be a key of `contexts` |
-| `contexts` | yes | One entry per context: its name, and the path of its file, relative to `.workbench/mcp/` |
+| `contexts` | yes | One entry per context: its name, and the path of its file, relative to `.workbench/ops/` |
 
 ## A context file
 
-A context file says which release is deployed there and how to reach it. The complete sample is [`templates/mcp/contexts/staging.yml`](../templates/mcp/contexts/staging.yml).
+A context file says which release is deployed there and how to reach it. The complete sample is [`templates/ops/contexts/staging.yml`](../templates/ops/contexts/staging.yml).
 
 ### How a context is reached
 
@@ -173,7 +173,9 @@ One group of tools for each section of a context file. Every tool takes `context
 
 The graph tools are offered in this mode as well. They give the code context: `kube_logs` shows an error, `explore` shows the code that raised it, and `impact` shows what else that code touches.
 
-Workbench never passes text from the AI tool to a shell. Each tool builds its own command from checked arguments.
+Each operational tool is a call to a subcommand of `workbench ops`, such as `workbench ops kube-pods --context staging --json`, so the manual lists it as a call template like the graph tools. Workbench never passes text from the AI tool to a shell on the VM: each subcommand builds its own remote command from checked arguments. The call template that starts a subcommand is a line of shell, so its arguments follow the same rules as the graph tools: [why arguments need care](./utcp-manual.md#why-arguments-need-care) (`TO_REFINE`).
+
+**A mode is a list, not a lock.** The manual of a mode lists only that mode's tools, but a UTCP client runs `workbench` itself, so nothing stops it from running another subcommand. What keeps `developer-support` safe is the rule above: every command, in every mode, only reads. See [ADR 0022](./adrs/0022-ai-tools-reach-the-graph-through-utcp.md).
 
 ## Skills
 
@@ -188,7 +190,7 @@ A skill is a short written guide an AI tool loads when it needs it. Skills are t
 - **One folder per skill,** holding a `SKILL.md`. The file starts with a `name` and a `description`, and the guide follows as Markdown.
 - **The best practices of each language are shared.** Every workspace starts from the same guide for a language, so every AI tool follows the same conventions.
 - **A team owns its copy.** Edit the skills `init` wrote, and add a folder for each of your own.
-- **The MCP server offers every skill in the folder,** in every mode, to the AI tool that connects.
+- **The manual names every skill in the folder,** in every mode, with its file and description, so the AI tool can read it.
 - **A skill never changes what a tool returns.** It is guidance for the AI tool, not configuration.
 
 ## Open points
@@ -198,5 +200,5 @@ A skill is a short written guide an AI tool loads when it needs it. Skills are t
 | The operational tools | The table above is a proposal. The names, the arguments and the limits need confirming |
 | A password written in a context file | The sample allows `ssh.password`. The workspace configuration forbids secrets in files, and a context file is meant to be committed |
 | From a pod to a project | A pod or a Compose service on the VM is not yet tied to a service, a binary or a project in the graph. Until it is, the AI tool makes that step by name |
-| How a skill reaches the AI tool | Proposed: each skill is offered as an MCP prompt and as an MCP resource |
+| How a skill reaches the AI tool | Proposed: the manual lists each skill with its file path and description, and the AI tool reads the file |
 | What `testing-support` is for | Not decided |

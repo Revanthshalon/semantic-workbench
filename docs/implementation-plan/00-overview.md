@@ -13,7 +13,7 @@ What every step plan in this folder shares: how the work is cut into slices that
 | 5. Python parsing | [step-5-python-parsing.md](./step-5-python-parsing.md) | [domain-model.md](../domain-model.md), [storage-model.md](../storage-model.md) |
 | 6. Queries | [step-6-queries.md](./step-6-queries.md) | [usage-guide.md](../usage-guide.md) |
 | 7. Command line | [step-7-command-line.md](./step-7-command-line.md) | [usage-guide.md](../usage-guide.md) |
-| 8. MCP server | [step-8-mcp-server.md](./step-8-mcp-server.md) | [usage-guide.md](../usage-guide.md), [mcp-modes.md](../mcp-modes.md) |
+| 8. UTCP manual | [step-8-utcp-manual.md](./step-8-utcp-manual.md) | [usage-guide.md](../usage-guide.md), [modes.md](../modes.md) |
 
 Steps 1 and 3 have a specification and no task plan. Their specifications are detailed enough to build from.
 
@@ -84,10 +84,10 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 | 7C | Text output of `init`, `check`, `index`, `status` | C0, 2C | [step 7](./step-7-command-line.md) |
 | 7D | Wiring, and tests that run the binary | 7A, 7B, 7C, 3B, 3C, 4G, 6F | [step 7](./step-7-command-line.md) |
 | 7E | Installation | 7D | [step 7](./step-7-command-line.md) |
-| 8A | The server over stdio, and modes | C0 | [step 8](./step-8-mcp-server.md) |
-| 8B | The ten tools | 8A | [step 8](./step-8-mcp-server.md) |
-| 8C | Skills | 8A | [step 8](./step-8-mcp-server.md) |
-| 8D | Wiring, and tests that run the server | 8B, 8C, 7D | [step 8](./step-8-mcp-server.md) |
+| 8A | The manual document, and modes | C0 | [step 8](./step-8-utcp-manual.md) |
+| 8B | The eleven tools, as call templates | 8A, 7A | [step 8](./step-8-utcp-manual.md) |
+| 8C | Skills, listed in the manual | 8A | [step 8](./step-8-utcp-manual.md) |
+| 8D | Wiring `workbench manual`, and tests that run the binary | 8B, 8C, 7D | [step 8](./step-8-utcp-manual.md) |
 
 ### What can run at once
 
@@ -165,7 +165,7 @@ The scaffold is hexagonal. A module may depend only on the ones named in its las
 | `src/adapters/driven/fs` | Reading files, walking folders, reading `.git` | `domain`, `ports` |
 | `src/adapters/driven/parse` | Reading source code, manifests and compose files | `domain`, `ports` |
 | `src/adapters/driving/cli` | The command line | `use_cases`, `config` |
-| `src/adapters/driving/mcp` | The MCP server | `use_cases`, `config` |
+| `src/adapters/driving/utcp` | The UTCP manual | `use_cases`, `config` |
 | `src/main.rs` | Wiring: builds the adapters and hands them to the use cases | everything |
 
 ## Crates to add
@@ -176,12 +176,11 @@ Proposed. C0 adds them all. Pick the latest release at the time of building, and
 |---|---|
 | `thiserror` | Error types |
 | `blake3` | Node ids and content hashes |
-| `serde` with `derive`, `serde_json` | The configuration model, the result of every query, `--json` and MCP answers |
+| `serde` with `derive`, `serde_json` | The configuration model, the result of every query, `--json` and the UTCP manual |
 | A maintained YAML crate for `serde`, such as `serde_yaml_ng` | Reading YAML. `serde_yaml` itself is no longer maintained |
 | `toml` | Reading `pyproject.toml` |
 | `ignore` and `globset` | Walking a project by `.gitignore` rules, and `exclude` patterns |
 | `tree-sitter` and `tree-sitter-python` | Parsing Python |
-| `rmcp`, the official Rust SDK for MCP | The MCP server over stdio |
 | `assert_cmd` and `tempfile`, as dev-dependencies | Tests that run the binary |
 
 `sqlx`, `tokio` and `clap` are already in `Cargo.toml`. `sqlx` is asynchronous, so the store port and every use case are `async`.
@@ -298,7 +297,7 @@ pub struct FrameworkProbe { pub framework: Framework, pub app: Option<String> }
 
 ### From C0: the query results, in `src/use_cases/query/results.rs`
 
-Every query returns `Answer<T>`. The command line prints it, and the MCP server returns it, so both give the same answer.
+Every query returns `Answer<T>`. The command line prints it, and the UTCP manual makes an AI tool call the command with `--json`, so both give the same answer.
 
 ```rust
 pub struct Answer<T> { pub result: T, pub freshness: Freshness, pub truncated: Option<String> }

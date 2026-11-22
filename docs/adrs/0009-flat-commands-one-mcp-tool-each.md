@@ -14,4 +14,6 @@ The first design grouped every question under `workbench query <sub-command>` an
 - `workbench query` is the name search. The MCP tool for it is called `search`.
 - The command line and the MCP server call the same use cases, so neither can do something the other cannot.
 
+Amended by [ADR 0022](./0022-ai-tools-reach-the-graph-through-utcp.md): the tools are described by a UTCP manual instead of an MCP server. Each tool is still one command with one answer. Where this page says MCP tool or MCP server, read UTCP tool and UTCP manual.
+
 Details: [usage-guide.md](../usage-guide.md#commands).

@@ -11,7 +11,7 @@ Nothing is built yet beyond the module scaffold.
 - **Decision:**
   - **Decided**: confirmed by the project owner.
   - **Open**: needs a decision before it can be built. Open rows are collected at the end.
-- **Where you meet it:** the command, MCP tool or configuration field through which a user touches the capability.
+- **Where you meet it:** the command, UTCP tool or configuration field through which a user touches the capability.
 
 ## At a glance
 
@@ -24,7 +24,7 @@ Nothing is built yet beyond the module scaffold.
 | S. Storage | Where the graph is kept | 3 | | | 1 |
 | Q. Queries | The questions the graph can answer | 12 | | | 2 |
 | U. Command line | The `workbench` commands | 9 | | | 2 |
-| M. MCP server | How AI tools reach the graph | 5 | | | 2 |
+| M. UTCP manual | How AI tools reach the graph | 6 | | | 2 |
 | K. Skills | The written guides every mode shares | 3 | 1 | | |
 | O. Operational support | Looking into a deployment, read-only | | | 10 | |
 | X. Ground rules | Behaviour every command shares | 9 | | | 1 |
@@ -37,7 +37,7 @@ A person describes the workspace once, in `.workbench/config.yml`.
 |---|---|---|---|---|
 | C1 | Find the workspace: use `--workspace`, else `WORKBENCH_WORKSPACE`, else look for `.workbench/` in the current folder and then in each parent. Stop with an error if none of these gives one | R1 | Decided | every command |
 | C2 | Read the configuration and refuse unknown fields | R1 | Decided | `index`, `check` |
-| C3 | Write a starter configuration from the built-in template, together with the `skills/` and `mcp/` folders. A file that is already there is never overwritten | R1 | Decided | `init` |
+| C3 | Write a starter configuration from the built-in template, together with the `skills/` and `ops/` folders. A file that is already there is never overwritten | R1 | Decided | `init` |
 | C4 | List projects: id, path, language, dependency manager, import names. A relative path starts at the workspace root | R1 | Decided | `projects` |
 | C5 | Declare a project's binaries by hand | R1 | Decided | `projects[].binaries` |
 | C6 | Declare extra local dependencies by hand | R1 | Decided | `projects[].dependencies.local` |
@@ -49,7 +49,7 @@ A person describes the workspace once, in `.workbench/config.yml`.
 | C12 | Declare external services that no compose file describes | Later | Decided | not designed |
 | C14 | Declare a binary's framework and its app object by hand, when the compose command and the entry file cannot tell. A framework is set on a binary only, never on a project | R1 | Decided | `binaries[].framework`, `binaries[].app` |
 | C15 | Set how many call levels types and text are carried through calls, from 0 (off) to 100. Default 10 | R1 | Decided | `analysis.flow_rounds` |
-| C13 | Read and check `mcp/config.yml` and the context files: every field, every default, and that each project named under `branches` exists | R3 | Decided | `check`, `mcp` |
+| C13 | Read and check `ops/config.yml` and the context files: every field, every default, and that each project named under `branches` exists | R3 | Decided | `check` |
 
 ## W. Workspace indexing
 
@@ -134,7 +134,7 @@ Specified in [storage-model.md](./storage-model.md): the schema, how an index is
 
 ## Q. Queries
 
-The questions the graph answers. The command line and the MCP server both call these.
+The questions the graph answers. The command line and the UTCP manual both reach these.
 
 | Id | Capability | Release | Decision | Where you meet it |
 |---|---|---|---|---|
@@ -165,43 +165,44 @@ One binary, `workbench`. The exact commands and flags are in the [usage guide](.
 | U4 | Check the configuration without indexing | R1 | Decided | `workbench check` |
 | U5 | Ask the graph a question | R1 | Decided | `workbench explore`, `node`, `query`, `callers`, `callees`, `impact`, `neighbors`, `files` |
 | U6 | List dependencies | R1 | Decided | `workbench deps` |
-| U7 | Serve AI tools | R1 | Decided | `workbench mcp` |
+| U7 | Print the UTCP manual that describes the query commands to AI tools | R1 | Decided | `workbench manual` |
 | U8 | Machine-readable output from every command that prints results | R1 | Decided | `--json` |
 | U9 | Summaries and suggested links, each with its own command | Later | Decided | not designed |
 | U10 | Shell completions | Later | Decided | not designed |
 | U11 | Install with Cargo or with Homebrew | R1 | Decided | `cargo install`, `brew install` |
 
-## M. MCP server
+## M. UTCP manual
 
 | Id | Capability | Release | Decision | Where you meet it |
 |---|---|---|---|---|
-| M1 | Serve over stdio. The AI tool starts the process and stops it with the session | R1 | Decided | `workbench mcp` |
-| M2 | One tool per query: `explore`, `node`, `search`, `callers`, `callees`, `impact`, `neighbors`, `files`, `dependencies`, `status`. Each gives the same answer as its command | R1 | Decided | MCP tools |
-| M3 | Never change the graph. Every answer says when the graph was indexed and whether files have changed since | R1 | Decided | every MCP tool |
-| M4 | Serve over HTTP for shared or remote use | Later | Decided | not designed |
-| M5 | Run in one mode, chosen on the command line. `developer-support` is the default and offers the graph tools | R1 | Decided | `workbench mcp --mode <name>` |
-| M6 | Reserve the names `operational-support` and `testing-support`. Until a mode ships, the server refuses to start in it, with a message | R1 | Decided | `workbench mcp --mode <name>` |
+| M1 | Describe the query tools in a UTCP manual, a JSON document printed to standard output. The AI tool loads it and calls `workbench` directly. There is no server process | R1 | Decided | `workbench manual` |
+| M2 | One tool per query: `explore`, `node`, `file`, `search`, `callers`, `callees`, `impact`, `neighbors`, `files`, `dependencies`, `status`. Each is a call template over its command, with `--json`, so it gives the same answer as the command. Every argument is required, with a default, and `*` means no filter ([utcp-manual.md](./utcp-manual.md#arguments-all-required-with-defaults)) | R1 | Decided | UTCP tools |
+| M3 | Never change the graph. Every answer says when the graph was indexed and whether files have changed since | R1 | Decided | every UTCP tool |
+| M4 | Serve the manual by URL and make the commands reachable over HTTP, for shared or remote use | Later | Decided | not designed |
+| M5 | Run in one mode, chosen on the command line. `developer-support` is the default and offers the graph tools | R1 | Decided | `workbench manual --mode <name>` |
+| M6 | Reserve the names `operational-support` and `testing-support`. Until a mode ships, `workbench manual` refuses it, with a message | R1 | Decided | `workbench manual --mode <name>` |
 | M7 | Add a language server's help to `developer-support`: definitions, references and diagnostics | Later | Decided | `lsp` and `projects[].environment` fields, reserved |
+| M8 | Make a tool call safe against shell text in its arguments: every placeholder quoted, every argument allow-listed in the manual's schema, and a test that runs a real shell. Drafted in [utcp-manual.md](./utcp-manual.md#the-solution-draft), `TO_REFINE` | R1 | Open | `workbench manual` |
 
 ## K. Skills
 
-Written guides an AI tool loads when it needs them, the same in every mode. Described in [mcp-modes.md](./mcp-modes.md#skills).
+Written guides an AI tool loads when it needs them, the same in every mode. Described in [modes.md](./modes.md#skills).
 
 | Id | Capability | Release | Decision | Where you meet it |
 |---|---|---|---|---|
 | K1 | Write the shared skills into `.workbench/skills/`: how to use Workbench, and the best practices of Python | R1 | Decided | `init` |
-| K2 | Offer every skill in the folder to the AI tool that connects, in every mode | R1 | Open | `workbench mcp` |
+| K2 | Tell the AI tool about every skill in the folder, in every mode: the manual names each skill's file and gives its description, and the tool reads the file itself | R1 | Open | `workbench manual` |
 | K3 | Leave a team's skills alone: its edits and its own skills are never overwritten | R1 | Decided | `init` |
 | K4 | Write the best practices of TypeScript and Angular | R2 | Decided | `init` |
 
 ## O. Operational support
 
-The `operational-support` mode: looking into a deployment to find the cause of an incident. Described in [mcp-modes.md](./mcp-modes.md). The tool names in O5 to O9 are proposed.
+The `operational-support` mode: looking into a deployment to find the cause of an incident. Described in [modes.md](./modes.md). The tool names in O5 to O9 are proposed.
 
 | Id | Capability | Release | Decision | Where you meet it |
 |---|---|---|---|---|
-| O1 | Name the contexts of the workspace and the default one. `init` writes `testing`, `staging` and `production` | R3 | Decided | `mcp/config.yml` |
-| O2 | Describe one context in one file: its release branches and how it is reached | R3 | Decided | `mcp/contexts/<name>.yml` |
+| O1 | Name the contexts of the workspace and the default one. `init` writes `testing`, `staging` and `production` | R3 | Decided | `ops/config.yml` |
+| O2 | Describe one context in one file: its release branches and how it is reached | R3 | Decided | `ops/contexts/<name>.yml` |
 | O3 | Reach a context only through SSH to its virtual machine. A connection either tunnels through the VM or runs the VM's own client | R3 | Decided | `ssh`, `access` |
 | O4 | Check, project by project, that the indexed checkout is the context's release branch, and list the projects that differ in every operational answer | R3 | Decided | `context_status`, every operational tool |
 | O5 | Read a Kubernetes namespace: pods, one resource in full, events and logs | R3 | Open | `kube_pods`, `kube_describe`, `kube_events`, `kube_logs` |
@@ -209,7 +210,7 @@ The `operational-support` mode: looking into a deployment to find the cause of a
 | O7 | Run one read-only query on a named Postgres connection, with a time limit and a row limit | R3 | Open | `postgres_query` |
 | O8 | Read keys from a named Redis connection, with reading commands only | R3 | Open | `redis_read` |
 | O9 | Read Kafka: topics, how far each consumer group is behind, and the latest messages without committing an offset | R3 | Open | `kafka_topics`, `kafka_lag`, `kafka_peek` |
-| O10 | Offer the graph tools in this mode, for code context. Every tool of the mode only reads, and no configuration can change that | R3 | Decided | `workbench mcp --mode operational-support` |
+| O10 | Offer the graph tools in this mode, for code context. Every tool of the mode only reads, and no configuration can change that | R3 | Decided | `workbench manual --mode operational-support` |
 
 ## X. Ground rules
 
@@ -217,11 +218,11 @@ Behaviour that every command shares.
 
 | Id | Rule | Release | Decision |
 |---|---|---|---|
-| X1 | The graph changes only when `workbench index` is run. No query, and no MCP tool, re-indexes | R1 | Decided |
-| X2 | Results go to standard output. Messages, warnings and progress go to standard error. In MCP mode standard output carries only the protocol | R1 | Decided |
+| X1 | The graph changes only when `workbench index` is run. No query, and no UTCP tool, re-indexes | R1 | Decided |
+| X2 | Results go to standard output. Messages, warnings and progress go to standard error. `workbench manual` writes only the manual to standard output. With `--json`, a command that succeeds writes nothing to standard error | R1 | Decided |
 | X3 | Exit code `0` for success, `1` for a failure such as a bad configuration or an unreadable store, `2` for a wrong command line | R1 | Decided |
 | X4 | `index` skips what `.gitignore` excludes, plus `.git`, `node_modules`, `.venv` and `.workbench` | R1 | Decided |
-| X5 | One `index` at a time per workspace. Queries and the MCP server keep working while it runs, and see the graph as it was until the index finishes. An index that fails changes nothing | R1 | Decided |
+| X5 | One `index` at a time per workspace. Queries keep working while an index runs, and see the graph as it was until the index finishes. An index that fails changes nothing | R1 | Decided |
 | X6 | `init` writes `.workbench/.gitignore` so the graph file is not committed. The configuration file is meant to be committed | R1 | Decided |
 | X7 | No network calls and no telemetry. From Release 3 the `operational-support` mode connects to the virtual machine a context names, and to nothing else | R1 | Decided |
 | X8 | macOS and Linux are supported. Windows is not | R1 | Decided |
@@ -232,7 +233,8 @@ Behaviour that every command shares.
 
 | Rows | What needs deciding |
 |---|---|
-| K2 | How a skill reaches the AI tool. Proposed: as an MCP prompt and as an MCP resource |
+| K2 | How a skill reaches the AI tool (`TO_REFINE`). Proposed: the manual lists each skill with its file path and description, and the AI tool reads the file |
 | O5 to O9 | The operational tools: their names, arguments and limits. The list is a proposal drafted from the sample context file |
 | O2 | Whether a context file may hold a password. The sample allows `ssh.password`; the workspace configuration forbids secrets in files |
 | O5, O6 | How a pod or a Compose service on the VM is tied to a service, a binary or a project in the graph |
+| M8 | Whether a real UTCP client enforces the schema or inserts values faithfully. If neither, the fallback options in [utcp-manual.md](./utcp-manual.md#the-solution-draft) apply. `TO_REFINE` |

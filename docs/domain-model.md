@@ -521,7 +521,7 @@ A project class carried on a topic or queue, as the code that sends or receives 
 
 ## Project checkout
 
-Which version of a project the graph was built from. Each project is its own repository, so each has its own. `status` shows it, and the `operational-support` mode compares it with the release branch a [context](./mcp-modes.md#the-release-branch) names for the project.
+Which version of a project the graph was built from. Each project is its own repository, so each has its own. `status` shows it, and the `operational-support` mode compares it with the release branch a [context](./modes.md#the-release-branch) names for the project.
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|

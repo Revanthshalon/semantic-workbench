@@ -1,0 +1,46 @@
+name: Publish wiki
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - README.md
+      - docs/**
+      - scripts/publish_wiki.py
+      - .github/workflows/publish-wiki.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone wiki
+        run: |
+          git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki
+
+      - name: Render pages
+        run: |
+          find wiki -maxdepth 1 -name '*.md' -delete
+          python3 -I scripts/publish_wiki.py . wiki
+
+      - name: Push if changed
+        working-directory: wiki
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: sync wiki from ${GITHUB_SHA::7}"
+          git push

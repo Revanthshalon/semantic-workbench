@@ -44,6 +44,7 @@ Stage 2  analyse from each root    over the graph, no file is read again
            2c  route paths              each route's full paths and the binaries that serve it
            2d  HTTP calls               client calls matched to routes → Requests edges
            2e  reach                    which roots may run each node
+           2f  messages, commands       producers and consumers → Sends, Receives; compose commands → Invokes
 ```
 
 ### Stage 1: read every file
@@ -126,6 +127,8 @@ Names assigned more than once, parameters without annotation, loop targets and r
 | `flow` | The receiver's class was inferred by 2b: a parameter typed by its callers, a return, a field, a name bound more than once, or an element of a collection |
 | `framework` | A framework profile's reference: `Mounts`, `Handles` or `Injects`, including a pytest fixture |
 | `route_match` | An HTTP client call matched to a route path (2d) |
+| `message_match` | A producer or consumer matched to a declared topic or queue (2f) |
+| `command_match` | A compose command matched to a `Command` of the binary it runs (2f) |
 
 When several rules could apply, the first in the lookup order wins and names the edge. The same idea is `resolvedBy` in codegraph, the project this design follows for its commands.
 
@@ -367,6 +370,68 @@ Module-level code of a reached `File` reaches what it calls. A reached class doe
 
 **What "unreached" means.** Not reached through *resolved* edges. An unresolved call breaks the chain, so an unreached node may still run. `files --unreached` is a hint to look, never proof that code is dead.
 
+### Stage 2f: match messages and commands
+
+Two more kinds of call cross a process boundary: a message sent to a topic or queue, and a command run by a compose service. Both are matched here, after reach, because reach must not follow them: a worker that sends to a topic does not run the code that handles it, and a service runs only the command it names.
+
+#### Messages
+
+A Python producer or consumer that names a topic or queue is matched to the **declared** `Topic` and `Queue` nodes of the workspace layer.
+
+**Clients recognised:**
+
+| Library | Sends | Receives |
+|---|---|---|
+| `kafka-python` | `KafkaProducer.send(topic, ...)` | `KafkaConsumer(topic, ...)` or `.subscribe([...])`, then iterated or polled |
+| `aiokafka` | `AIOKafkaProducer.send(topic, ...)`, `send_and_wait(topic, ...)` | `AIOKafkaConsumer(topic, ...)` or `.subscribe([...])`, then iterated with `async for` or `getone()` / `getmany()` |
+| `confluent-kafka` | `Producer.produce(topic, ...)` | `Consumer.subscribe([...])`, then `poll()` or `consume()` |
+| `pika` (RabbitMQ) | `channel.basic_publish(exchange, routing_key, ...)` | `channel.basic_consume(queue, on_message_callback=...)`, or `channel.consume(queue)` iterated |
+| `aio-pika` (RabbitMQ) | `exchange.publish(message, routing_key=...)` | `channel.declare_queue(name)`, then `queue.consume(callback)` or `queue.iterator()` |
+| `redis` streams | `xadd(stream, ...)` | `xread({stream: ...})`, `xreadgroup(group, name, {stream: ...})` |
+
+A receiver is a producer or consumer when its type, declared or inferred by 2a and 2b, is one of the client classes. That covers one bound in the function, at module level, or as a field of your own class.
+
+**The name** is the text of the topic, queue or stream argument, as 2b works it out: a literal, a constant from another file, a settings default, or a parameter filled at each call site of a helper. For RabbitMQ, a publish to the default exchange `""` names the queue in `routing_key`. A publish to a named exchange names that exchange as a topic.
+
+**The broker** is the host in the client's connection argument (`bootstrap_servers="kafka:9092"`, `pika.ConnectionParameters("rabbitmq")`, `redis.Redis(host="redis")`). When that host is the name of an external service in a stack the caller's project uses, the match is limited to that service's topics and queues.
+
+**Who sends and who receives:**
+- `Sends` starts at the node the send call is in. A send made inside a helper is copied to each caller by 2b, as for HTTP calls.
+- `Receives` starts at the function that iterates or polls the consumer, or at the callback registered with it (`on_message_callback=handle`, `queue.consume(handle)`).
+
+**Matching.** A name matches a declared `Topic` or `Queue` with the same name, on the broker found above. When the broker is not known, the match is made among the topics and queues of the links the calling binary, or else its project, declares.
+- Exactly one match gives a `Sends` or `Receives` edge to it, with `resolved_by: message_match`.
+- More than one match, or none, is stored as an unmatched message, with its candidates, and `node` shows it.
+- A name that matches no declared topic or queue, or one that the caller's project declares no link for, raises the `MessageWithoutLink` warning. It names the link to add. Topics and queues are only ever created from the configuration (ADR 0004, amended by ADR 0019).
+
+**The payload.** When the value sent is built from an instance of a project class, the class is recorded as a payload of the topic:
+- on the sending side, from `model_dump_json()`, `model_dump()`, `json()`, `dict()`, `asdict(...)` or `json.dumps(...)` of an instance;
+- on the receiving side, from `C.model_validate_json(...)`, `C.model_validate(...)`, `C.parse_raw(...)`, `C(**json.loads(...))` or `C(**...)` on the message's value.
+
+The payload is what the event contract below reads.
+
+**What is stored.** `Sends` and `Receives` edges, unmatched messages and payloads, replaced at every index with the other results of stage 2.
+
+#### Commands
+
+A compose service that runs a command-line binary usually runs one of its commands: `python -m ledger.consumer replay --from 2026-11-01`. The service is linked to that command, not to the whole binary.
+
+**How a command is found.** The service's command line, worked out from compose and its Dockerfile as in [The command a service runs](#the-command-a-service-runs), is split into words:
+
+| Form | Program | Command words |
+|---|---|---|
+| `python -m ledger.consumer replay --from x` | The module `ledger.consumer` | `replay` |
+| `python src/ledger/consumer.py replay` | The file | `replay` |
+| `ledger-consumer replay` | A script in the project's `pyproject.toml` (`[project.scripts]` or `[tool.poetry.scripts]`) that points to the module | `replay` |
+
+The program must be the entry of the binary the service runs. The words up to the first option are matched against the paths of that binary's `Command` nodes, with the longest path winning.
+
+- A match gives an `Invokes` edge from the service to the command. The edge keeps the words as written, has the provenance of the command line (`Compose` or `Dockerfile`) and `resolved_by: command_match`.
+- A command word that names no command raises the `CommandNotFound` warning.
+- A service that runs the program with no command words, or a binary with no commands, gets no `Invokes` edge. It runs the binary as a whole, as before.
+
+**What is stored.** `Invokes` edges, replaced at every index with the other results of stage 2.
+
 ### Incremental indexing with two stages
 
 | Stage | When it runs again | Cost |
@@ -377,8 +442,9 @@ Module-level code of a reached `File` reaches what it calls. A reached class doe
 | 2c | In full, at every index | Linear in routes, times the depth of their mounts |
 | 2d | In full, at every index | Linear in HTTP call sites, times the candidate routes |
 | 2e | In full, at every index | Linear in edges, times the number of roots, with one bit per root |
+| 2f | In full, at every index | Linear in message call sites and compose commands, times their candidates |
 
-Running 2b to 2e in full keeps them simple and deterministic. Running them only from the changed nodes outward would make an index faster, and gives the same graph. It is a speed-up for a later release, not missing behaviour.
+Running 2b to 2f in full keeps them simple and deterministic. Running them only from the changed nodes outward would make an index faster, and gives the same graph. It is a speed-up for a later release, not missing behaviour.
 
 ### What the two stages lack
 
@@ -412,6 +478,7 @@ Only what static reading cannot know:
 | `Variable` | Any other module-level assignment, or an annotated name with no value | `<module>.<name>` | `a, b = ...` gives two |
 | `TypeAlias` | `type X = ...` (3.12), or `X: TypeAlias = ...` | `<module>.<X>` | A plain `X = Union[...]` stays a `Variable` |
 | `Import` | Each name an `import` statement binds | `<module>.<bound name>` | |
+| `Command` | An `argparse` parser or subparser, in a file that imports `argparse` | `<module>@<program> <path>` | See [Command-line binaries](#command-line-binaries-argparse) |
 
 Not nodes:
 
@@ -474,6 +541,44 @@ Step 5's lookup order stays: names the file imported, then `self.<name>`, then t
 
 Anything else with a receiver whose type is unknown stays unresolved: `obj.method()` with no annotation, `getattr`, a call through a dict.
 
+## The command a service runs
+
+A service built from a project runs one command line. The workspace layer works it out before any code is parsed, from the compose file and the service's Dockerfile, following Docker's own rules. Three things use it: which binary the service runs, the binary's framework and app (next section), and the `Command` the service invokes (stage 2f).
+
+**Which Dockerfile.** The service's `build.dockerfile`, relative to its build context, else `Dockerfile` in the build context. A service with no build context runs a stock image, and no Dockerfile is read for it.
+
+**What is read from a Dockerfile.** Its stages, each with:
+- `FROM <image> [AS <name>]`: the parent, which may be an earlier stage;
+- `ARG` and `ENV`, with their defaults;
+- `ENTRYPOINT` and `CMD`, in exec form (`["uvicorn", "billing.api:app"]`) or shell form (`uvicorn billing.api:app`).
+
+`RUN`, `COPY`, `EXPOSE`, `HEALTHCHECK` and the rest are not read: the graph does not use them.
+
+**Which stage.** The stage named by the service's `build.target`, else the last stage.
+
+**The command line**, in Docker's order:
+
+| `ENTRYPOINT` | `CMD` | Runs |
+|---|---|---|
+| compose `entrypoint`, else the stage's, else inherited from its parent stage | compose `command`, else the stage's, else inherited from its parent stage | The entrypoint, followed by the command |
+
+A compose `entrypoint` also clears the image's `CMD`, as Docker does. A stage whose parent is an outside image inherits nothing that can be read.
+
+- **Variables.** `${NAME}` and `$NAME` in shell form are filled from compose `build.args`, else from `ARG` and `ENV` defaults. A variable with no value is written `{?}`.
+- **Wrappers.** An entrypoint that is a shell script (`./entrypoint.sh`, `docker-entrypoint.sh`), `tini`, `dumb-init` or `gosu <user>` is taken to run what follows it. So the command after it is the one that counts. `sh -c "..."` and `bash -c "..."` are taken to run their string.
+- **Where it came from.** The command line records its source: `Compose` when compose gave the part that names the program, else `Dockerfile`.
+
+**What the command line gives:**
+
+| Use | How |
+|---|---|
+| The service's binary | When the configuration maps no binary and the build target names none, the binary whose entry the command line runs: `python -m billing.worker`, `python src/billing/worker.py`, a script from `pyproject.toml`, or `uvicorn billing.api:app` for the binary whose entry defines that app. The `Runs` edge then has the provenance of the command line |
+| The binary's framework and app | Source 2 in [How a binary's framework is decided](#how-a-binarys-framework-is-decided) |
+| The `Command` the service invokes | The command words, in [stage 2f](#commands) |
+| A check against the configuration | A command line that runs a module other than the binary's configured entry raises `EntryCommandMismatch` |
+
+A Dockerfile that is missing, or that cannot be read, raises the `DockerfileUnreadable` warning about the service. The service is then matched as if it had no Dockerfile.
+
 ## How a binary's framework is decided
 
 The workspace layer decides it, in [step 4](./implementation-plan/step-4-workspace-indexing.md), before any code is parsed. The first of these sources that gives an answer wins:
@@ -481,7 +586,7 @@ The workspace layer decides it, in [step 4](./implementation-plan/step-4-workspa
 | Order | Source | Gives | Example |
 |---|---|---|---|
 | 1 | The configuration: `binaries[].framework` and `binaries[].app` | The framework, and the app | `{name: api, entry: src/billing/main.py, framework: fastapi, app: billing.app:create_app}` |
-| 2 | The compose `command` of a service that runs the binary | The framework, and the app | `uvicorn billing.api:app`, `fastapi run src/billing/api.py`, `gunicorn -k uvicorn.workers.UvicornWorker billing.api:app` |
+| 2 | The command line of a service that runs the binary: its compose `command` and `entrypoint`, else its Dockerfile's `CMD` and `ENTRYPOINT` (see [The command a service runs](#the-command-a-service-runs)) | The framework, and the app | `uvicorn billing.api:app`, `fastapi run src/billing/api.py`, `gunicorn -k uvicorn.workers.UvicornWorker billing.api:app` |
 | 3 | The entry file | The framework, and the app | It imports from `fastapi`, and binds `FastAPI(...)` to a name at module level, or defines a function that returns one |
 | 4 | None of the above | `none`: a plain binary | Billing's `worker` |
 
@@ -489,7 +594,7 @@ The framework is set on a binary only, never on a project. A project's library f
 
 Source 3 reads only the entry file, with the same tree-sitter grammar, and only its imports and module-level statements. It is cheap, and it runs again whenever the entry file's content hash changes.
 
-**What is stored.** The binary's node carries `framework` (`fastapi` or `none`), `app` (the app's qualified name, such as `billing.api.app`) and `framework_source` (`declared`, `compose` or `entry`). `node` on a binary shows all three.
+**What is stored.** The binary's node carries `framework` (`fastapi` or `none`), `app` (the app's qualified name, such as `billing.api.app`) and `framework_source` (`declared`, `compose`, `dockerfile` or `entry`). `node` on a binary shows all three.
 
 **When the sources disagree.** A higher source wins, and the indexer raises a warning:
 
@@ -518,7 +623,7 @@ A binary whose framework is decided as `none`. Typical examples are a worker, a 
 | Module-level code in the entry file | `Calls`, `Instantiates` and `References` from the entry `File` |
 | `if __name__ == "__main__": main()` | The same: a `Calls` edge from the `File` to `main` |
 | `asyncio.run(main())` | `Calls` to `main`. The call to `asyncio.run` stays unresolved |
-| `python -m ledger.consumer` as the compose `command` | The binary's entry is the file `ledger/consumer.py`, or `ledger/consumer/__main__.py` for a package. The configuration still names the entry; the command is only a cross-check (see [Open points](#open-points)) |
+| `python -m ledger.consumer run` as the compose `command` | The binary's entry is the file `ledger/consumer.py`, or `ledger/consumer/__main__.py` for a package. The configuration still names the entry; the module is only a cross-check. The words after it name the command the service runs (2f) |
 | Callbacks: `Thread(target=f)`, `signal.signal(..., f)`, `atexit.register(f)`, `executor.submit(f)`, `parser.set_defaults(func=f)` | `References` to `f`, so `f` is reached from the entry |
 
 So for a plain binary, "what code runs" is the walk from `Binary` through `EntryPoint` to the entry `File`, and on over `Calls`, `Instantiates`, `References` and `Imports`. The query layer already walks these edges, so no new command is needed.
@@ -526,8 +631,8 @@ So for a plain binary, "what code runs" is the walk from `Binary` through `Entry
 ### What a plain binary lacks
 
 - **What it does at run time.** A consumer loop, a schedule or a retry policy is code like any other. The graph shows the calls, not what they mean.
-- **Message handling.** Which topic a consumer reads is still a hand-written link ([C7](./capability-map.md#c-configuration)). Finding it in code is W11, Later.
-- **Command line structure.** `argparse` subcommands are reached through `References`, but they are not nodes. Click and Typer would be profiles of their own (I19, Later).
+- **Message handling** is read from code: stage 2f matches producers and consumers to the declared topics and queues, and records what they carry.
+- **Command line structure** is read for `argparse`: see [Command-line binaries](#command-line-binaries-argparse). Click and Typer are profiles of later releases.
 
 ## FastAPI binary
 
@@ -577,6 +682,27 @@ On every file that imports from `fastapi`, in any project. A file that does not 
 | Pydantic `Field(...)` constraints, validators as rules, `model_config` | The field and its type are read. Its validation rules are not |
 | A route as the target of a declared link | A link targets a service (C7). The calls themselves are matched to routes by 2d |
 
+## Command-line binaries: argparse
+
+When a file imports `argparse`, its parsers and subcommands become `Command` nodes. The same node kind will serve Click and Typer when their profiles arrive.
+
+| Construct | Nodes | Edges | Node data |
+|---|---|---|---|
+| `parser = argparse.ArgumentParser(prog="ledger-consumer", description=...)` | A `Command` for the program, with an empty path | | `program`, `help`, `options` |
+| `sub = parser.add_subparsers(dest="cmd")`, then `replay = sub.add_parser("replay", help=...)` | A `Command` with path `["replay"]`, child of the program's command. A subparser of a subparser nests further: `["db", "migrate"]` | | `help` |
+| `replay.add_argument("--from", ...)`, `add_argument("source")` | | | Each option and positional argument, as written, in `options` |
+| `replay.set_defaults(func=run_replay)` | | `Handles` from the command to `run_replay` | |
+| `if args.cmd == "replay": run_replay(args)`, or `match args.cmd: case "replay": ...`, where `cmd` is the `dest` of the subparsers | | `Handles` from the command to each function the branch calls | |
+
+- **The program's name** is `prog` when it is text, and otherwise the binary's name when the file is a binary's entry, and otherwise the module's last name.
+- **A command's qualified name** is the module, `@`, the program and the path: `ledger.consumer@ledger-consumer replay`. Its name is the program and the path: `ledger-consumer replay`.
+- **A parser built across files**, such as `register(sub)` in another module adding a subparser to `sub`, is followed when 2b gives the parameter the subparsers' type.
+
+**What it gives:**
+- `node` on a binary lists its commands. `node` on a command shows its options, its handler and the services that run it.
+- `search "replay"` finds the command.
+- `impact` on a function goes up through `Handles` to its command, and through `Invokes` to the services that run that command only.
+
 ## Tests
 
 **Test files and test functions.** A test file is a root of reach (stage 2e): a file named `test_*.py` or `*_test.py`, a file under a folder named `tests`, or a `conftest.py`. Inside it, a test function is a `Function` named `test_*`, or a `Method` named `test_*` in a class named `Test*`.
@@ -621,6 +747,21 @@ API contract: shared_api.models.Invoice
     tested by  billing-api  tests/test_api.py::test_get_invoice
 ```
 
+## Event contracts
+
+When `impact` is asked about a class that is a payload of a topic or queue (stage 2f), or about a field of one, it adds an **event contract** section, as it does for routes:
+
+1. **The topics and queues that carry the class**, directly or nested through fields, up to 5 levels.
+2. **For each**: the broker, and the declared links that publish and subscribe to it.
+3. **Its code:** the `Sends` edges into it, with the class they send, and the `Receives` edges, with the class their handler reads. A sender and a handler that use different classes for the same topic are flagged.
+
+```
+Event contract: shared_api.models.Invoice
+  kafka/invoice.created           payload
+    sent by      billing-api  billing.worker.send_invoice     src/billing/worker.py:22
+    handled by   ledger-api   ledger.consumer.run_consume      src/ledger/consumer.py:31
+```
+
 ## Coverage at a glance
 
 | Construct | Step 5 today | This page | Not read |
@@ -657,6 +798,12 @@ API contract: shared_api.models.Invoice
 | pytest test functions and fixtures, `usefixtures`, `autouse` | | Yes | `parametrize`, fixtures from plugins |
 | The tests to run for a change | | Yes (`impact --tests`) | Tests reached only through unresolved calls |
 | API contracts: the routes a model is in, and their callers | | Yes (`impact`) | Callers in TypeScript until Release 2 |
+| Message producers and consumers (`kafka-python`, `aiokafka`, `confluent-kafka`, `pika`, `aio-pika`, `redis` streams) matched to declared topics and queues (2f) | | Yes, as `Sends` and `Receives` | Names that exist only at run time (listed as unmatched) |
+| Event contracts: the topics a class is carried on, and who sends and handles it | | Yes (`impact`) | Payloads built in ways other than the listed calls |
+| `argparse` programs and subcommands, their options and handlers | | Yes, as `Command` nodes | Parsers whose structure is computed at run time |
+| The command line a service runs, from compose and its Dockerfile (stages, `ENTRYPOINT`, `CMD`, `ARG`, `ENV`, wrappers) | | Yes | `RUN`, `COPY`, `EXPOSE` and other instructions the graph does not use |
+| A service's binary from its command line, when nothing else names it | | Yes | |
+| Compose and Dockerfile commands linked to the command they run (2f) | | Yes, as `Invokes` | |
 | Other frameworks: Flask, Django, Celery, Click, Typer | | | Later, each a profile (I19) |
 
 ## Acme Shop, with FastAPI
@@ -701,7 +848,7 @@ billing-api/tests/
 - **2e:** `routes/invoices.py` is reached by `api` only. `services.py` is reached by `worker` and by the test `test_services.py`. `db.py` is reached by `api` through `Injects`.
 - **2c:** `GET /v1/invoices/{invoice_id}`, complete, served by `api`. `search "/v1/invoices"` finds it.
 
-Release 1's three cross-repository answers add:
+Release 1's cross-repository answers add:
 
 ```
 ledger-api/src/ledger/
@@ -715,9 +862,28 @@ billing-api/tests/
 - **Tests to run:** `impact billing-api:billing.routes.invoices.get_invoice --tests` lists `tests/test_api.py::test_get_invoice`.
 - **API contract:** `impact shared-api:shared_api.models.Invoice` lists `GET /v1/invoices/{invoice_id}` (response), called by ledger's `fetch_invoice`, by web-app's `admin` (declared link) and by `test_get_invoice`.
 
+Messages and commands add:
+
+```
+billing-api/src/billing/worker.py   producer = KafkaProducer(bootstrap_servers="kafka:9092")
+                                    def send_invoice(invoice: Invoice): producer.send("invoice.created", invoice.model_dump_json())
+ledger-api/src/ledger/consumer.py   parser = argparse.ArgumentParser(prog="ledger-consumer"); sub = parser.add_subparsers(dest="cmd")
+                                    sub.add_parser("run").set_defaults(func=run_consume)
+                                    sub.add_parser("replay").add_argument("--from")    # handled by run_replay
+                                    def run_consume(args):
+                                        for message in KafkaConsumer("invoice.created", bootstrap_servers="kafka:9092"):
+                                            record_entry(Invoice.model_validate_json(message.value))
+ledger-api/docker-compose.yml       consumer: {build: ., command: python -m ledger.consumer run, ...}
+```
+
+- **2f, messages:** `send_invoice` has a `Sends` edge to `kafka/invoice.created`, and `run_consume` a `Receives` edge, both with `resolved_by: message_match`. Both sides carry `Invoice`. Both links are declared, so there is no warning.
+- **2f, commands:** ledger's `consumer` binary has three `Command` nodes: `ledger-consumer`, `ledger-consumer run` and `ledger-consumer replay`. The `consumer` service has an `Invokes` edge to `ledger-consumer run`.
+- **Event contract:** `impact` on `Invoice` lists `kafka/invoice.created` (payload), sent by `send_invoice`, handled by `run_consume`.
+- **Precise impact:** a change in `run_replay` reaches the command `ledger-consumer replay`, which no service runs. So `impact` names no service, where before it named the `consumer` service.
+
 ## Changes this needs elsewhere
 
-All of these are applied. The decisions that are hard to reverse are also in ADRs [0012](./adrs/0012-node-kinds-carry-their-own-data.md), [0013](./adrs/0013-read-every-file-then-analyse-from-each-root.md), [0014](./adrs/0014-types-are-carried-only-when-every-caller-agrees.md), [0015](./adrs/0015-a-binarys-framework-is-decided-before-parsing.md), [0016](./adrs/0016-framework-relationships-are-edges-of-their-own.md) [0017](./adrs/0017-every-resolved-edge-records-its-rule.md) and [0018](./adrs/0018-http-calls-are-matched-to-routes-links-stay-declared.md).
+All of these are applied. The decisions that are hard to reverse are also in ADRs [0012](./adrs/0012-node-kinds-carry-their-own-data.md), [0013](./adrs/0013-read-every-file-then-analyse-from-each-root.md), [0014](./adrs/0014-types-are-carried-only-when-every-caller-agrees.md), [0015](./adrs/0015-a-binarys-framework-is-decided-before-parsing.md), [0016](./adrs/0016-framework-relationships-are-edges-of-their-own.md) [0017](./adrs/0017-every-resolved-edge-records-its-rule.md), [0018](./adrs/0018-http-calls-are-matched-to-routes-links-stay-declared.md), [0019](./adrs/0019-messages-are-matched-to-declared-topics.md), [0020](./adrs/0020-commands-are-nodes-and-services-invoke-them.md) and [0021](./adrs/0021-dockerfiles-are-read-for-the-command-a-service-runs.md).
 
 | Page | Change |
 |---|---|
@@ -732,6 +898,10 @@ All of these are applied. The decisions that are hard to reverse are also in ADR
 | [domain-model.md](./domain-model.md), [graph-model.md](./graph-model.md), [storage-model.md](./storage-model.md) | The `Requests` edge kind, 25 → 26, with `resolved_by: route_match`. The role `Fixture`. The shapes `Text` and `Template`. The unmatched HTTP call record. The `HttpCallWithoutLink` warning. ADR 0018 amends ADR 0004 |
 | [usage-guide.md](./usage-guide.md) | `impact --tests` and the API contract section. `node` shows a function's HTTP calls and a route's callers |
 | [step 5](./implementation-plan/step-5-python-parsing.md) | Its "What Release 1 reads" tables become the first slice of this page |
+| [domain-model.md](./domain-model.md), [graph-model.md](./graph-model.md), [storage-model.md](./storage-model.md) | The `Command` node kind, 32 → 33, with `CommandData`. Code edges `Sends` and `Receives`, and the workspace edge `Invokes`, 26 → 29. `resolved_by` values `message_match` and `command_match`. Records `UnmatchedMessage` and `MessagePayload`. Warnings `MessageWithoutLink` and `CommandNotFound`. ADR 0019 amends ADR 0004 again; ADR 0020 records commands |
+| [step 4](./implementation-plan/step-4-workspace-indexing.md), [example-workspace.md](./example-workspace.md) | Manifests yield their scripts. Ledger's `consumer` service runs `python -m ledger.consumer run` |
+| [configuration-guide.md](./configuration-guide.md), [step 4](./implementation-plan/step-4-workspace-indexing.md), [domain-model.md](./domain-model.md), [storage-model.md](./storage-model.md) | Dockerfiles: task 8 and slice 4I read them. A service is matched to a binary by its command line. A new provenance, `Dockerfile`, and framework source `dockerfile`. The `DockerfileUnreadable` warning. ADR 0021 |
+| [usage-guide.md](./usage-guide.md) | `node` lists a binary's commands, and a command's options, handler and services. `impact` adds the event contract section, and goes through commands to the services that run them |
 
 ## Plan
 
@@ -751,7 +921,10 @@ Each phase ends in something tested on its own. The phases follow step 5 and use
 | P8 | HTTP calls (2d): the clients, method and path, helpers and client classes through 2b, matching, narrowing, `Requests` edges, unmatched calls, `HttpCallWithoutLink` | P6 | One test per client, including `websockets` and `urllib`. A template matches a `{param}`. A query string is ignored. A helper called from two places gives two edges, each from its caller. A `BillingClient("http://billing/v1")` method call matches `/v1/...`. A declared link narrows two candidates to one. Two candidates with no link give an unmatched call. A URL from `os.environ` is listed as unmatched with path `{?}`. A cross-project match with no link warns |
 | P9 | Tests: test functions, fixtures and their `Injects` edges, `usefixtures`, `autouse`, `impact --tests` | P6b, P8 | A fixture in a parent `conftest.py` is found, and a nearer one wins. An `autouse` fixture reaches every test below it. `impact --tests` lists pytest node ids, and a test class method as `file::Class::test` |
 | P10 | API contracts in `impact`: request, response and nested use, route paths, consumers from `Requests` edges and declared links | P8, P9 | `Invoice` in a response, and nested in `InvoiceList`. A declared link is shown as "call site unknown". Nesting stops at 5 levels |
-| P7 | Acme Shop with FastAPI and stage 2, end to end | P4, P6, P6b, P8, P9, P10, 5G | The walk above, on the SQLite store. The results of 2b, 2e and 2c in the fixture section. Indexing twice changes nothing. `validate` passes |
+| P11 | Messages (2f): the six libraries, names through 2b, brokers, matching, `Sends` and `Receives`, unmatched messages, payloads, `MessageWithoutLink`, event contracts | P3b, P5 | One test per library, on each side. A RabbitMQ publish to `""` names a queue. A topic named by a constant in another file. A send inside a helper, from two callers. A callback registered with `basic_consume` receives. A name with no declared topic warns. Sender and handler using different classes are flagged |
+| P13 | Dockerfiles and command lines: which Dockerfile, stages and inheritance, `ENTRYPOINT` and `CMD` with compose overrides, variables, wrappers, binary from the command line, `DockerfileUnreadable` | Step 4's 4I | One test per row of the command-line table. A compose `entrypoint` clears the image's `CMD`. A `CMD` inherited from a parent stage. `ENTRYPOINT ["./entrypoint.sh"]` with `CMD ["uvicorn", ...]` runs uvicorn. `${PORT}` from `build.args`. `python -m billing.worker` picks the `worker` binary. A missing Dockerfile warns |
+| P12 | Commands: `argparse` programs, subcommands, options, `Handles` by `set_defaults` and by `dest` branches; compose commands to `Invokes`; scripts from `pyproject.toml`; `CommandNotFound` | P3b, step 4's 4A | One test per row of the argparse table. A nested subparser. `python -m`, a file path and a script name each find the command. The longest path wins. An unknown command word warns. A service with no command words gets no `Invokes` |
+| P7 | Acme Shop with FastAPI and stage 2, end to end | P4, P6, P6b, P8, P9, P10, P11, P12, P13, 5G | The walk above, on the SQLite store. The results of 2b, 2e and 2c in the fixture section. Indexing twice changes nothing. `validate` passes |
 
 ## Open points
 
@@ -768,4 +941,6 @@ None at present. Each point below was settled by the project owner.
 - **Provenance stays `TreeSitter`; every resolved edge records `resolved_by`.** A new `Flow` provenance would explain only flow edges. `Heuristic` would understate edges that are never wrong within the workspace.
 - **Everything for Python, plain binaries and FastAPI is in Release 1.** That includes types and text carried through calls, helpers and client classes for HTTP calls, stub files, and providers given at a mount. Only what static reading cannot know is left out. More languages and more frameworks come in later releases.
 - **Three cross-repository answers are in Release 1:** HTTP calls in Python matched to routes, the tests to run for a change, and API contracts. Links stay declared; a matched call with no declared link is a warning (ADR 0018).
+- **Dockerfiles are read in Release 1,** for the command a service runs: its binary when nothing else names it, its framework, and the `Command` it invokes (ADR 0021).
+- **Messages and commands are in Release 1:** producers and consumers matched to declared topics and queues, event contracts, `argparse` commands as `Command` nodes, and compose commands linked to the command they run (ADRs 0019 and 0020).
 - **Types from callers run for up to 10 rounds by default,** set by `analysis.flow_rounds`. `status` reports when the limit is hit.

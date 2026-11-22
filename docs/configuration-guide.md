@@ -130,7 +130,7 @@ Binaries are always written by hand; they are never detected. List them when one
 **A binary's framework and app are usually read, not written.** Workbench takes the first of these that gives an answer:
 
 1. The binary's `framework` and `app`.
-2. The compose `command` of a service that runs the binary, such as `uvicorn billing.api:app` or `fastapi run src/billing/api.py`.
+2. The command line of a service that runs the binary, such as `uvicorn billing.api:app` or `fastapi run src/billing/api.py`: its compose `command`, else its Dockerfile's `CMD`.
 3. The entry file: it imports `fastapi` and builds a `FastAPI(...)` app at module level, or defines a function that returns one.
 4. Otherwise `none`: a plain binary.
 
@@ -225,7 +225,8 @@ Workbench matches a service on its own when it can:
 
 1. The **project** is the one whose folder is the service's build context.
 2. The **binary** is the one whose name equals the service's build target.
-3. A service with **no build context and no entry here** is an external service: a stock image such as a database or a broker.
+3. Otherwise, the **binary** is the one whose entry the service's command line runs, such as `python -m billing.worker` or `uvicorn billing.api:app`. The command line is the compose `command` and `entrypoint`, else the `CMD` and `ENTRYPOINT` of the Dockerfile stage the service builds.
+4. A service with **no build context and no entry here** is an external service: a stock image such as a database or a broker.
 
 Add an entry only when that fails:
 

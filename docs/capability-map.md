@@ -18,11 +18,11 @@ Nothing is built yet beyond the module scaffold.
 | Area | What it covers | R1 | R2 | R3 | Later |
 |---|---|---|---|---|---|
 | C. Configuration | Finding, reading and checking the workspace configuration | 12 | | 1 | 2 |
-| W. Workspace indexing | Projects, dependencies, compose files, networks, links | 11 | 1 | | 2 |
-| I. Code indexing | Parsing source code and resolving references | 15 | 3 | | 4 |
+| W. Workspace indexing | Projects, dependencies, compose files, Dockerfiles, networks, links | 14 | 1 | | 1 |
+| I. Code indexing | Parsing source code and resolving references | 16 | 3 | | 4 |
 | G. Graph model | What a node and an edge are | 11 | | | 1 |
 | S. Storage | Where the graph is kept | 3 | | | 1 |
-| Q. Queries | The questions the graph can answer | 11 | | | 2 |
+| Q. Queries | The questions the graph can answer | 12 | | | 2 |
 | U. Command line | The `workbench` commands | 9 | | | 2 |
 | M. MCP server | How AI tools reach the graph | 5 | | | 2 |
 | K. Skills | The written guides every mode shares | 3 | 1 | | |
@@ -67,10 +67,12 @@ The indexer turns the configuration, the dependency manager files and the compos
 | W8 | Create topic and queue nodes, and link edges, from declared links | R1 | Decided | `index`, `neighbors`, `impact` |
 | W9 | Warn about: a link between services that share no network, a network name that cannot be resolved, a dependency path that is not a listed project. Each warning is stored with a code, the node it is about and a message | R1 | Decided | `index`, `status` |
 | W10 | Discover local dependencies from npm, pnpm, yarn and bun files | R2 | Decided | `index`, `deps` |
-| W11 | Find topics and queues in source code | Later | Decided | not designed |
+| W11 | Find message producers and consumers in Python code (`kafka-python`, `aiokafka`, `confluent-kafka`, `pika`, `aio-pika`, `redis` streams) and match each to the declared topic or queue it uses, with the class it carries. A name with no declared topic is a warning. See [python-parsing.md](./python-parsing.md#messages) | R1 | Decided | `index`, `node`, `impact`, `status` |
 | W12 | Suggest runtime links with an LLM, stored as inferred edges until confirmed | Later | Decided | its own command, not designed |
 | W13 | Record the branch and commit each project is on, read from its own `.git` folder | R1 | Decided | `index`, `status` |
 | W14 | Find HTTP client calls in Python code (`httpx`, `requests`, `aiohttp`, `websockets`, `urllib`, FastAPI's `TestClient`), including calls made inside helpers and client classes, and match each to the route it calls, across projects. Declared links narrow the candidates; a cross-project match with no declared link is a warning. See [python-parsing.md](./python-parsing.md#stage-2d-match-http-calls-to-routes) | R1 | Decided | `index`, `node`, `impact`, `status` |
+| W15 | Link a compose service to the command it runs, from its `command` and `entrypoint`, else its Dockerfile's `CMD` and `ENTRYPOINT`, a `python -m` module, a file path or a script in `pyproject.toml`. An unknown command is a warning. See [python-parsing.md](./python-parsing.md#commands) | R1 | Decided | `index`, `node`, `impact`, `status` |
+| W16 | Read each built service's Dockerfile: stages, `ENTRYPOINT`, `CMD`, `ARG` and `ENV`, with compose overrides and wrappers, to work out the command line it runs. It names the service's binary when nothing else does, its framework, and the command it invokes. See [python-parsing.md](./python-parsing.md#the-command-a-service-runs) | R1 | Decided | `index`, `node`, `status` |
 
 ## I. Code indexing
 
@@ -98,6 +100,7 @@ The indexer turns the configuration, the dependency manager files and the compos
 | I20 | Carry types and text through calls: parameters typed by every caller, return types, field types, names bound more than once, element types of collections and dicts, `*args` forwarding, and the text of values, carried to callers of helpers and into client classes. Calls on them resolve, marked as resolved by `flow`. Up to 10 call levels by default (`analysis.flow_rounds`). See [python-parsing.md](./python-parsing.md#stage-2b-carry-types-and-text-through-calls) | R1 | Decided | `index`, `callers`, `callees`, `node` |
 | I21 | Reach: which binaries, named modules and tests may run each code node, from their entries over resolved edges; and the files no root reaches. See [python-parsing.md](./python-parsing.md#stage-2e-reach) | R1 | Decided | `index`, `node`, `files --unreached`, `impact` |
 | I22 | pytest: test functions, and fixtures followed by name, with `usefixtures` and `autouse`. See [python-parsing.md](./python-parsing.md#tests) | R1 | Decided | `index`, `impact --tests` |
+| I23 | `argparse`: programs and subcommands as `Command` nodes, with their options and handlers. See [python-parsing.md](./python-parsing.md#command-line-binaries-argparse) | R1 | Decided | `index`, `node`, `query --kind command` |
 
 ## G. Graph model
 
@@ -145,6 +148,7 @@ The questions the graph answers. The command line and the MCP server both call t
 | Q11 | List the indexed files by project, each with its language and parse status | R1 | Decided | `files` |
 | Q12 | List the test functions to run for a change, as pytest node ids, through reach, fixtures and API tests. See [python-parsing.md](./python-parsing.md#tests-to-run-for-a-change) | R1 | Decided | `impact --tests` |
 | Q13 | Show the API contract of a class: the routes whose request or response uses it, directly or nested, their full paths, and the code in every project that calls them. See [python-parsing.md](./python-parsing.md#api-contracts) | R1 | Decided | `impact` |
+| Q14 | Show the event contract of a class: the topics and queues that carry it, directly or nested, and the code in every project that sends and handles it. See [python-parsing.md](./python-parsing.md#event-contracts) | R1 | Decided | `impact` |
 | Q7 | Report the state of the graph: when it was indexed, how many nodes and edges, which files changed since, warnings, files that failed to parse | R1 | Decided | `status` |
 | Q8 | Go to definition and find references through a language server, at question time | Later | Decided | `lsp` and `projects[].environment` fields, reserved |
 | Q9 | Search by meaning instead of by name | Later | Decided | not designed |

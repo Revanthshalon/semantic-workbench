@@ -44,9 +44,9 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 | Slice | Delivers | Needs | Plan |
 |---|---|---|---|
 | 1A | Value types: `NodeId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash`, `Span`, `Site` | | [domain-model.md](../domain-model.md#value-types) |
-| 1B | `Node`, its kinds, scope, origin and identity. Rules N1 to N5 | 1A | [domain-model.md](../domain-model.md#node) |
-| 1C | `Edge`, its kinds and data, provenance. Rules E1 to E4 | 1A | [domain-model.md](../domain-model.md#edge) |
-| 1D | `FileRecord`, `UnresolvedReference`, `Warning`, `ProjectCheckout` | 1A | [domain-model.md](../domain-model.md#file-record) |
+| 1B | `Node`, its kinds, scope, origin, identity and data. Rules N1 to N5, N8 to N10 | 1A | [domain-model.md](../domain-model.md#node) |
+| 1C | `Edge`, its kinds and data, provenance with `Flow`. Rules E1 to E4 | 1A | [domain-model.md](../domain-model.md#edge) |
+| 1D | `FileRecord`, `UnresolvedReference`, `CallSite`, `Binding`, `Return`, `InferredType`, `Reach`, `Warning`, `ProjectCheckout`. Rules C2, L2, Y3, M2, G2 | 1A | [domain-model.md](../domain-model.md#file-record) |
 | 1E | `Graph`, `validate` with every Graph rule, and the Acme Shop fixture | 1B, 1C, 1D | [domain-model.md](../domain-model.md#validating-an-implementation) |
 | C0 | Contracts: the ports, the query result types, `MemoryStore`, the shared store tests, every crate | 1E | [below](#slice-c0-contracts) |
 | 2A | Find the workspace | | [step 2](./step-2-configuration.md) |
@@ -60,8 +60,10 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 | 4A | Read `pyproject.toml` | 1A | [step 4](./step-4-workspace-indexing.md) |
 | 4B | Read and merge compose files | 1A | [step 4](./step-4-workspace-indexing.md) |
 | 4C | Read a project's checkout | C0 | [step 4](./step-4-workspace-indexing.md) |
-| 4D | Resolve stacks, networks and services | 2C, 4B | [step 4](./step-4-workspace-indexing.md) |
-| 4E | Build the workspace layer | 1E, 2C, 4A, 4D | [step 4](./step-4-workspace-indexing.md) |
+| 4D | Resolve stacks, networks and services | 2C, 4B, 4I | [step 4](./step-4-workspace-indexing.md) |
+| 4I | Read Dockerfiles and work out each service's command line | 1A, 4B | [step 4](./step-4-workspace-indexing.md) |
+| 4H | Decide each binary's framework | C0, 2C, 4B, 4I | [step 4](./step-4-workspace-indexing.md) |
+| 4E | Build the workspace layer | 1E, 2C, 4A, 4D, 4H | [step 4](./step-4-workspace-indexing.md) |
 | 4F | The Acme Shop workspace as files | | [step 4](./step-4-workspace-indexing.md) |
 | 4G | The index use case, end to end | C0, 4C, 4E, 4F | [step 4](./step-4-workspace-indexing.md) |
 | 5A | Choose the files to read | C0, 2C | [step 5](./step-5-python-parsing.md) |
@@ -93,10 +95,11 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 |---|---|---|
 | 1 | 1A, 2A, 2B, 2E, 4F | 5 |
 | 2 | 1B, 1C, 1D, 2C, 2D, 4A, 4B | 7 |
-| 3 | 1E, 4D | 2 |
-| 4 | C0, 4E | 2 |
-| 5 | 3A, 4C, 5A, 5B, 5D, 6A, 7A, 7B, 7C, 8A | 10 |
-| 6 | 3B, 3C, 4G, 5C, 5E, 5F, 6B, 6C, 6D, 8B, 8C | 11 |
+| 3 | 1E, 4I | 2 |
+| 4 | C0, 4D | 2 |
+| 5 | 3A, 4C, 4H, 5A, 5B, 5D, 6A, 7A, 7B, 7C, 8A | 11 |
+| 6 | 3B, 3C, 4E, 5C, 5E, 5F, 6B, 6C, 6D, 8B, 8C | 11 |
+| 6b | 4G | 1 |
 | 7 | 5G, 6E | 2 |
 | 8 | 6F | 1 |
 | 9 | 7D | 1 |
@@ -194,12 +197,17 @@ Later slices use these names. A slice that has to change one changes it here in 
 | Name | What it is |
 |---|---|
 | `NodeId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash` | The value types. Each has `fn parse(&str) -> Result<Self, DomainError>` |
-| `Node`, `NodeKind`, `Scope`, `Origin`, `Span` | A node. `Node::parsed(...)` and `Node::declared(...)` build one and compute its id |
-| `Edge`, `EdgeKind`, `Provenance`, `Site` | An edge. `EdgeKind` carries its data: `Imports { specifier, alias }`, `DependsOn { scope }`, `ConnectsTo { protocol }` |
+| `Node`, `NodeKind`, `Scope`, `Origin`, `Span` | A node. `Node::parsed(...)` and `Node::declared(...)` build one and compute its id. `Node::parsed` takes the file's `Language` to check rule N9, and does not store it |
+| `NodeData`, `ProjectData`, `BinaryData`, `Callable`, `TypeDecl`, `Member`, `RouteData`, `CommandData`, `Doc` | The data a node kind carries |
+| `Framework`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `Fastapi`, `Angular`, `None`; `Declared`, `Compose`, `Dockerfile`, `Entry`; `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
+| `Edge`, `EdgeKind`, `Provenance`, `Site` | An edge. `EdgeKind` carries its data: `Imports { specifier, alias, type_only }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix }`, `Requests { method, path }`, `Sends { name }`, `Invokes { words }`, and the data-less `Receives`. An edge made by resolution records `resolved_by: Option<Resolution>` |
+| `Resolution`, `Template` | `Import`, `SelfMember`, `SameFile`, `Project`, `CrossProject`, `ReExport`, `Annotation`, `LocalInference`, `Inherited`, `Flow`, `Framework`, `RouteMatch`, `MessageMatch`, `CommandMatch`; parts `Text(String)`, `Hole(String)` or `Unknown`, for a route's path, a prefix and a template value |
 | `DependencyScope`, `Protocol` | `Build` or `Dev`; `Http`, `Grpc` or `Database` |
 | `Language`, `DependencyManager` | `Python`, `TypeScript`; `Uv`, `Poetry`, `Npm`, `Pnpm`, `Yarn`, `Bun` |
 | `FileRecord`, `ParseStatus` | A file record |
 | `UnresolvedReference` | A reference waiting to be resolved |
+| `CallSite`, `Argument`, `Shape`, `Binding`, `Return` | What stage 1 records about calls, assignments and returns |
+| `InferredType`, `Reach`, `Root`, `RoutePath`, `UnmatchedHttpCall`, `UnmatchedMessage`, `MessagePayload` | What stage 2 computes |
 | `Warning`, `WarningCode` | A warning |
 | `ProjectCheckout` | A project's branch and commit |
 | `Graph` | Nodes, edges, file records, references, warnings and checkouts together. `fn validate(&self) -> Vec<RuleViolation>` |
@@ -223,6 +231,14 @@ pub trait GraphStore {
     async fn files(&self, filter: &FileFilter) -> Result<Vec<FileRecord>, StoreError>;
     async fn warnings(&self) -> Result<Vec<Warning>, StoreError>;
     async fn checkouts(&self) -> Result<Vec<ProjectCheckout>, StoreError>;
+    async fn inferred_type(&self, parameter: &NodeId) -> Result<Option<InferredType>, StoreError>;
+    async fn reached_by(&self, node: &NodeId) -> Result<Vec<Root>, StoreError>;
+    async fn reached_from(&self, root: &Root) -> Result<Vec<NodeId>, StoreError>;
+    async fn route_paths(&self, route: &NodeId) -> Result<Vec<RoutePath>, StoreError>;
+    async fn unmatched_http_calls(&self, node: &NodeId) -> Result<Vec<UnmatchedHttpCall>, StoreError>;
+    async fn unmatched_messages(&self, node: &NodeId) -> Result<Vec<UnmatchedMessage>, StoreError>;
+    async fn payloads(&self, of: &NodeId) -> Result<Vec<MessagePayload>, StoreError>;   // of a topic, a queue or a class
+    async fn unreached_files(&self, filter: &FileFilter) -> Result<Vec<FileRecord>, StoreError>;
     async fn counts(&self) -> Result<Counts, StoreError>;
     async fn meta(&self) -> Result<StoreMeta, StoreError>;
     async fn begin_index(&self, force: bool) -> Result<Self::Writer, StoreError>;
@@ -234,6 +250,8 @@ pub trait IndexWriter {
     async fn unresolved(&mut self) -> Result<Vec<UnresolvedReference>, StoreError>;
     async fn resolve(&mut self, reference: &UnresolvedReference, edge: Edge) -> Result<(), StoreError>;
     async fn rebuild_workspace_layer(&mut self, layer: WorkspaceLayer) -> Result<(), StoreError>;
+    async fn call_sites(&mut self) -> Result<(Vec<CallSite>, Vec<Binding>, Vec<Return>), StoreError>;
+    async fn replace_analysis(&mut self, analysis: Analysis) -> Result<(), StoreError>;
     async fn commit(self) -> Result<(), StoreError>;
 }
 ```
@@ -245,7 +263,8 @@ pub trait IndexWriter {
 | `NodeFilter` | `{ kinds: Vec<NodeKind>, project: Option<ProjectId> }` |
 | `FileFilter` | `{ project: Option<ProjectId>, status: Option<ParseStatus> }` |
 | `FileRef` | `{ project: ProjectId, path: RelPath }` |
-| `ParsedFile` | `{ record: FileRecord, nodes: Vec<Node>, edges: Vec<Edge>, unresolved: Vec<UnresolvedReference> }` |
+| `ParsedFile` | `{ record: FileRecord, nodes: Vec<Node>, edges: Vec<Edge>, unresolved: Vec<UnresolvedReference>, call_sites: Vec<CallSite>, bindings: Vec<Binding>, returns: Vec<Return> }` |
+| `Analysis` | `{ flow_edges: Vec<Edge>, flow_resolved: Vec<ReferenceId>, inferred: Vec<InferredType>, reach: Vec<Reach>, route_paths: Vec<RoutePath>, requests: Vec<Edge>, unmatched_http_calls: Vec<UnmatchedHttpCall>, messages: Vec<Edge>, unmatched_messages: Vec<UnmatchedMessage>, payloads: Vec<MessagePayload>, invokes: Vec<Edge>, warnings: Vec<Warning> }`, the results of stage 2. `search` also matches route paths. `replace_analysis` deletes the previous ones first |
 | `Counts` | `{ nodes: u64, edges: u64, files: u64 }` |
 | `StoreMeta` | `{ format_version: u32, workbench_version: String, indexed_at: Option<String> }` |
 | `WorkspaceLayer` | `{ nodes: Vec<Node>, edges: Vec<Edge>, warnings: Vec<Warning>, checkouts: Vec<ProjectCheckout> }` |
@@ -270,8 +289,11 @@ pub trait LanguageParser {
     fn language(&self) -> Language;
     fn extensions(&self) -> &'static [&'static str];
     fn parse(&self, file: &FileRef, module_path: &str, source: &[u8]) -> Result<ParsedSource, ParseError>;
+    /// Reads only imports and module-level statements of a binary's entry file.
+    fn probe_framework(&self, module_path: &str, source: &[u8]) -> Option<FrameworkProbe>;
 }
-pub struct ParsedSource { pub nodes: Vec<Node>, pub edges: Vec<Edge>, pub unresolved: Vec<UnresolvedReference> }
+pub struct ParsedSource { pub nodes: Vec<Node>, pub edges: Vec<Edge>, pub unresolved: Vec<UnresolvedReference>, pub call_sites: Vec<CallSite>, pub bindings: Vec<Binding>, pub returns: Vec<Return> }
+pub struct FrameworkProbe { pub framework: Framework, pub app: Option<String> }
 ```
 
 ### From C0: the query results, in `src/use_cases/query/results.rs`

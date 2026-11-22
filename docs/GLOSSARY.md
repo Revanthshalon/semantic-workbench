@@ -24,6 +24,14 @@ _Avoid_: Package name, module name
 One thing the graph knows about, such as a file, a function, a project or a service.
 _Avoid_: Symbol, entity, vertex
 
+**Code node**:
+A node read from source code, such as a file, a class or a function. It always belongs to one project.
+_Avoid_: Symbol
+
+**Workspace node**:
+A node that comes from the configuration or a compose file rather than source code, such as a project, a binary, a service or a topic.
+_Avoid_: Infrastructure node
+
 **Edge**:
 A directed relationship of one kind from one node to another.
 _Avoid_: Link, relation, reference
@@ -65,6 +73,30 @@ _Avoid_: Root compose, global compose
 **Binary**:
 One runnable entry point inside a project.
 _Avoid_: Executable, app, target
+
+**Framework**:
+The library a binary is built on, such as FastAPI, which decides what more the indexer reads from the code. A binary built on none is a **plain binary**.
+_Avoid_: Stack (that is a set of services), platform
+
+**Route**:
+One HTTP or WebSocket endpoint that a binary serves: a method and a path, handled by one function.
+_Avoid_: Endpoint, URL, API
+
+**Provider**:
+A function or class that a framework calls to supply a value to a route or to another provider, such as one named in FastAPI's `Depends`.
+_Avoid_: Dependency (that is a local dependency), injectable
+
+**Command**:
+One thing a command-line binary can be told to do, such as `ledger-consumer replay`, with its options and the code that runs it.
+_Avoid_: Subcommand, verb, task
+
+**Root**:
+A place from which code starts to run: a binary's entry file, a module named in a command, or a test file.
+_Avoid_: Entry (that is a binary's file), starting point
+
+**Reach**:
+The code a root may run: everything its calls, imports and references lead to.
+_Avoid_: Coverage, call graph, reachability
 
 **Local dependency**:
 One project using another project's code, either read from the dependency manager's files or declared by hand.

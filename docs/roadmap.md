@@ -10,7 +10,7 @@ Nothing is released yet. No dates are set; the order is what is decided.
 
 **In scope**
 
-- Python code graph.
+- Python code graph, with FastAPI routes, HTTP calls matched to routes across projects, the tests to run for a change, and API contracts.
 - The workspace layer: projects, binaries, local dependencies, compose files, stacks, services, external services, networks, and hand-written links with their topics and queues.
 - SQLite storage.
 - The command line and the MCP server over stdio.
@@ -30,7 +30,8 @@ Nothing is released yet. No dates are set; the order is what is decided.
 | 3 | SQLite store behind one port | S1 to S3 | specified in [storage-model.md](./storage-model.md) |
 | 4 | Workspace indexing: projects, binaries, local dependencies, compose, networks, links | W1 to W9, W13, G10 | [step 4](./implementation-plan/step-4-workspace-indexing.md) |
 | 5 | Python parsing and reference resolution, within and across projects | I1 to I6, I10 | [step 5](./implementation-plan/step-5-python-parsing.md) |
-| 6 | Queries: explore, node, search, callers, callees, impact, neighbours, files, dependencies, status | Q1 to Q7, Q10, Q11 | [step 6](./implementation-plan/step-6-queries.md) |
+| 5b | All of Python, plain binaries and FastAPI: types and text carried through calls, route paths, HTTP calls matched to routes, messages matched to topics and queues, `argparse` commands and the compose and Dockerfile commands that run them, pytest, reach | C14, C15, I14 to I18, I20 to I23, W11, W14 to W16, G11, G12 | [python-parsing.md](./python-parsing.md#plan) |
+| 6 | Queries: explore, node, search, callers, callees, impact, neighbours, files, dependencies, status | Q1 to Q7, Q10 to Q14 | [step 6](./implementation-plan/step-6-queries.md) |
 | 7 | Command line and installation | U1 to U8, U11 | [step 7](./implementation-plan/step-7-command-line.md) |
 | 8 | MCP server: the graph tools, the `developer-support` mode, the skills | M1 to M3, M5, M6, K2 | [step 8](./implementation-plan/step-8-mcp-server.md) |
 
@@ -84,7 +85,6 @@ Wanted, not designed. The order within this list is not decided.
 | Language servers: live lookups | The MCP server asks a language server at question time and returns the answer next to the graph | Q8, M7 |
 | LLM: summaries | A command that writes a short description of each file, class and function onto its node | I13, U9 |
 | LLM: suggested links | A command that proposes runtime links from code, stored as inferred edges until a person confirms them | W12, U9 |
-| Links found in code | Topics, queues and HTTP calls read from source instead of declared by hand | W11 |
 | Search by meaning | Find nodes by what they do instead of by name | Q9 |
 | Memgraph | A second store behind the same port | S4 |
 | Go | A third language | I12 |

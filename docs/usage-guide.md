@@ -101,7 +101,8 @@ Builds the graph, or brings it up to date.
 
 - A file whose content is unchanged since the last run is skipped.
 - A changed file has its old nodes and edges removed and is read again.
-- The workspace layer (projects, dependencies, compose files, networks, links) is rebuilt on every run. It is small.
+- The workspace layer (projects, dependencies, compose files, networks, links) is rebuilt on every run. It is small. Each binary's framework is decided here, before any code is read: from its `framework` in the configuration, else a compose command that runs it, else its entry file.
+- Every file is read, whether or not a binary reaches it. Once all files are in, the index analyses the whole graph without reading files again: it resolves references, carries types and text through calls (so unannotated parameters, returns and fields get a class, and HTTP calls made inside helpers get their paths), matches HTTP calls to routes, and records which binaries and tests reach each node. This analysis runs in full on every index. [python-parsing.md](./python-parsing.md#how-the-graph-is-built) describes it.
 - Files that `.gitignore` excludes are never read, nor are `.git`, `node_modules`, `.venv` and `.workbench`, nor anything a project's `exclude` patterns match.
 - One `index` runs at a time per workspace; a second one stops with an error. Queries and the MCP server keep working while it runs, and see the graph as it was until it finishes.
 - An index that fails changes nothing.
@@ -131,6 +132,8 @@ Warnings    1
 ```
 
 Ledger's compose file takes that network's name from a variable, so the tool cannot read it. Once the configuration gives the real name, as the [example workspace](./example-workspace.md#the-configuration) does, the warning is gone.
+
+Other warnings `status` can show: a binary whose framework is named one way and built another, an `app` that names no app, a compose command that runs a module other than the binary's entry, an HTTP call in one project that matches a route of another with no declared link, a message to a topic or queue with no declared link, a compose command that names no command of its binary, and carrying types from callers stopping at its round limit. The last one names `analysis.flow_rounds` in the [configuration](./configuration-guide.md#analysis), which can be raised to carry types deeper.
 
 ### Asking the graph
 
@@ -169,19 +172,38 @@ workbench node --file billing-api:src/billing/worker.py
 
 With `--file <project>:<path>` it shows a file instead: its source with line numbers, and the nodes it holds. Options: `--no-source` leaves the source out. `--offset` and `--limit` choose which lines of a file are shown.
 
+Some kinds show more:
+
+| Node | Also shows |
+|---|---|
+| Any code node | `reached by`: the binaries, named modules and tests that may run it |
+| A parameter, function, field or variable | `inferred`: the class worked out for it, and how many call sites, returns or bindings agreed, when all of them agree |
+| A function | Its HTTP calls: each matched route, or the candidates of a call that could not be matched to one. Its messages: the topics and queues it sends to or handles |
+| A binary | Its commands, when it is a command-line program |
+| A command | Its options, its handler, and the services that run it |
+| A topic or queue | The code in every project that sends to it and handles it, and the classes they carry |
+| A route | Its callers over HTTP, and its full paths, such as `GET /v1/invoices/{invoice_id}`, with the binaries that serve them. A part that the code computes is shown as `{?}`, and that path is marked incomplete |
+| A binary | Its framework, where that came from, its app, and how many files and nodes it reaches |
+| A project | Its language |
+
 ### `workbench query`
 
 Finds nodes by name.
 
 ```bash
 workbench query Invoice --kind class
+workbench query invoices --kind route
+workbench query "/v1/invoices" --kind route
+workbench query replay --kind command
 ```
+
+A route is found by its name (`GET /{invoice_id}`) and by any of its full paths (`/v1/invoices/{invoice_id}`).
 
 Each result is a location, not source. Filters: `--kind`, `--project`. Option: `--limit`, 10 by default.
 
 ### `workbench callers` and `workbench callees`
 
-`callers` lists the functions and methods that call a node, each with the file and line of the call. `callees` lists what the node calls. Both cross projects. On a class, creating an instance counts as a call.
+`callers` lists the functions and methods that call a node, each with the file and line of the call. `callees` lists what the node calls. Both cross projects. On a class, creating an instance counts as a call. Each call also says how it was resolved: through an import, an annotation, a re-export, carried from callers (`flow`), and so on. A call carried from callers rests on every caller passing the same class, so you can tell it from one read directly from the source.
 
 Options: `--depth`, 1 by default, follows the callers of the callers. `--limit`, 20 by default.
 
@@ -190,7 +212,19 @@ Options: `--depth`, 1 by default, follows the callers of the callers. `--limit`,
 Lists what is affected if a node changes: its blast radius. It works in two parts.
 
 1. **Through the code.** It walks backwards from the node over calls, imports, inheritance and references, across projects. `--depth` limits this part, 2 by default.
-2. **Through what runs.** From each affected file it finds the binaries that include it, the services that run them, and then follows the runtime links: who subscribes to a topic the binary publishes, who connects to a service that runs it.
+2. **Through what runs.** From each affected node it finds the binaries that reach it, the services that run them, and then follows the runtime links: who subscribes to a topic the binary publishes, who connects to a service that runs it. Tests that reach an affected node are listed too. A step through an import that only serves type checking is labelled type-only: it breaks type checking, not the running program.
+
+With `--tests`, it lists only the test functions to run for the change, as pytest node ids such as `tests/test_api.py::test_get_invoice`. It finds them through the tests that reach the node, the fixtures they use, and the API tests that call a route with `TestClient`. Give several nodes, or `--file <project>:<path>` for every node of a file:
+
+```bash
+workbench impact billing-api:billing.routes.invoices.get_invoice --tests
+```
+
+When the node is a class carried on a topic or queue, the result adds an **event contract** section: the topics and queues, and the code that sends and handles the class, with any sender and handler that disagree on the class flagged.
+
+A function that handles a command is followed through the command to the services that run that command, and no others.
+
+When the node is a class used by a route, or a field of one, the result adds an **API contract** section. It lists the routes whose request or response uses the class, directly or through nested fields, with their full paths, and the code that calls each route: Python callers in other projects, tests, and declared links whose call site is unknown.
 
 The result is grouped by project. Each entry shows the edges that led to it, with their provenance, so you can tell a fact read from source from a hand-written link. The [graph model](./graph-model.md#walking-the-graph) works one case through.
 
@@ -202,7 +236,7 @@ Options: `--depth`, `--direction in|out|both`, `--edge <kind>`.
 
 ### `workbench files`
 
-Lists the indexed files, by project, each with its language and whether it was parsed. Filters: `--project`, `--failed` for files that failed to parse.
+Lists the indexed files, by project, each with its language and whether it was parsed. Filters: `--project`, `--failed` for files that failed to parse, `--unreached` for files that no binary, named module or test reaches. An unreached file may still run, through a call the graph could not resolve, so treat the list as a place to look, not as proof of dead code.
 
 ### `workbench deps`
 
@@ -249,7 +283,7 @@ Give `--workspace` an absolute path. AI tools usually start the server inside wh
 | `callees` | `workbench callees` | See what a node calls |
 | `impact` | `workbench impact` | See what a change affects |
 | `neighbors` | `workbench neighbors` | See what is directly related to a node |
-| `files` | `workbench files` | List the indexed files |
+| `files` | `workbench files` | List the indexed files, or those no root reaches |
 | `dependencies` | `workbench deps` | List dependencies between projects |
 | `status` | `workbench status` | See what is in the graph and whether it is current |
 

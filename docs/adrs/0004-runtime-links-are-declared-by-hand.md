@@ -7,6 +7,8 @@ date: 2026-11-17
 
 Which service calls which, and which project publishes to which topic, cannot be read reliably from source code in the first release. We could infer these runtime links, or ask a person to write them down. We ask the person: links, binaries and the gaps in compose files are declared in `.workbench/config.yml`. A wrong edge in the graph costs more than a missing one, because an AI tool will act on it.
 
+Amended by [ADR 0018](./0018-http-calls-are-matched-to-routes-links-stay-declared.md): Python HTTP calls whose path names a route are matched to it as code edges. Links themselves stay declared. Amended again by [ADR 0019](./0019-messages-are-matched-to-declared-topics.md): producers and consumers in Python are matched to declared topics and queues. [ADR 0021](./0021-dockerfiles-are-read-for-the-command-a-service-runs.md) reads Dockerfiles, so the binary a service runs no longer needs declaring when its command line names it.
+
 ## Consequences
 
 - Every edge records its provenance, so a reader can tell a fact read from source from one written by hand.

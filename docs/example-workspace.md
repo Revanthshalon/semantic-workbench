@@ -66,9 +66,36 @@ The network name comes from an environment variable, and the team starts this fi
 ```yaml
 services:
   api:      {build: ., networks: [backbone]}
-  consumer: {build: ., command: python -m ledger.consumer, networks: [backbone]}
+  consumer: {build: ., command: python -m ledger.consumer run, networks: [backbone]}
 networks:
   backbone: {external: true, name: "${BACKBONE_NET}"}
+```
+
+### The two Dockerfiles
+
+Billing builds one image per target. Ledger builds one image, and its `consumer` service overrides the command.
+
+```dockerfile
+# billing-api/Dockerfile
+FROM python:3.12-slim AS base
+WORKDIR /app
+COPY . .
+RUN pip install .
+
+FROM base AS api
+CMD ["uvicorn", "billing.api:app", "--host", "0.0.0.0"]
+
+FROM base AS worker
+CMD ["python", "-m", "billing.worker"]
+```
+
+```dockerfile
+# ledger-api/Dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install .
+CMD ["uvicorn", "ledger.api:app", "--host", "0.0.0.0"]
 ```
 
 ## What the indexer can and cannot read
@@ -77,7 +104,8 @@ networks:
 |---|---|---|
 | Infrastructure | Stack `acme-infra`. Network `acme-backbone`. `kafka` and `postgres` have no build context, so they are external services. | Nothing. |
 | Billing | Network `acme-backbone`. Each build target has the name of a binary, so each service maps to its binary. The stack is named after the folder, `billing-api`. | Nothing. |
-| Ledger | Two services built from the project. | The Compose name, set by `-p`. The network's real name, set by a variable. Which binary each service runs, since there is no build target. |
+| Ledger | Two services built from the project. Which binary each service runs: `api` runs `uvicorn ledger.api:app` from the Dockerfile's `CMD`, and `consumer` runs `python -m ledger.consumer run` from its compose `command`. | The Compose name, set by `-p`. The network's real name, set by a variable. |
+| Dockerfiles | The command line each service runs, and so each binary's framework: billing's and ledger's `api` are FastAPI apps, started by uvicorn. | Nothing. |
 
 The configuration fills exactly the gaps in the right-hand column.
 
@@ -115,18 +143,14 @@ projects:
       name: ledger                     # set by `-p ledger`, not in the file
       networks:
         backbone: acme-backbone        # the file only says ${BACKBONE_NET}
-      services:
-        api:      {binary: api}        # no build target, so say which binary
-        consumer: {binary: consumer}
     links:
       - {service: kafka, via: topic, name: invoice.created, role: subscribe, binary: consumer}
   - id: web-app
     path: ../web-app
     language: typescript
-    framework: angular
     dependency_manager: pnpm
     binaries:
-      - {name: admin, entry: projects/admin/src/main.ts}
+      - {name: admin, entry: projects/admin/src/main.ts, framework: angular}
     links:
       - {service: api, stack: billing-api, via: http, binary: admin}
 ```
@@ -163,8 +187,9 @@ Networks say who can talk. Links say who does talk, and how.
 
 | Source | Nodes and edges |
 |---|---|
-| Configuration | Four projects and five binaries. One topic, `kafka/invoice.created`. Four links: database, publish, subscribe, HTTP. The binary each ledger service runs. |
-| Compose files | Three stacks, and which projects use each. Four services and two external services. Two networks, and each service's membership. The binary each billing service runs. |
+| Configuration | Four projects and five binaries. One topic, `kafka/invoice.created`. Four links: database, publish, subscribe, HTTP. |
+| Compose files | Three stacks, and which projects use each. Four services and two external services. Two networks, and each service's membership. The binary each billing service runs, from its build target, and the command ledger's `consumer` runs. |
+| Dockerfiles | The command each other service runs: so ledger's `api` runs its `api` binary, and billing's and ledger's `api` binaries are FastAPI. |
 | Dependency manager files | `billing-api` depends on `shared-api`. `ledger-api` depends on `shared-api`. |
 | Source code | Files, classes, functions and imports inside each project, including imports of `shared_api` that resolve to nodes in `shared-api`. |
 

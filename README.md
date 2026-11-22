@@ -1,6 +1,6 @@
 # Semantic Workbench
 
-A command-line tool that reads a workspace of several projects and stores what it finds as a graph: the code inside each project, the projects themselves, the services that run them, and the links between all of these. AI coding tools query the graph through an MCP server. People query it through the same command line.
+A command-line tool that reads a workspace of several projects and stores what it finds as a graph: the code inside each project, the projects themselves, the services that run them, and the links between all of these. AI coding tools query the graph through a UTCP manual that describes the command line. People query it through the same command line.
 
 > **Status: design.** Nothing runs yet. The repository holds the module scaffold, the full design, and a plan for building it. There is no release.
 
@@ -34,10 +34,10 @@ Start with the product vision. Every other page follows from it.
 | [Product vision](docs/product-vision.md) | What is this, who is it for, and what is it not? |
 | [Capability map](docs/capability-map.md) | What will the tool do? One row per capability |
 | [Roadmap](docs/roadmap.md) | What ships when, and in what order is it built? |
-| [Usage guide](docs/usage-guide.md) | Which commands and MCP tools are there, and how are they used? |
+| [Usage guide](docs/usage-guide.md) | Which commands and UTCP tools are there, and how are they used? |
 | [Configuration guide](docs/configuration-guide.md) | How is `.workbench/config.yml` written? |
 | [Example workspace](docs/example-workspace.md) | What does a real workspace look like, end to end? |
-| [Modes, contexts and skills](docs/mcp-modes.md) | What are the modes of the MCP server, and what else does `init` write? |
+| [Modes, contexts and skills](docs/modes.md) | What are the modes of the UTCP manual, and what else does `init` write? |
 | [Graph model](docs/graph-model.md) | Why does the graph look the way it does? |
 | [Domain model](docs/domain-model.md) | Which types and rules are implemented and validated against? |
 | [Storage model](docs/storage-model.md) | How is the graph kept in SQLite? |
@@ -51,7 +51,7 @@ Samples of every file a workspace holds are in [`templates/`](templates/).
 
 | Release | Delivers |
 |---|---|
-| 1 | Python code, the whole workspace layer, SQLite storage, the command line, and the MCP server in its `developer-support` mode |
+| 1 | Python code, the whole workspace layer, SQLite storage, the command line, and the UTCP manual in its `developer-support` mode |
 | 2 | TypeScript and Angular |
 | 3 | The `operational-support` mode: read-only tools that look into a deployed context to find the cause of an incident |
 
@@ -69,7 +69,7 @@ src/
 ├── use_cases/        indexing, and every query
 ├── adapters/
 │   ├── driven/       the SQLite store, the file system, the parsers
-│   └── driving/      the command line and the MCP server
+│   └── driving/      the command line and the UTCP manual
 └── main.rs           wiring
 ```
 

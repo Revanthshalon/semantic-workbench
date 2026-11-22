@@ -115,7 +115,7 @@ A runtime connection declared by hand in the configuration: an HTTP or gRPC call
 _Avoid_: Connection, dependency
 
 **Mode**:
-What the MCP server is started for: developer support, operational support or testing support. The mode decides which tools an AI tool is offered.
+Which tools the UTCP manual offers: developer support, operational support or testing support. The mode is chosen when the manual is printed with `workbench manual --mode`.
 _Avoid_: Profile, role
 
 **Context**:

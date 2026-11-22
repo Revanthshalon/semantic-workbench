@@ -14,7 +14,7 @@ The file is opened with:
 
 | Setting | Value | Why |
 |---|---|---|
-| `journal_mode` | `WAL` | Queries and the MCP server keep reading while an index writes |
+| `journal_mode` | `WAL` | Queries, including those an AI tool makes through the UTCP manual, keep reading while an index writes |
 | `foreign_keys` | `ON` | The edge and reference tables rely on it. SQLite leaves it off by default |
 | `synchronous` | `NORMAL` | Safe with WAL, and the store can always be rebuilt |
 
@@ -498,7 +498,7 @@ Every other rule of the domain model needs more than one row to decide, and is c
 
 `workbench index` opens one write transaction at its start and commits at its end.
 
-- **A reader never sees half an index.** Until the commit, queries and the MCP server see the graph as it was.
+- **A reader never sees half an index.** Until the commit, queries see the graph as it was.
 - **A failed index changes nothing.** An error rolls the transaction back.
 - **Only one index runs at a time.** A second one cannot open its transaction, and stops with exit code `1` and a message that an index is already running.
 
@@ -555,7 +555,7 @@ The rest of the program reaches the store through one port, so a second store ca
 | Warnings | `status` |
 | Project checkouts | `status`, and `context_status` in the `operational-support` mode |
 | Counts of nodes, edges and files | `status` |
-| The `meta` values | `status`, every MCP answer |
+| The `meta` values | `status`, every answer |
 | Every call site, binding and return | `index`, stage 2 |
 | The inferred type of a node | `node` |
 | The providers of a route path, and the route paths a provider runs for | `node`, `impact` |

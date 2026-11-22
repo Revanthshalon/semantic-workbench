@@ -21,7 +21,7 @@ If a fact can be read from a file, you do not write it here.
 
 The [usage guide](./usage-guide.md#how-a-command-finds-the-workspace) explains how a command finds this folder.
 
-`workbench init` writes two folders beside the configuration: `skills/` and `mcp/`. Neither is part of this file, and both are described in [mcp-modes.md](./mcp-modes.md).
+`workbench init` writes two folders beside the configuration: `skills/` and `ops/`. Neither is part of this file, and both are described in [modes.md](./modes.md).
 
 ## The smallest configuration
 

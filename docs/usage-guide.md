@@ -4,13 +4,13 @@ How Semantic Workbench is meant to be used, from an empty folder to an AI tool a
 
 > **Nothing here runs yet.** This guide describes the first release as designed, so that the commands can be reviewed before they are built. Every command here is listed in the [capability map](./capability-map.md). Sample output is illustrative.
 
-Related pages: [product vision](./product-vision.md), [configuration guide](./configuration-guide.md), [example workspace](./example-workspace.md), [domain model](./domain-model.md), [storage model](./storage-model.md), [modes, contexts and skills](./mcp-modes.md), [roadmap](./roadmap.md).
+Related pages: [product vision](./product-vision.md), [configuration guide](./configuration-guide.md), [example workspace](./example-workspace.md), [domain model](./domain-model.md), [storage model](./storage-model.md), [modes, contexts and skills](./modes.md), [roadmap](./roadmap.md).
 
 ## The idea in one minute
 
 1. You describe your workspace once, in `.workbench/config.yml`.
 2. `workbench index` reads the configuration, your compose files and your source code, and builds a graph.
-3. You, or an AI tool through MCP, ask the graph questions.
+3. You, or an AI tool through the UTCP manual, ask the graph questions.
 4. When your code changes, you run `workbench index` again. Nothing else changes the graph.
 
 ## Install
@@ -55,7 +55,7 @@ Every command needs to know which workspace it works on. It looks in this order:
 
 If none of these gives a workspace, the command stops with an error that names the flag and the variable.
 
-Projects may sit outside the workspace folder. A command started inside such a project finds nothing by looking upwards, so it needs the flag or the variable. This matters most for the MCP server; see below.
+Projects may sit outside the workspace folder. A command started inside such a project finds nothing by looking upwards, so it needs the flag or the variable. This matters most for AI tools; see below.
 
 ## Commands
 
@@ -74,7 +74,7 @@ Projects may sit outside the workspace folder. A command started inside such a p
 | `workbench neighbors <node>` | Lists what is directly related to a node | no |
 | `workbench files` | Lists the indexed files | no |
 | `workbench deps` | Lists dependencies between projects | no |
-| `workbench mcp` | Serves AI tools, in one mode | no |
+| `workbench manual` | Prints the UTCP manual that describes the query commands to AI tools, for one mode | no |
 
 Flags every command takes: `--workspace <dir>`, and `-v` for more detail in messages. Commands that print results also take `--json`.
 
@@ -84,10 +84,10 @@ Creates `.workbench/` in the current folder with:
 
 - a starter `config.yml`;
 - a `.gitignore` that keeps the graph file out of version control;
-- `skills/`, the written guides every mode of the MCP server shares;
-- `mcp/`, the files that describe each deployed context for the operational mode.
+- `skills/`, the written guides every mode of the UTCP manual shares;
+- `ops/`, the files that describe each deployed context for the operational mode.
 
-Commit all of it but the graph file. `init` refuses to run where a configuration already exists, and it never overwrites a skill or a context file. The [modes page](./mcp-modes.md) describes the two folders.
+Commit all of it but the graph file. `init` refuses to run where a configuration already exists, and it never overwrites a skill or a context file. The [modes page](./modes.md) describes the two folders.
 
 ### `workbench check`
 
@@ -104,7 +104,7 @@ Builds the graph, or brings it up to date.
 - The workspace layer (projects, dependencies, compose files, networks, links) is rebuilt on every run. It is small. Each binary's framework is decided here, before any code is read: from its `framework` in the configuration, else a compose command that runs it, else its entry file.
 - Every file is read, whether or not a binary reaches it. Once all files are in, the index analyses the whole graph without reading files again: it resolves references, carries types and text through calls (so unannotated parameters, returns and fields get a class, and HTTP calls made inside helpers get their paths), matches HTTP calls to routes, and records which binaries and tests reach each node. This analysis runs in full on every index. [python-parsing.md](./python-parsing.md#how-the-graph-is-built) describes it.
 - Files that `.gitignore` excludes are never read, nor are `.git`, `node_modules`, `.venv` and `.workbench`, nor anything a project's `exclude` patterns match.
-- One `index` runs at a time per workspace; a second one stops with an error. Queries and the MCP server keep working while it runs, and see the graph as it was until it finishes.
+- One `index` runs at a time per workspace; a second one stops with an error. Queries keep working while it runs, and see the graph as it was until it finishes.
 - An index that fails changes nothing.
 
 Flags:
@@ -249,32 +249,25 @@ ledger-api  -> shared-api    build   manifest (pyproject.toml)
 
 Runtime links, such as an HTTP call or a topic, are not dependencies. See them with `workbench neighbors`.
 
-### `workbench mcp`
+### `workbench manual`
 
-Starts the MCP server on standard input and output. You do not run this yourself; your AI tool starts it.
+Prints the UTCP manual to standard output: a JSON document that describes the query tools, each as a call to a `workbench` command with `--json`. You do not run the queries through it. Your AI tool loads the manual, then calls `workbench` itself, as a process, for each tool call. No server runs between them.
 
-`--mode <name>` chooses what the server is for. `developer-support` is the default and the only mode in the first release. `operational-support` and `testing-support` are reserved names: the server refuses to start in them and says the mode is not available yet. The [modes page](./mcp-modes.md) describes all three.
+`--mode <name>` chooses which tools the manual lists. `developer-support` is the default and the only mode in the first release. `operational-support` and `testing-support` are reserved names: `manual` refuses them and says the mode is not available yet. The [modes page](./modes.md) describes all three.
 
 ## Connecting an AI tool
 
-Add Workbench to your AI tool's MCP configuration. The usual shape is:
+Write the manual to a file, and point your AI tool's UTCP client at it. The exact setting depends on the client; check its documentation.
 
-```json
-{
-  "mcpServers": {
-    "workbench": {
-      "command": "workbench",
-      "args": ["mcp", "--workspace", "/home/you/acme/workspace"]
-    }
-  }
-}
+```bash
+workbench manual --workspace ~/acme/workspace > ~/acme/workbench.utcp.json
 ```
 
-Give `--workspace` an absolute path. AI tools usually start the server inside whichever repository you have open, and that is often a project outside the workspace folder.
+The workspace path is written into every call template, as an absolute path. AI tools usually run a command inside whichever repository you have open, and that is often a project outside the workspace folder. The manual does not change until you generate it again, so generate it again after upgrading `workbench`.
 
 **What the AI tool gets:** one tool per query. Each gives the same answer as its command.
 
-| MCP tool | Command | Use it to |
+| UTCP tool | Command | Use it to |
 |---|---|---|
 | `explore` | `workbench explore` | Answer a question in one call: source, call flow and blast radius. Start here |
 | `node` | `workbench node` | Read one node or one file |
@@ -287,16 +280,16 @@ Give `--workspace` an absolute path. AI tools usually start the server inside wh
 | `dependencies` | `workbench deps` | List dependencies between projects |
 | `status` | `workbench status` | See what is in the graph and whether it is current |
 
-**Skills.** The server also offers the skills in `.workbench/skills/`: a guide to using Workbench well, and the best practices of each language. They are the same in every mode, and your team can edit them.
+**Skills.** The manual also names the skills in `.workbench/skills/`, each with its file and a one-line description: a guide to using Workbench well, and the best practices of each language. The AI tool reads the file when it needs it. They are the same in every mode, and your team can edit them. How a skill reaches the AI tool is still an [open decision](./capability-map.md#open-decisions) (K2).
 
-**What the server never does:** it never changes the graph and never re-indexes. Every answer says when the graph was indexed and whether files have changed since, so the AI tool can tell you the graph is out of date.
+**What the tools never do:** none of them changes the graph or re-indexes. Every answer says when the graph was indexed and whether files have changed since, so the AI tool can tell you the graph is out of date.
 
 ## Keeping the graph current
 
 The graph changes only when you run `workbench index`. This is a deliberate choice: an answer never depends on work happening behind your back.
 
 - Run `workbench index` after pulling, switching branches or finishing a change.
-- `workbench status` and every MCP answer tell you when files have changed since the last index.
+- `workbench status` and every answer tell you when files have changed since the last index.
 - If the graph ever looks wrong, `workbench index --force` rebuilds it from the source.
 
 ## Exit codes
@@ -320,8 +313,8 @@ Results go to standard output. Messages, warnings and progress go to standard er
 | A service appears as an external service but is yours | Its compose entry has no build context. Map it under `services` in the configuration |
 | Two projects look unconnected but share a broker | Declare the topic or queue under `links` for both |
 | A warning that a link's services share no network | Either the link is wrong, or a network name could not be read. Give its real name under `networks` |
-| An AI tool's answers look out of date | Run `workbench index`. The server never does this for you |
+| An AI tool's answers look out of date | Run `workbench index`. No tool does this for you |
 
 ## Not in the first release
 
-TypeScript, Angular, HTML and CSS. The operational mode of the MCP server. Language servers. Anything that uses an LLM. Memgraph. Automatic re-indexing. Windows. The [roadmap](./roadmap.md) says what comes when.
+TypeScript, Angular, HTML and CSS. The operational mode of the UTCP manual. Language servers. Anything that uses an LLM. Memgraph. Automatic re-indexing. Windows. The [roadmap](./roadmap.md) says what comes when.

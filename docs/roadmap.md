@@ -4,19 +4,21 @@ What ships when. It follows the [product vision](./product-vision.md). Each capa
 
 Nothing is released yet. No dates are set; the order is what is decided.
 
+AI tools reach the graph through a UTCP manual, not an MCP server ([ADR 0022](./adrs/0022-ai-tools-reach-the-graph-through-utcp.md)). The capability ids M1 to M7 keep their numbers and now describe the manual.
+
 ## Release 1: one language, the whole workspace
 
-**Goal:** the [Acme Shop example](./example-workspace.md) works end to end. An AI tool connected through MCP can answer "what breaks if I change `Invoice` in `shared-api`?" across four projects.
+**Goal:** the [Acme Shop example](./example-workspace.md) works end to end. An AI tool using the UTCP manual can answer "what breaks if I change `Invoice` in `shared-api`?" across four projects.
 
 **In scope**
 
 - Python code graph, with FastAPI routes, HTTP calls matched to routes across projects, the tests to run for a change, and API contracts.
 - The workspace layer: projects, binaries, local dependencies, compose files, stacks, services, external services, networks, and hand-written links with their topics and queues.
 - SQLite storage.
-- The command line and the MCP server over stdio.
+- The command line, and a UTCP manual that describes its query commands so an AI tool calls `workbench` directly. There is no server process.
 - Installation with Cargo and with Homebrew, on macOS and Linux.
 - The graph changes only when `workbench index` is run.
-- The `developer-support` mode of the MCP server, and the shared skills. `init` also writes the `mcp/` folder that operational support will read.
+- The `developer-support` tool set of the UTCP manual, and the shared skills. `init` also writes the `ops/` folder that operational support will read.
 - The branch and commit of each project, recorded at every index.
 
 **Out of scope:** everything under Release 2, Release 3 and Later.
@@ -33,7 +35,7 @@ Nothing is released yet. No dates are set; the order is what is decided.
 | 5b | All of Python, plain binaries and FastAPI: types and text carried through calls, route paths, HTTP calls matched to routes, messages matched to topics and queues, `argparse` commands and the compose and Dockerfile commands that run them, pytest, reach | C14, C15, I14 to I18, I20 to I23, W11, W14 to W16, G11, G12 | [python-parsing.md](./python-parsing.md#plan) |
 | 6 | Queries: explore, node, search, callers, callees, impact, neighbours, files, dependencies, status | Q1 to Q7, Q10 to Q14 | [step 6](./implementation-plan/step-6-queries.md) |
 | 7 | Command line and installation | U1 to U8, U11 | [step 7](./implementation-plan/step-7-command-line.md) |
-| 8 | MCP server: the graph tools, the `developer-support` mode, the skills | M1 to M3, M5, M6, K2 | [step 8](./implementation-plan/step-8-mcp-server.md) |
+| 8 | UTCP manual: the graph tools as call templates over the CLI, the `developer-support` tool set, the skills | M1 to M3, M5, M6, K2, reworded for UTCP | [step 8](./implementation-plan/step-8-utcp-manual.md), to be rewritten |
 
 Step 4 comes before step 5 on purpose. The workspace layer needs no parser, so the configuration, the store and the workspace indexer can be proven on real workspaces before any code is parsed.
 
@@ -42,7 +44,7 @@ The ground rules, X1 to X8 and X10, belong to no single step. Each step keeps th
 **Done when**
 
 - `workbench init`, `check`, `index`, `status`, `explore`, `node`, `query`, `callers`, `callees`, `impact`, `neighbors`, `files` and `deps` work on the Acme Shop layout.
-- An MCP client can run the impact question above and get all six steps of the walk in [graph-model.md](./graph-model.md).
+- A UTCP client can load the manual and run the impact question above and get all six steps of the walk in [graph-model.md](./graph-model.md).
 - One `explore` call about `Invoice` returns its source as written, the flow from billing's worker to ledger's consumer, and a blast radius that names all four projects.
 - The Acme Shop graph passes every rule in [domain-model.md](./domain-model.md).
 - Indexing the same workspace twice produces the same graph.
@@ -61,19 +63,19 @@ The ground rules, X1 to X8 and X10, belong to no single step. Each step keeps th
 
 ## Release 3: operational support
 
-**Goal:** an AI tool connected in the `operational-support` mode can look into a deployed context, read the code behind what it sees, and propose the cause of an incident and a resolution. It can change nothing.
+**Goal:** an AI tool using the `operational-support` tool set can look into a deployed context, read the code behind what it sees, and propose the cause of an incident and a resolution. It can change nothing.
 
 Releases 2 and 3 do not depend on each other and can be built in either order.
 
 | Delivers | Capabilities |
 |---|---|
-| Reading and checking `mcp/config.yml` and the context files | C13, O1, O2 |
+| Reading and checking `ops/config.yml` and the context files | C13, O1, O2 |
 | Reaching a context through SSH to its virtual machine, by tunnel or by the VM's own client | O3 |
 | Checking each project's indexed checkout against the context's release branch | O4 |
 | Read-only tools for Kubernetes, Docker Compose, Postgres, Redis and Kafka | O5 to O9 |
 | The graph tools in this mode, and the rule that every tool only reads | O10 |
 
-This release is the first to use the network. It connects only to the virtual machine a context file names. The design is in [mcp-modes.md](./mcp-modes.md); the operational tools there are a proposal and are not confirmed. No build order is set.
+This release is the first to use the network. It connects only to the virtual machine a context file names. The design is in [modes.md](./modes.md); the operational tools there are a proposal and are not confirmed. No build order is set.
 
 ## Later
 
@@ -82,7 +84,7 @@ Wanted, not designed. The order within this list is not decided.
 | Item | What it adds | Capabilities |
 |---|---|---|
 | Language servers: resolve references | During indexing, ask a language server where a call, import or type points when the parser cannot tell. The server starts inside the project's environment, as given by `projects[].environment` | I11 |
-| Language servers: live lookups | The MCP server asks a language server at question time and returns the answer next to the graph | Q8, M7 |
+| Language servers: live lookups | A query command asks a language server at question time and returns the answer next to the graph | Q8, M7 |
 | LLM: summaries | A command that writes a short description of each file, class and function onto its node | I13, U9 |
 | LLM: suggested links | A command that proposes runtime links from code, stored as inferred edges until a person confirms them | W12, U9 |
 | Search by meaning | Find nodes by what they do instead of by name | Q9 |
@@ -92,7 +94,8 @@ Wanted, not designed. The order within this list is not decided.
 | External services outside compose | A managed database or broker that no compose file describes | C12 |
 | Confidence on inferred edges | A score, once something produces inferred edges | G9 |
 | Automatic freshness | Re-indexing on use, or a file watcher. Release 1 is manual only | X9 |
-| MCP over HTTP | A server for shared or remote use, next to stdio | M4 |
+| UTCP over HTTP | The manual served by URL, and the commands reachable over HTTP, for shared or remote use | M4, reworded for UTCP |
+| MCP adapter | An MCP server over stdio for AI tools that speak only MCP, built on the same use cases | not in the capability map yet |
 | Shell completions | Completion scripts for the `workbench` commands | U10 |
 
 ## Reserved in the configuration

@@ -24,4 +24,6 @@ Each context names the release branch of each project. The graph keeps the check
 - A tool that writes can never be added to `operational-support` through configuration.
 - The index must record a checkout for each project, which it does from Release 1.
 
-Details: [mcp-modes.md](../mcp-modes.md).
+Amended by [ADR 0022](./0022-ai-tools-reach-the-graph-through-utcp.md): a mode is the list of tools a UTCP manual shows, chosen with `workbench manual --mode`, and not a mode of a running server. The `mcp/` folder is now `ops/`. Every command, in every mode, only reads: that rule, not the list, is what keeps a mode safe.
+
+Details: [modes.md](../modes.md).

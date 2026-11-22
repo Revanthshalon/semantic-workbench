@@ -1,8 +1,8 @@
 # Step 6: Queries Implementation Plan
 
-**Goal:** Answer every question the command line and the MCP server can ask: `search`, `node`, `callers`, `callees`, `neighbors`, `impact`, `explore`, `files`, `deps` and `status`.
+**Goal:** Answer every question the command line and the UTCP manual can ask: `search`, `node`, `callers`, `callees`, `neighbors`, `impact`, `explore`, `files`, `deps` and `status`.
 
-**Architecture:** One use case per question. Each takes the store and the files through their ports, and returns an `Answer` holding a plain result. No use case prints anything or knows who called it, which is what makes the command line and the MCP server give the same answer. Walks are done here, one step at a time: the store is only ever asked for the edges of a set of nodes.
+**Architecture:** One use case per question. Each takes the store and the files through their ports, and returns an `Answer` holding a plain result. No use case prints anything or knows who called it, which is what makes the command line and the UTCP manual give the same answer. Walks are done here, one step at a time: the store is only ever asked for the edges of a set of nodes.
 
 **Tech stack:** `serde` for the result types. No new crate.
 

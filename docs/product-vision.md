@@ -6,13 +6,13 @@ Every other page follows from this one.
 |---|---|
 | [Capability map](./capability-map.md) | What will the tool do? One row per capability |
 | [Roadmap](./roadmap.md) | What ships when, and in what order is it built? |
-| [Usage guide](./usage-guide.md) | Which commands and MCP tools are there, and how are they used? |
+| [Usage guide](./usage-guide.md) | Which commands and UTCP tools are there, and how are they used? |
 | [Configuration guide](./configuration-guide.md) | How is `.workbench/config.yml` written? |
 | [Example workspace](./example-workspace.md) | What does a real workspace look like, end to end? |
 | [Graph model](./graph-model.md) | Why does the graph look the way it does? |
 | [Domain model](./domain-model.md) | Which types and rules are implemented and validated against? |
 | [Storage model](./storage-model.md) | How is the graph kept in SQLite? |
-| [Modes, contexts and skills](./mcp-modes.md) | What are the modes of the MCP server, and what else does `init` write? |
+| [Modes, contexts and skills](./modes.md) | What are the modes of the UTCP manual, and what else does `init` write? |
 | [Implementation plan](./implementation-plan/00-overview.md) | Who builds what, in which order, and what can be built at once? |
 | [Decision records](./adrs/) | Which decisions were made, and why? |
 | [Glossary](./GLOSSARY.md) | What does each term mean? |
@@ -23,7 +23,7 @@ An AI coding tool sees the files it is shown. It does not see how a workspace fi
 
 ## What Semantic Workbench is
 
-A command-line tool that reads a workspace and stores what it finds as a graph: the code inside each project, the projects themselves, the services that run them, and the links between all of these. AI tools query the graph through an MCP server. People query it through the same command line.
+A command-line tool that reads a workspace and stores what it finds as a graph: the code inside each project, the projects themselves, the services that run them, and the links between all of these. AI tools query the graph through a UTCP manual that describes the command line. People query it through the same command line.
 
 ## Who it is for
 
@@ -42,7 +42,7 @@ A developer, or a small team, working in a workspace of several projects with sh
 2. **Nothing changes behind your back.** The graph changes only when you run `workbench index`.
 3. **Explicit over clever.** A fact the tool cannot read is declared by hand. It is not guessed silently.
 4. **Local by default.** The first release makes no network calls and sends no code anywhere.
-5. **One core, two doors.** The command line and the MCP server call the same use cases and give the same answers.
+5. **One core, two doors.** The command line and the UTCP manual reach the same use cases and give the same answers.
 
 ## What it is not
 
@@ -58,6 +58,6 @@ A thin slice of the whole idea, enough for the [Acme Shop example](./example-wor
 - Python code graph.
 - The whole workspace layer: projects, local dependencies, compose files, networks and hand-written links.
 - SQLite storage.
-- The command line and the MCP server.
+- The command line, and a UTCP manual that describes it.
 
 What follows is in the [roadmap](./roadmap.md).

@@ -15,7 +15,7 @@
 - Exit code `0` when the command did what was asked, `1` when it could not, `2` when the command line itself was wrong.
 - `index` with warnings, or with files that failed to parse, exits `0`.
 - Results go to standard output and nothing else does. Messages, warnings and progress go to standard error.
-- `--json` prints the `Answer` of the use case as one JSON document, with the same field names as the MCP server returns.
+- `--json` prints the `Answer` of the use case as one JSON document, with the same field names the UTCP manual relies on.
 - Every command takes `--workspace <dir>` and `-v`. Every command that prints a result takes `--json`.
 - Text output has no colour when standard output is not a terminal.
 
@@ -44,7 +44,7 @@
 | `neighbors <node>` | `--depth <n>`, `--direction in\|out\|both`, `--edge <kind>` (repeatable) | `neighbors` |
 | `files` | `--project <id>`, `--failed` | `files` |
 | `deps` | | `deps` |
-| `mcp` | `--mode <name>` | step 8 |
+| `manual` | `--mode <name>` | step 8 |
 
 ## File structure
 
@@ -84,13 +84,13 @@ Each slice is one pull request. The [overview](./00-overview.md#working-in-paral
 pub struct Cli { pub workspace: Option<PathBuf>, pub verbose: bool, pub json: bool, pub command: Command }
 
 #[derive(clap::Subcommand)]
-pub enum Command { Init, Check, Index { force: bool, project: Option<String> }, Status, Explore { .. }, Node { .. }, Query { .. }, Callers { .. }, Callees { .. }, Impact { .. }, Neighbors { .. }, Files { .. }, Deps, Mcp { mode: String } }
+pub enum Command { Init, Check, Index { force: bool, project: Option<String> }, Status, Explore { .. }, Node { .. }, Query { .. }, Callers { .. }, Callees { .. }, Impact { .. }, Neighbors { .. }, Files { .. }, Deps, Manual { mode: String } }
 
 pub enum Outcome { Done, Failed(String), Usage(String) }
 impl Outcome { pub fn exit_code(&self) -> u8; }      // 0, 1, 2
 ```
 
-The global flags are marked `global = true`, so they may come before or after the command. `Mcp`'s `mode` defaults to `developer-support`.
+The global flags are marked `global = true`, so they may come before or after the command. `Manual`'s `mode` defaults to `developer-support`.
 
 **Tests**, with `Cli::try_parse_from`:
 
@@ -103,7 +103,7 @@ The global flags are marked `global = true`, so they may come before or after th
 | `node_takes_a_node_or_a_file_not_both` | Both together is an error; neither is an error |
 | `unknown_flag_is_a_usage_error` | The error's exit code is `2` |
 | `no_command_is_a_usage_error` | Exit code `2` |
-| `mode_defaults_to_developer_support` | `mcp` alone gives that mode |
+| `mode_defaults_to_developer_support` | `manual` alone gives that mode |
 | `exit_codes_are_0_1_and_2` | For `Done`, `Failed` and `Usage` |
 
 **Commit:** `feat(cli): the command tree and exit codes`

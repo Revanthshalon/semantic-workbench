@@ -16,6 +16,7 @@ Every other page follows from this one.
 | [Modes, contexts and skills](./modes.md) | What are the modes of the UTCP manual, and what else does `init` write? |
 | [Implementation plan](./implementation-plan/00-overview.md) | Who builds what, in which order, and what can be built at once? |
 | [Decision records](./adrs/) | Which decisions were made, and why? |
+| [Competitive analysis](./competitive-analysis.md) | How does it compare with codegraph and graphify? |
 | [Glossary](./GLOSSARY.md) | What does each term mean? |
 
 ## The problem

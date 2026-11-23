@@ -101,7 +101,8 @@ The data is part of the kind, as an edge's is, so a kind can never carry another
 | `Workspace`, `Stack`, `Service`, `ExternalService`, `Network`, `Topic`, `Queue` | none |
 | `Function`, `Method`, `Property` | `Callable { doc, signature, visibility, is_async, is_static, is_abstract, is_exported, decorators, type_parameters, return_type, role }` |
 | `Class`, `Struct`, `Interface`, `Trait`, `Protocol`, `Enum`, `Union`, `TypeAlias`, `Component` | `TypeDecl { doc, signature, visibility, is_abstract, is_exported, decorators, type_parameters, role }` |
-| `Field`, `Variable`, `Constant`, `Parameter` | `Member { visibility, is_static, is_exported, declared_type, default, source, role }` |
+| `Field`, `Variable`, `Constant` | `Member { visibility, is_static, is_exported, declared_type, default, role }` |
+| `Parameter` | A `Member`, and `source` beside it |
 | `Route` | `RouteData { method, path, status_code, tags }` |
 | `Command` | `CommandData { program, path, help, options }` |
 | `File`, `Module`, `Namespace` | `Doc { doc }` |
@@ -399,7 +400,7 @@ A name is bound once when it has exactly one binding in its `in`.
 | Id | Rule | Enforced |
 |---|---|---|
 | L1 | `in` is a `File`, `Function`, `Method` or `Class` node in the graph | Graph |
-| L2 | `name` is not empty | Build |
+| L2 | `name` is not empty | Type |
 | L3 | No two bindings share `in`, `name` and `site` | Graph |
 
 ## Return
@@ -604,8 +605,8 @@ Every value with a rule of its own is a newtype: a struct with one private field
 
 | Rule | How the type keeps it |
 |---|---|
-| N1 | `Name` and `QualifiedName` cannot be empty |
-| N8 | The data is inside the `NodeKind` variant, so no other data can be there |
+| N1, L2 | `Name` and `QualifiedName` cannot be empty |
+| N8 | The data is inside the `NodeKind` variant, so no other data can be there. `source` is held by `Parameter` beside its `Member`, so no other member kind can have one |
 | N10, for `app` | `app` is a field of `Framework::Fastapi` and of no other variant |
 | E4 | `note` is a field of `Provenance::Declared` and of no other variant |
 | C2, for "never both" | An argument's slot is `Position(u32)` or `Keyword(String)` |
@@ -616,9 +617,11 @@ Every value with a rule of its own is a newtype: a struct with one private field
 ### Building nodes and edges
 
 - **Private fields, read through methods.** `Node` and `Edge` have no public field and no setter. A changed node is a new node, since its id depends on its fields.
-- **One input struct per constructor.** `Node::parsed` and `Node::declared` each take one struct of named fields, not a long list of arguments, so two fields of the same type cannot be swapped by mistake. `Node::parsed` also takes the file's `Language`, for N9, and does not store it.
+- **One input struct per constructor.** `Node::parsed`, `Node::declared` and `Node::binary` each take one struct of named fields, not a long list of arguments, so two fields of the same type cannot be swapped by mistake. `Node::parsed` also takes what read the node, a source file in a `Language` or a compose file, for N4 and N9. `Node::binary` takes its project's `Language`, for N9. Neither stores the language.
 - **An edge is built from its ends.** `Edge::new` takes `&Node` for the source and the target, so it can check E1 and E2 against their kinds. A store that reads edges back uses `Edge::restore`, which takes the ids and skips E1: what a store holds passed `validate` before it was written ([ADR 0003](./adrs/0003-the-graph-changes-only-on-index.md)). Only stores call `restore`.
-- **A build error names its rule.** Each `DomainError` variant carries the id of the rule it enforces, as `RuleViolation` does, so a test can check that the right rule refused the value.
+- **A build error names its rule.** A value that breaks a rule gives `DomainError::Rule`, which carries the rule's `RuleId`, as `RuleViolation` does, so a test can check that the right rule refused the value. Text that does not have the form of its value type gives `DomainError::Malformed`, naming the type.
+
+The files, signatures and tests are in the [step 1 plan](./implementation-plan/step-1-domain-types.md).
 
 ## Storing the model
 
@@ -728,7 +731,7 @@ Points the other pages left open, settled here and confirmed by the project owne
 | The release a graph was built from | A checkout is kept for each project, not one for the workspace, so that the `operational-support` mode can check each project against its release branch |
 | The SQLite layout | One `nodes` table and one `edges` table for both layers, with a column per field. The data of an edge kind is typed columns, not JSON. Walks are done in the core, not in SQL |
 | Node data | Part of the kind, as an edge's data is. A field a kind does not have cannot be set. In Rust, each `NodeKind` variant holds its data, so there is no separate data field |
-| Rust types | Newtypes for every value with a rule, data held inside enum variants, a fieldless `...Name` enum where a kind is needed without its data, no `None` variants. Rules N1, N8, E4, P3, U2 and Y3 are kept by the types, and part of N10 and C2. See [How the types are written in Rust](#how-the-types-are-written-in-rust) |
+| Rust types | Newtypes for every value with a rule, data held inside enum variants, a fieldless `...Name` enum where a kind is needed without its data, no `None` variants. Rules N1, N8, E4, L2, P3, U2 and Y3 are kept by the types, and part of N10 and C2. See [How the types are written in Rust](#how-the-types-are-written-in-rust) |
 | A binary with no framework | `Framework::Plain`, not an absent value, so that the configuration's "not given" stays distinct from "decided: none" |
 | Language | On the `Project` node, from the configuration, and on the file record, detected. Not on code nodes |
 | How an index builds the graph | Stage 1 reads every file, one at a time. Stage 2 analyses the finished graph from each root and reads no file again |

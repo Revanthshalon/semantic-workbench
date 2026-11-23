@@ -6,7 +6,7 @@ What every step plan in this folder shares: how the work is cut into slices that
 
 | Roadmap step | Plan | Specified by |
 |---|---|---|
-| 1. Domain types | sliced below, not written as tasks | [domain-model.md](../domain-model.md) |
+| 1. Domain types | [step-1-domain-types.md](./step-1-domain-types.md) | [domain-model.md](../domain-model.md) |
 | 2. Configuration | [step-2-configuration.md](./step-2-configuration.md) | [configuration-guide.md](../configuration-guide.md) |
 | 3. SQLite store | sliced below, not written as tasks | [storage-model.md](../storage-model.md) |
 | 4. Workspace indexing | [step-4-workspace-indexing.md](./step-4-workspace-indexing.md) | [example-workspace.md](../example-workspace.md), [graph-model.md](../graph-model.md) |
@@ -15,7 +15,7 @@ What every step plan in this folder shares: how the work is cut into slices that
 | 7. Command line | [step-7-command-line.md](./step-7-command-line.md) | [usage-guide.md](../usage-guide.md) |
 | 8. UTCP manual | [step-8-utcp-manual.md](./step-8-utcp-manual.md) | [usage-guide.md](../usage-guide.md), [modes.md](../modes.md) |
 
-Steps 1 and 3 have a specification and no task plan. Their specifications are detailed enough to build from.
+Step 3 has a specification and no task plan. Its specification is detailed enough to build from.
 
 Each plan covers Release 1 only. Operational support (Release 3) is not planned here.
 
@@ -43,10 +43,10 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 
 | Slice | Delivers | Needs | Plan |
 |---|---|---|---|
-| 1A | Value types: `NodeId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash`, `Span`, `Site` | | [domain-model.md](../domain-model.md#value-types) |
-| 1B | `Node`, its kinds, scope, origin, identity and data. Rules N1 to N5, N8 to N10 | 1A | [domain-model.md](../domain-model.md#node) |
-| 1C | `Edge`, its kinds and data, its provenance, and `resolved_by` with `Resolution`. There is no `Flow` provenance (ADR 0017). Rules E1 to E4 and E13 | 1A | [domain-model.md](../domain-model.md#edge) |
-| 1D | `FileRecord`, `UnresolvedReference`, `CallSite`, `Binding`, `Return`, `InferredType`, `Reach`, `Warning`, `ProjectCheckout`. Rules C2, L2, Y3, M2, G2 | 1A | [domain-model.md](../domain-model.md#file-record) |
+| 1A | `DomainError`, `RuleId`, and the value types: `NodeId`, `ReferenceId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash`, `Name`, `QualifiedName`, `CommitId`, `Line`, `Column`, `Span`, `Site`, `Template`, `HttpMethod`, `Language`, `DependencyManager` | | [domain-model.md](../domain-model.md#value-types) |
+| 1B | `Node`, its kinds, scope, origin, identity and data. Rules N2 to N5, N9, N10 | 1A | [domain-model.md](../domain-model.md#node) |
+| 1C | `Edge`, its kinds and data, its provenance, and `resolved_by` with `Resolution`. There is no `Flow` provenance (ADR 0017). `UnresolvedReference`, which holds an `EdgeKind`. Rules E1 to E3, E13 and R2 | 1A, 1B's types | [domain-model.md](../domain-model.md#edge) |
+| 1D | `FileRecord`, `CallSite`, `Binding`, `Return`, `InferredType`, `Reach`, `RoutePath`, the unmatched calls and messages, `MessagePayload`, `Warning`, `ProjectCheckout`. Rules C2, M2, G2, A1 | 1A | [domain-model.md](../domain-model.md#file-record) |
 | 1E | `Graph`, `validate` with every Graph rule, and the Acme Shop fixture | 1B, 1C, 1D | [domain-model.md](../domain-model.md#validating-an-implementation) |
 | C0 | Contracts: the ports, the query result types, `MemoryStore`, the shared store tests, every crate | 1E | [below](#slice-c0-contracts) |
 | 2A | Find the workspace | | [step 2](./step-2-configuration.md) |
@@ -201,7 +201,7 @@ Later slices use these names. A slice that has to change one changes it here in 
 | Name | What it is |
 |---|---|
 | `NodeId`, `ReferenceId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash`, `Name`, `QualifiedName`, `Line`, `Column`, `CommitId` | The value types, each a newtype with a private field. Each read from text has `fn parse(&str) -> Result<Self, DomainError>`; ids and hashes are computed. See [How the types are written in Rust](../domain-model.md#how-the-types-are-written-in-rust) |
-| `Node`, `NodeKind`, `NodeKindName`, `Scope`, `Origin`, `Span` | A node. `NodeKind` holds the kind's data in its variant, such as `Function(Callable)`; `NodeKindName` is the same kind without data. `Node::parsed(...)` and `Node::declared(...)` each take one input struct, and compute the id. `Node::parsed` takes the file's `Language` to check rule N9, and does not store it |
+| `Node`, `NodeKind`, `NodeKindName`, `Scope`, `Origin`, `Span` | A node. `NodeKind` holds the kind's data in its variant, such as `Function(Callable)`; `NodeKindName` is the same kind without data. `Node::parsed(...)`, `Node::declared(...)` and `Node::binary(...)` each take one input struct, and compute the id. `Node::parsed` takes a `ParsedFrom` (`Source(Language)` or `Compose`) and `Node::binary` its project's `Language`, to check rule N9; neither stores it |
 | `ProjectData`, `BinaryData`, `Callable`, `TypeDecl`, `Member`, `RouteData`, `CommandData`, `Doc` | The data a node kind carries, held inside its `NodeKind` variant |
 | `Framework`, `FrameworkName`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `Plain`, `Fastapi { app: Option<QualifiedName> }`, `Angular`; the same three without data; `Declared`, `Compose`, `Dockerfile`, `Entry`; `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
 | `Edge`, `EdgeKind`, `EdgeKindName`, `Provenance`, `Site` | An edge. `Edge::new` takes the two end nodes, to check E1; stores rebuild edges with `Edge::restore`. `Provenance::Declared { note: Option<String> }` holds the note. `EdgeKind` carries its data: `Imports { specifier, alias, type_only }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix }`, `Requests { method, path }`, `Sends { name }`, `Invokes { words }`, and the data-less `Receives`. An edge made by resolution records `resolved_by: Option<Resolution>` |
@@ -211,12 +211,12 @@ Later slices use these names. A slice that has to change one changes it here in 
 | `FileRecord`, `ParseStatus` | A file record |
 | `UnresolvedReference` | A reference waiting to be resolved |
 | `CallSite`, `Argument`, `Shape`, `Binding`, `Return` | What stage 1 records about calls, assignments and returns |
-| `InferredType`, `Reach`, `Root`, `RoutePath`, `UnmatchedHttpCall`, `UnmatchedMessage`, `MessagePayload` | What stage 2 computes |
+| `InferredType`, `Reach`, `Root`, `RoutePath`, `Candidates`, `UnmatchedHttpCall`, `UnmatchedMessage`, `MessageDirection`, `MessagePayload` | What stage 2 computes. `MessageDirection` is `Send` or `Receive`, kept apart from the store's `Direction` |
 | `Warning`, `WarningCode` | A warning |
 | `ProjectCheckout`, `Head` | A project's checkout: `head: Option<Head>`, with `Head { commit: CommitId, branch: Option<String> }` |
 | `Graph` | Nodes, edges, file records, references, warnings and checkouts together. `fn validate(&self) -> Vec<RuleViolation>` |
-| `RuleViolation` | `{ rule: &'static str, message: String }`. `rule` is an id from the domain model, such as `"T2"` |
-| `DomainError` | What building a broken value returns |
+| `RuleViolation` | `{ rule: RuleId, message: String }`. `RuleId` lists every rule id of the domain model, such as `RuleId::T2`, and prints as `T2` |
+| `DomainError`, `RuleId` | What building a broken value returns: `Rule { rule: RuleId, message }` or `Malformed { value, input, reason }` |
 | `fixtures::acme_workspace_layer() -> Graph` | The Acme Shop workspace layer: 27 nodes and 53 edges |
 | `fixtures::acme() -> Graph` | The same, plus the code nodes and edges the walk of [graph-model.md](../graph-model.md#walking-the-graph) needs |
 

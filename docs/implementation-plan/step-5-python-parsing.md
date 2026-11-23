@@ -246,7 +246,7 @@ impl<F: Files, P: LanguageParser> IndexCode<F, P> {
 pub struct CodeSummary { pub files_read: u64, pub files_skipped: u64, pub failed_files: Vec<FileRef> }
 ```
 
-For each project, or the one `--project` names: walk, hash each file, and compare with `known`. A file is read when its hash differs, when its record is `GrammarUnavailable`, or with `--force`. A record whose file is gone is removed. Every file `replace_file` or `remove_file` returns is read again in the same run, once. When all files are in, each unresolved reference is tried with `resolve`, then `resolve_across`.
+For each project, or the one `--project` names: walk, stat and hash each file, and compare with `known`. The record keeps the file's size and mtime, for freshness. A file is read when its hash differs, when its record is `GrammarUnavailable`, or with `--force`. A record whose file is gone is removed. Every file `replace_file` or `remove_file` returns is read again in the same run, once. When all files are in, each unresolved reference is tried with `resolve`, then `resolve_across`.
 
 A file with an extension no parser claims gets no node and no record, unless it is a binary's entry, which keeps the `File` node of step 4.
 

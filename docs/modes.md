@@ -2,7 +2,7 @@
 
 What `workbench init` puts in `.workbench/` besides the workspace configuration: the skills every mode of the UTCP manual shares, and the files that tell the operational mode how to reach each deployment.
 
-> **Nothing here is built yet.** The folders are written by `init` in Release 1. Operational support ships in Release 3; see the [roadmap](./roadmap.md). The operational tools on this page are **proposed**: they were drafted from the sample context file and are not confirmed.
+> **Nothing here is built yet.** The folders are written by `init` in Release 1. Operational support ships in Release 3; see the [roadmap](./roadmap.md). The operational tools on this page are approved as the initial set. Their exact arguments and limits are settled when Release 3 is built.
 
 Related pages: [usage guide](./usage-guide.md), [configuration guide](./configuration-guide.md), [capability map](./capability-map.md). Terms are defined in [GLOSSARY.md](./GLOSSARY.md).
 
@@ -24,7 +24,7 @@ Related pages: [usage guide](./usage-guide.md), [configuration guide](./configur
         └── testing.yml
 ```
 
-Commit everything but `graph.db`. `init` never overwrites a file that is already there, so a team's edits to a skill or a context are safe.
+Commit everything but `graph.db`, and any context file that holds a password. `init` never overwrites a file that is already there, so a team's edits to a skill or a context are safe.
 
 Samples of both kinds of file are in [`templates/ops/`](../templates/ops/).
 
@@ -43,13 +43,13 @@ An AI tool that needs two modes loads two manuals, one per mode.
 |---|---|---|---|
 | `developer-support` | Writing and changing code | The graph tools, and later the help of a language server | Release 1. The language server is on the roadmap |
 | `operational-support` | Finding the cause of an incident and proposing a resolution | Read-only tools that look into a deployment, plus the graph tools for code context | Release 3 |
-| `testing-support` | Not decided | Nothing | The name is reserved. `workbench manual` refuses it |
+| `testing-support` | Automation testing with Playwright | Not designed yet | Not scheduled. Until it ships, `workbench manual` refuses it |
 
 No mode changes the graph, the code or anything that runs. Every tool in every mode only reads.
 
 ### `developer-support`
 
-The mode for day-to-day coding. It offers every graph tool of the [usage guide](./usage-guide.md#connecting-an-ai-tool): `explore`, `node`, `search`, `callers`, `callees`, `impact`, `neighbors`, `files`, `dependencies` and `status`. It makes no network calls.
+The mode for day-to-day coding. It offers every graph tool of the [usage guide](./usage-guide.md#connecting-an-ai-tool): `explore`, `node`, `file`, `search`, `callers`, `callees`, `impact`, `tests`, `neighbors`, `files`, `dependencies` and `status`: twelve in all. It makes no network calls. Claude Code and GitHub Copilot reach the same commands through the command line, guided by the `workbench` skill ([ADR 0024](./adrs/0024-claude-code-and-copilot-use-the-command-line-guided-by-a-skill.md)).
 
 When language servers arrive, this mode adds them: going to a definition, finding references and reading diagnostics at question time. The language server starts inside each project's own environment, as given by `lsp` and `projects[].environment` in the workspace configuration. No other mode uses a language server.
 
@@ -63,7 +63,7 @@ This is the one part of Workbench that uses the network. It connects only to the
 
 ### `testing-support`
 
-A name and nothing more. `workbench manual --mode testing-support` stops with a message that the mode is not available yet.
+The mode for automation testing with Playwright. What it offers, and what it reads besides the graph, is not designed yet, and it has no release. Until it ships, `workbench manual --mode testing-support` stops with a message that the mode is not available yet.
 
 ## `ops/config.yml`: the contexts
 
@@ -115,7 +115,8 @@ Required.
 | `host` | | Required. The VM |
 | `port` | `22` | |
 | `user` | | Required |
-| `password_env` | | The name of the environment variable that holds the SSH password. The sample also allows `password`, written in the file |
+| `password_env` | | The name of the environment variable that holds the SSH password |
+| `password` | | The SSH password, written in the file. Allowed. Give `password` or `password_env`, not both. Do not commit a context file that holds one |
 | `host_key` | | The VM's key fingerprint. Without it, your `known_hosts` must already list the host |
 | `connect_timeout` | | Seconds |
 
@@ -152,7 +153,30 @@ Optional.
 
 With `access: remote` a connection holds no password.
 
-## The operational tools (proposed)
+### `services`: from what runs to the graph
+
+Optional. An operational answer names what runs: a pod, or a Compose service on the VM. Workbench ties each one to a `Service` of the graph by name, and through it to its binary and project:
+
+1. A pod: the `app.kubernetes.io/name` label of its Deployment or StatefulSet, else the Deployment's or StatefulSet's name.
+2. A Compose service on the VM: its service name.
+
+That name is matched against the service names of the graph. Add an entry only when the names differ, or when the name is in more than one stack:
+
+```yaml
+services:
+  billing-api:    {stack: billing-api, service: api}      # key: the name in the context
+  billing-worker: {stack: billing-api, service: worker}
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| key | | The name in the context: the label or Deployment name, or the Compose service name on the VM |
+| `stack` | yes | The Compose name of the stack in the graph |
+| `service` | yes | The service in that stack |
+
+A name that matches no service, or matches more than one and has no entry, is shown as it is, and the answer says it is not tied to the graph.
+
+## The operational tools
 
 One group of tools for each section of a context file. Every tool takes `context`, and every tool only reads.
 
@@ -173,7 +197,7 @@ One group of tools for each section of a context file. Every tool takes `context
 
 The graph tools are offered in this mode as well. They give the code context: `kube_logs` shows an error, `explore` shows the code that raised it, and `impact` shows what else that code touches.
 
-Each operational tool is a call to a subcommand of `workbench ops`, such as `workbench ops kube-pods --context staging --json`, so the manual lists it as a call template like the graph tools. Workbench never passes text from the AI tool to a shell on the VM: each subcommand builds its own remote command from checked arguments. The call template that starts a subcommand is a line of shell, so its arguments follow the same rules as the graph tools: [why arguments need care](./utcp-manual.md#why-arguments-need-care) (`TO_REFINE`).
+Each operational tool is a call to a subcommand of `workbench ops`, such as `workbench ops kube-pods --context staging --json`, so the manual lists it as a call template like the graph tools. Workbench never passes text from the AI tool to a shell on the VM: each subcommand builds its own remote command from checked arguments. The call template that starts a subcommand is a line of shell, so its arguments follow the same rules as the graph tools: [why arguments need care](./utcp-manual.md#why-arguments-need-care).
 
 **A mode is a list, not a lock.** The manual of a mode lists only that mode's tools, but a UTCP client runs `workbench` itself, so nothing stops it from running another subcommand. What keeps `developer-support` safe is the rule above: every command, in every mode, only reads. See [ADR 0022](./adrs/0022-ai-tools-reach-the-graph-through-utcp.md).
 
@@ -190,15 +214,18 @@ A skill is a short written guide an AI tool loads when it needs it. Skills are t
 - **One folder per skill,** holding a `SKILL.md`. The file starts with a `name` and a `description`, and the guide follows as Markdown.
 - **The best practices of each language are shared.** Every workspace starts from the same guide for a language, so every AI tool follows the same conventions.
 - **A team owns its copy.** Edit the skills `init` wrote, and add a folder for each of your own.
-- **The manual names every skill in the folder,** in every mode, with its file and description, so the AI tool can read it.
+- **Skills reach the AI tool through links** ([ADR 0023](./adrs/0023-skills-reach-ai-tools-through-links-in-the-workspace-root.md)). `workbench init --enable-shared-skills` links each skill on first setup, and `workbench skills link` does it at any later time. Both take `--platform claude|copilot`, repeatable, and link both platforms without it:
+
+  | Platform | Link, in the workspace root | Points to |
+  |---|---|---|
+  | `claude` | `.claude/skills/<name>` | `../../.workbench/skills/<name>` |
+  | `copilot` | `.github/skills/<name>` | `../../.workbench/skills/<name>` |
+
+  The links are relative, so they work on any machine and may be committed. An AI tool sees them when it is opened at the workspace root. Linking never overwrites: what is already at a link's path is left alone and reported. The manual lists tools only.
 - **A skill never changes what a tool returns.** It is guidance for the AI tool, not configuration.
 
 ## Open points
 
 | Point | What needs deciding |
 |---|---|
-| The operational tools | The table above is a proposal. The names, the arguments and the limits need confirming |
-| A password written in a context file | The sample allows `ssh.password`. The workspace configuration forbids secrets in files, and a context file is meant to be committed |
-| From a pod to a project | A pod or a Compose service on the VM is not yet tied to a service, a binary or a project in the graph. Until it is, the AI tool makes that step by name |
-| How a skill reaches the AI tool | Proposed: the manual lists each skill with its file path and description, and the AI tool reads the file |
-| What `testing-support` is for | Not decided |
+| What `testing-support` offers | Its purpose is decided: automation testing with Playwright. Its tools, and what it reads besides the graph, are not designed |

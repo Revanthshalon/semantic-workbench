@@ -180,6 +180,8 @@ CREATE TABLE files (
   project      TEXT NOT NULL,
   path         TEXT NOT NULL,
   content_hash TEXT NOT NULL CHECK (length(content_hash) = 64),
+  size         INTEGER NOT NULL CHECK (size >= 0),
+  mtime        INTEGER NOT NULL,
   language     TEXT NOT NULL,
   status       TEXT NOT NULL CHECK (status IN ('parsed', 'failed', 'grammar_unavailable')),
   error        TEXT,
@@ -323,7 +325,7 @@ CREATE TABLE warnings (
   code    TEXT NOT NULL CHECK (code IN
             ('network_name_unknown', 'link_without_shared_network', 'dependency_path_not_a_project',
              'framework_mismatch', 'framework_app_not_found', 'entry_command_mismatch',
-             'flow_round_limit', 'http_call_without_link', 'message_without_link', 'command_not_found', 'dockerfile_unreadable')),
+             'flow_round_limit', 'http_call_without_link', 'message_without_link', 'command_not_found', 'dockerfile_unreadable', 'stack_named_after_folder')),
   subject TEXT REFERENCES nodes (id) ON DELETE CASCADE,
   message TEXT NOT NULL CHECK (message <> '')
 );
@@ -388,7 +390,7 @@ One row per node, for both layers. Each column is the field of the same name in 
 | `router_prefix` | A node whose role is `router`, when the prefix is known |
 | `route_method`, `route_path`, `route_status`, `route_tags` | `route`. `route_method` always |
 | `command_program`, `command_path`, `command_options`, `command_help` | `command`. All but `command_help` always; the path and the options are JSON arrays |
-- **The kind is not checked by the table.** There are 32 kinds and the list grows with each language. The domain types already refuse an unknown kind.
+- **The kind is not checked by the table.** There are 33 kinds and the list grows with each language. The domain types already refuse an unknown kind.
 - **`nodes_qualified_name`** serves the `scope:qualified name` form of naming a node.
 - **`nodes_file`** serves "every node in this file", which `node --file` and the replacing of a file both need.
 
@@ -411,7 +413,7 @@ The data of an edge kind has typed columns, and the table checks that each is fi
 | `invoke_words` | `invokes`, always | The command words of the compose command |
 | `request_method`, `request_path` | `requests`, always | The method of the call, and the path as written, with unknown parts as `{?}` |
 
-`resolved_by` holds the rule that resolved the edge, and is empty on an edge not made by resolution. The table refuses it on any provenance but `tree_sitter` and `scip`, refuses `flow` on any kind but `calls` and `instantiates`, requires `framework` on exactly `mounts`, `handles` and `injects`, and requires `route_match` on exactly `requests`. `edges_stage_two` serves deleting the edges of stage 2 at every index.
+`resolved_by` holds the rule that resolved the edge, and is empty on an edge not made by resolution. The table refuses it on any provenance but `tree_sitter` and `scip`, except on `invokes`, which takes it with `compose` or `dockerfile`. It refuses `flow` on any kind but `calls` and `instantiates`. It requires `framework` on exactly `mounts`, `handles` and `injects`, `route_match` on exactly `requests`, `message_match` on exactly `sends` and `receives`, and `command_match` on exactly `invokes`. `edges_stage_two` serves deleting the edges of stage 2 at every index.
 
 A kind that gains data later gets its own column in a new format version.
 
@@ -421,7 +423,7 @@ A kind that gains data later gets its own column in a new format version.
 
 ### `files`
 
-One row per file record. `error` holds the parser's message, and is filled in only when `status` is `failed`.
+One row per file record. `size` and `mtime` are the file's size in bytes and its modification time in nanoseconds since 1970, both taken when the file was hashed. A freshness check compares them first and hashes a file only when either differs, so an answer on a large workspace reads no file that has not been touched. `error` holds the parser's message, and is filled in only when `status` is `failed`.
 
 ### `unresolved_refs`
 
@@ -431,9 +433,9 @@ One row per unresolved reference. Deleting a node deletes the references that ap
 
 One row per call site, per assignment and per return, read in stage 1. Deleting a node deletes the call sites, bindings and returns it holds, so they are replaced with their file. Stage 2 reads them all at every index. `bindings_name` serves "every binding of this name", which tells a name bound once from one bound more than once. `shape_value` holds the name for `call` and `name`, the value for `text` and `template` (unknown parts written `{?}`), the literal's kind for `literal`, and nothing for `other`.
 
-### `inferred_types`, `reach`, `route_paths`, `route_path_providers` and `unmatched_http_calls`
+### `inferred_types`, `reach`, `route_paths`, `route_path_providers`, `unmatched_http_calls`, `unmatched_messages` and `message_payloads`
 
-The results of stage 2. They are deleted and written again at every index, together with every edge whose `resolved_by` is `flow` or `route_match`. An unmatched HTTP call keeps its candidates as a JSON array of node ids, and never exactly one: a single candidate is a `requests` edge instead. `route_paths_path` serves `search` by full path; the search matches any part of the path. `reach_root` serves "everything this binary may run"; the primary key serves "which roots run this node".
+The results of stage 2. They are deleted and written again at every index, together with every edge whose `resolved_by` is `flow`, `route_match`, `message_match` or `command_match`: the `flow` edges, and every `requests`, `sends`, `receives` and `invokes` edge. An unmatched HTTP call keeps its candidates as a JSON array of node ids, and never exactly one: a single candidate is a `requests` edge instead. An unmatched message does the same, a single candidate being a `sends` or `receives` edge, and keeps `broker`, the external service its connection names, when that is known. A message payload ties the source and target of a `sends` or `receives` edge to the class it carries; `message_payloads_class` serves the event contract, "which topics and queues carry this class". `route_paths_path` serves `search` by full path; the search matches any part of the path. `reach_root` serves "everything this binary may run"; the primary key serves "which roots run this node".
 
 ### `warnings`
 
@@ -471,7 +473,7 @@ The domain types are the first guard. The schema is the second, for the rules th
 | A2: a warning's subject exists | Foreign key |
 | N8, in part: a project has a language, a binary a framework, a route a method, and no other kind has them | `CHECK` on `language`, `framework` and `route_method` with `kind` |
 | N10, in part: `app` only with `fastapi`; a router prefix only on a router | `CHECK` on `app` and `router_prefix` |
-| E13: `resolved_by` only on parsed edges; `flow` only on `calls` and `instantiates`; `framework` on exactly the three framework kinds | `CHECK` on `resolved_by`, `provenance` and `kind` |
+| E13: `resolved_by` only on parsed edges and on `invokes`; `flow` only on `calls` and `instantiates`; `framework`, `route_match`, `message_match` and `command_match` each on exactly their kinds | `CHECK` on `resolved_by`, `provenance` and `kind` |
 | `type_only` on every import, and only on imports | `CHECK` on `import_type_only` |
 | U2: `complete` exactly when the path has no `{?}` | `CHECK` |
 | U3: one route path per route, binary and full path | `route_paths_identity` |

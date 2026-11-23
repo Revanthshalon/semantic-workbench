@@ -39,6 +39,7 @@ Inputs the specification does not mention and a user will meet. Each has a test 
 | `src/config/model.rs` | The validated model |
 | `src/config/validate.rs` | Rules 1 to 13 |
 | `src/config/init.rs` | What `init` writes |
+| `src/config/skills.rs` | Linking the shared skills into the AI platforms' folders |
 | `src/config/error.rs` | `ConfigError`, which wraps the errors of the other files, and `ConfigProblem` |
 | `templates/starter.yml` | The configuration `init` writes. New |
 | `templates/skills/workbench/SKILL.md`, `templates/skills/python/SKILL.md` | The two skills `init` writes. New |
@@ -54,6 +55,7 @@ Each slice is one pull request. The [overview](./00-overview.md#working-in-paral
 | 2C | 3, 4 | 1A, 2B | `validate.rs`, `model.rs`, `error.rs`, `load` in `mod.rs` |
 | 2D | 5 | 2B | `init.rs`, `templates/starter.yml` |
 | 2E | the two skill files | | `templates/skills/` |
+| 2F | 6 | 2D | `skills.rs` |
 
 2A, 2B and 2E can start on the first day, by three developers. 2C and 2D follow 2B and run side by side. 2D's test `starter_parses_and_reports_no_projects` needs `validate`, so it is added once 2C is merged.
 
@@ -217,13 +219,50 @@ The three context files come from `templates/ops/contexts/staging.yml`, with `st
 
 **Commit:** `feat(config): write the workspace files on init`
 
+## Task 6: Link the shared skills
+
+**Files:** create `src/config/skills.rs`.
+
+Decided by [ADR 0023](../adrs/0023-skills-reach-ai-tools-through-links-in-the-workspace-root.md).
+
+**Produces:**
+
+```rust
+pub enum Platform { Claude, Copilot }                    // FromStr: "claude", "copilot"
+impl Platform { pub fn skills_dir(&self) -> &'static str; } // ".claude/skills", ".github/skills"
+pub struct LinkReport { pub linked: Vec<PathBuf>, pub kept: Vec<PathBuf>, pub conflicts: Vec<PathBuf> }
+pub fn link_skills(root: &WorkspaceRoot, platforms: &[Platform]) -> Result<LinkReport, SkillsError>;
+```
+
+For each folder under `.workbench/skills/` that holds a `SKILL.md`, and each platform given (both when the list is empty), `link_skills` makes `<root>/<skills_dir>/<name>` a relative symbolic link to `../../.workbench/skills/<name>`, creating the platform's folder if needed. A link that already points there is `kept`. Anything else at that path is left alone and listed in `conflicts`. Nothing is removed.
+
+`init --enable-shared-skills` calls `init`, then `link_skills`. The command line wires both (step 7).
+
+**Tests**, in a temp folder:
+
+| Test | Asserts |
+|---|---|
+| `links_every_skill_for_both_platforms` | `python` and `workbench`, under `.claude/skills/` and `.github/skills/`: four in `linked` |
+| `link_is_relative` | The target read back is `../../.workbench/skills/python` |
+| `link_works_after_the_workspace_moves` | Moving the temp folder: each link still resolves to its `SKILL.md` |
+| `running_twice_keeps_the_links` | The second run: four in `kept`, none in `linked` |
+| `existing_folder_is_left_alone_and_reported` | A team's own `.claude/skills/python/` folder is unchanged and in `conflicts` |
+| `link_pointing_elsewhere_is_left_alone_and_reported` | Unchanged, and in `conflicts` |
+| `platform_option_limits_the_links` | With `Claude` only: no `.github/skills/` |
+| `new_skill_is_linked_on_the_next_run` | A folder added under `.workbench/skills/` is in `linked`, the others in `kept` |
+| `folder_without_skill_md_is_not_linked` | No link for it |
+| `missing_skills_folder_links_nothing` | An empty report, and no error |
+
+**Commit:** `feat(config): link the shared skills for AI platforms`
+
 ## Done when
 
 - `load` returns a `Config` for the Acme configuration and for `templates/config.yml`.
 - Every rule from 1 to 13 has a test that breaks only that rule.
 - `init` creates the folder layout of [modes.md](../modes.md#what-init-creates).
+- `link_skills` links every shared skill for Claude Code and GitHub Copilot, and never writes over what is there.
 
 ## Left open
 
-- **The text of the two skills.** Task 5 needs real content for `workbench` and `python`. The first can be written from the usage guide. The Python best practices need the project owner's conventions.
+- **The text of the two skills.** Task 5 needs real content for `workbench` and `python`. A rough draft of the `workbench` skill is in `templates/skills/workbench/SKILL.md`, tagged `TO_REFINE`. It is how Claude Code and GitHub Copilot learn the query commands (ADR 0024), so its text is tested by trying it with both. A rough draft of the Python skill is in `templates/skills/python/SKILL.md`, tagged `TO_REFINE`; the project owner will refine its conventions later ([#15](https://github.com/Revanthshalon/semantic-workbench/issues/15)).
 - **The files under `ops/` are written and not read.** Reading and checking them is capability C13, in Release 3.

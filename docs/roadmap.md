@@ -4,18 +4,18 @@ What ships when. It follows the [product vision](./product-vision.md). Each capa
 
 Nothing is released yet. No dates are set; the order is what is decided.
 
-AI tools reach the graph through a UTCP manual, not an MCP server ([ADR 0022](./adrs/0022-ai-tools-reach-the-graph-through-utcp.md)). The capability ids M1 to M7 keep their numbers and now describe the manual.
+AI tools reach the graph through the command line, not an MCP server. Claude Code and GitHub Copilot run `workbench` directly, guided by the `workbench` skill ([ADR 0024](./adrs/0024-claude-code-and-copilot-use-the-command-line-guided-by-a-skill.md)). AI tools that speak UTCP load a manual that describes it ([ADR 0022](./adrs/0022-ai-tools-reach-the-graph-through-utcp.md)). The capability ids M1 to M7 keep their numbers and now describe the manual.
 
 ## Release 1: one language, the whole workspace
 
-**Goal:** the [Acme Shop example](./example-workspace.md) works end to end. An AI tool using the UTCP manual can answer "what breaks if I change `Invoice` in `shared-api`?" across four projects.
+**Goal:** the [Acme Shop example](./example-workspace.md) works end to end. An AI tool, running `workbench` with the `workbench` skill or through the UTCP manual, can answer "what breaks if I change `Invoice` in `shared-api`?" across four projects.
 
 **In scope**
 
 - Python code graph, with FastAPI routes, HTTP calls matched to routes across projects, the tests to run for a change, and API contracts.
 - The workspace layer: projects, binaries, local dependencies, compose files, stacks, services, external services, networks, and hand-written links with their topics and queues.
 - SQLite storage.
-- The command line, and a UTCP manual that describes its query commands so an AI tool calls `workbench` directly. There is no server process. The manual's shape and the safety of its arguments are a draft, tagged `TO_REFINE` in [utcp-manual.md](./utcp-manual.md).
+- The command line, and a UTCP manual that describes its query commands so an AI tool calls `workbench` directly. There is no server process. The client is assumed to keep tool arguments out of the shell (capability M8). The manual's shape is still a draft, tagged `TO_REFINE` in [utcp-manual.md](./utcp-manual.md).
 - Installation with Cargo and with Homebrew, on macOS and Linux.
 - The graph changes only when `workbench index` is run.
 - The `developer-support` tool set of the UTCP manual, and the shared skills. `init` also writes the `ops/` folder that operational support will read.
@@ -28,14 +28,14 @@ AI tools reach the graph through a UTCP manual, not an MCP server ([ADR 0022](./
 | Step | Delivers | Capabilities | Plan |
 |---|---|---|---|
 | 1 | Domain types: identity, nodes, edges, file records, unresolved references | G1 to G8 | specified in [domain-model.md](./domain-model.md) |
-| 2 | Configuration: load, validate, and what `init` writes | C1 to C10, K1, K3 | [step 2](./implementation-plan/step-2-configuration.md) |
+| 2 | Configuration: load, validate, what `init` writes, and linking the shared skills | C1 to C10, K1 to K3 | [step 2](./implementation-plan/step-2-configuration.md) |
 | 3 | SQLite store behind one port | S1 to S3 | specified in [storage-model.md](./storage-model.md) |
 | 4 | Workspace indexing: projects, binaries, local dependencies, compose, networks, links | W1 to W9, W13, G10 | [step 4](./implementation-plan/step-4-workspace-indexing.md) |
 | 5 | Python parsing and reference resolution, within and across projects | I1 to I6, I10 | [step 5](./implementation-plan/step-5-python-parsing.md) |
 | 5b | All of Python, plain binaries and FastAPI: types and text carried through calls, route paths, HTTP calls matched to routes, messages matched to topics and queues, `argparse` commands and the compose and Dockerfile commands that run them, pytest, reach | C14, C15, I14 to I18, I20 to I23, W11, W14 to W16, G11, G12 | [python-parsing.md](./python-parsing.md#plan) |
 | 6 | Queries: explore, node, search, callers, callees, impact, neighbours, files, dependencies, status | Q1 to Q7, Q10 to Q14 | [step 6](./implementation-plan/step-6-queries.md) |
 | 7 | Command line and installation | U1 to U8, U11 | [step 7](./implementation-plan/step-7-command-line.md) |
-| 8 | UTCP manual: the graph tools as call templates over the CLI, the `developer-support` tool set, the skills | M1 to M3, M5, M6, K2, reworded for UTCP | [step 8](./implementation-plan/step-8-utcp-manual.md), to be rewritten |
+| 8 | UTCP manual: the graph tools as call templates over the CLI, the `developer-support` tool set | M1 to M3, M5, M6, reworded for UTCP | [step 8](./implementation-plan/step-8-utcp-manual.md), to be rewritten |
 
 Step 4 comes before step 5 on purpose. The workspace layer needs no parser, so the configuration, the store and the workspace indexer can be proven on real workspaces before any code is parsed.
 
@@ -44,7 +44,8 @@ The ground rules, X1 to X8 and X10, belong to no single step. Each step keeps th
 **Done when**
 
 - `workbench init`, `check`, `index`, `status`, `explore`, `node`, `query`, `callers`, `callees`, `impact`, `neighbors`, `files` and `deps` work on the Acme Shop layout.
-- A UTCP client can load the manual and run the impact question above and get all six steps of the walk in [graph-model.md](./graph-model.md).
+- Claude Code, opened at the workspace root after `workbench init --enable-shared-skills`, answers the impact question above by running `workbench`, and gets all six steps of the walk in [graph-model.md](./graph-model.md).
+- A UTCP client can load the manual and run the same question with the same answer.
 - One `explore` call about `Invoice` returns its source as written, the flow from billing's worker to ledger's consumer, and a blast radius that names all four projects.
 - The Acme Shop graph passes every rule in [domain-model.md](./domain-model.md).
 - Indexing the same workspace twice produces the same graph.
@@ -75,7 +76,7 @@ Releases 2 and 3 do not depend on each other and can be built in either order.
 | Read-only tools for Kubernetes, Docker Compose, Postgres, Redis and Kafka | O5 to O9 |
 | The graph tools in this mode, and the rule that every tool only reads | O10 |
 
-This release is the first to use the network. It connects only to the virtual machine a context file names. The design is in [modes.md](./modes.md); the operational tools there are a proposal and are not confirmed. No build order is set.
+This release is the first to use the network. It connects only to the virtual machine a context file names. The design is in [modes.md](./modes.md); the operational tools there are the approved initial set. No build order is set.
 
 ## Later
 
@@ -97,6 +98,7 @@ Wanted, not designed. The order within this list is not decided.
 | UTCP over HTTP | The manual served by URL, and the commands reachable over HTTP, for shared or remote use | M4, reworded for UTCP |
 | MCP adapter | An MCP server over stdio for AI tools that speak only MCP, built on the same use cases | not in the capability map yet |
 | Shell completions | Completion scripts for the `workbench` commands | U10 |
+| Testing support | The `testing-support` mode of the UTCP manual: automation testing with Playwright | M9 |
 
 ## Reserved in the configuration
 

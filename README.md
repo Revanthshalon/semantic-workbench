@@ -1,6 +1,6 @@
 # Semantic Workbench
 
-A command-line tool that reads a workspace of several projects and stores what it finds as a graph: the code inside each project, the projects themselves, the services that run them, and the links between all of these. AI coding tools query the graph through a UTCP manual that describes the command line. People query it through the same command line.
+A command-line tool that reads a workspace of several projects and stores what it finds as a graph: the code inside each project, the projects themselves, the services that run them, and the links between all of these. AI coding tools query the graph through the same command line: Claude Code and GitHub Copilot run it directly, guided by a skill, and other AI tools can load a UTCP manual that describes it. People query it through the same command line.
 
 > **Status: design.** Nothing runs yet. The repository holds the module scaffold, the full design, and a plan for building it. There is no release.
 

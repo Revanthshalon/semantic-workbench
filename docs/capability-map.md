@@ -24,7 +24,7 @@ Nothing is built yet beyond the module scaffold.
 | S. Storage | Where the graph is kept | 3 | | | 1 |
 | Q. Queries | The questions the graph can answer | 12 | | | 2 |
 | U. Command line | The `workbench` commands | 9 | | | 2 |
-| M. UTCP manual | How AI tools reach the graph | 6 | | | 2 |
+| M. UTCP manual | How AI tools reach the graph | 6 | | | 3 |
 | K. Skills | The written guides every mode shares | 3 | 1 | | |
 | O. Operational support | Looking into a deployment, read-only | | | 10 | |
 | X. Ground rules | Behaviour every command shares | 9 | | | 1 |
@@ -65,7 +65,7 @@ The indexer turns the configuration, the dependency manager files and the compos
 | W6 | Match each service to its project and binary. A service with no build context and no mapping is an external service | R1 | Decided | `index` |
 | W7 | Record which services share a network | R1 | Decided | `index`, `neighbors` |
 | W8 | Create topic and queue nodes, and link edges, from declared links | R1 | Decided | `index`, `neighbors`, `impact` |
-| W9 | Warn about: a link between services that share no network, a network name that cannot be resolved, a dependency path that is not a listed project. Each warning is stored with a code, the node it is about and a message | R1 | Decided | `index`, `status` |
+| W9 | Warn about: a link between services that share no network, a network name that cannot be resolved, a dependency path that is not a listed project, a stack named after its folder that a link names. Each warning is stored with a code, the node it is about and a message | R1 | Decided | `index`, `status` |
 | W10 | Discover local dependencies from npm, pnpm, yarn and bun files | R2 | Decided | `index`, `deps` |
 | W11 | Find message producers and consumers in Python code (`kafka-python`, `aiokafka`, `confluent-kafka`, `pika`, `aio-pika`, `redis` streams) and match each to the declared topic or queue it uses, with the class it carries. A name with no declared topic is a warning. See [python-parsing.md](./python-parsing.md#messages) | R1 | Decided | `index`, `node`, `impact`, `status` |
 | W12 | Suggest runtime links with an LLM, stored as inferred edges until confirmed | Later | Decided | its own command, not designed |
@@ -176,13 +176,14 @@ One binary, `workbench`. The exact commands and flags are in the [usage guide](.
 | Id | Capability | Release | Decision | Where you meet it |
 |---|---|---|---|---|
 | M1 | Describe the query tools in a UTCP manual, a JSON document printed to standard output. The AI tool loads it and calls `workbench` directly. There is no server process | R1 | Decided | `workbench manual` |
-| M2 | One tool per query: `explore`, `node`, `file`, `search`, `callers`, `callees`, `impact`, `neighbors`, `files`, `dependencies`, `status`. Each is a call template over its command, with `--json`, so it gives the same answer as the command. Every argument is required, with a default, and `*` means no filter ([utcp-manual.md](./utcp-manual.md#arguments-all-required-with-defaults)) | R1 | Decided | UTCP tools |
+| M2 | One tool per query: `explore`, `node`, `file`, `search`, `callers`, `callees`, `impact`, `tests`, `neighbors`, `files`, `dependencies`, `status`. Each is a call template over its command, with `--json`, so it gives the same answer as the command. Every argument is required, with a default, and `*` means no filter ([utcp-manual.md](./utcp-manual.md#arguments-all-required-with-defaults)) | R1 | Decided | UTCP tools |
 | M3 | Never change the graph. Every answer says when the graph was indexed and whether files have changed since | R1 | Decided | every UTCP tool |
 | M4 | Serve the manual by URL and make the commands reachable over HTTP, for shared or remote use | Later | Decided | not designed |
 | M5 | Run in one mode, chosen on the command line. `developer-support` is the default and offers the graph tools | R1 | Decided | `workbench manual --mode <name>` |
 | M6 | Reserve the names `operational-support` and `testing-support`. Until a mode ships, `workbench manual` refuses it, with a message | R1 | Decided | `workbench manual --mode <name>` |
 | M7 | Add a language server's help to `developer-support`: definitions, references and diagnostics | Later | Decided | `lsp` and `projects[].environment` fields, reserved |
-| M8 | Make a tool call safe against shell text in its arguments: every placeholder quoted, every argument allow-listed in the manual's schema, and a test that runs a real shell. Drafted in [utcp-manual.md](./utcp-manual.md#the-solution-draft), `TO_REFINE` | R1 | Open | `workbench manual` |
+| M8 | Make a tool call safe against shell text in its arguments. The client is assumed to check each argument against the schema or insert it as given. As a second guard, every placeholder is quoted, every argument is allow-listed in the manual's schema, and a test runs a real shell. See [utcp-manual.md](./utcp-manual.md#the-solution-draft) | R1 | Decided | `workbench manual` |
+| M9 | A `testing-support` mode for automation testing with Playwright. Not designed yet | Later | Decided | `workbench manual --mode testing-support` |
 
 ## K. Skills
 
@@ -190,26 +191,26 @@ Written guides an AI tool loads when it needs them, the same in every mode. Desc
 
 | Id | Capability | Release | Decision | Where you meet it |
 |---|---|---|---|---|
-| K1 | Write the shared skills into `.workbench/skills/`: how to use Workbench, and the best practices of Python | R1 | Decided | `init` |
-| K2 | Tell the AI tool about every skill in the folder, in every mode: the manual names each skill's file and gives its description, and the tool reads the file itself | R1 | Open | `workbench manual` |
+| K1 | Write the shared skills into `.workbench/skills/`: how to use Workbench, and the best practices of Python. The `workbench` skill is how Claude Code and GitHub Copilot learn the query commands ([ADR 0024](./adrs/0024-claude-code-and-copilot-use-the-command-line-guided-by-a-skill.md)) | R1 | Decided | `init` |
+| K2 | Link every skill in the folder into the AI platform's own skills folder, in the workspace root, as a relative link: `.claude/skills/` for Claude Code and `.github/skills/` for GitHub Copilot, both by default. Opt-in, never overwriting, safe to run again. The manual lists tools only. See [ADR 0023](./adrs/0023-skills-reach-ai-tools-through-links-in-the-workspace-root.md) | R1 | Decided | `init --enable-shared-skills`, `skills link`, `--platform` |
 | K3 | Leave a team's skills alone: its edits and its own skills are never overwritten | R1 | Decided | `init` |
 | K4 | Write the best practices of TypeScript and Angular | R2 | Decided | `init` |
 
 ## O. Operational support
 
-The `operational-support` mode: looking into a deployment to find the cause of an incident. Described in [modes.md](./modes.md). The tool names in O5 to O9 are proposed.
+The `operational-support` mode: looking into a deployment to find the cause of an incident. Described in [modes.md](./modes.md). The tools in O5 to O9 are the approved initial set; their arguments and limits are settled when Release 3 is built.
 
 | Id | Capability | Release | Decision | Where you meet it |
 |---|---|---|---|---|
 | O1 | Name the contexts of the workspace and the default one. `init` writes `testing`, `staging` and `production` | R3 | Decided | `ops/config.yml` |
-| O2 | Describe one context in one file: its release branches and how it is reached | R3 | Decided | `ops/contexts/<name>.yml` |
+| O2 | Describe one context in one file: its release branches and how it is reached. The SSH password may be written in it. A pod or a Compose service on the VM is tied to a service of the graph by name, with a `services` entry when names differ | R3 | Decided | `ops/contexts/<name>.yml` |
 | O3 | Reach a context only through SSH to its virtual machine. A connection either tunnels through the VM or runs the VM's own client | R3 | Decided | `ssh`, `access` |
 | O4 | Check, project by project, that the indexed checkout is the context's release branch, and list the projects that differ in every operational answer | R3 | Decided | `context_status`, every operational tool |
-| O5 | Read a Kubernetes namespace: pods, one resource in full, events and logs | R3 | Open | `kube_pods`, `kube_describe`, `kube_events`, `kube_logs` |
-| O6 | Read Docker Compose on the VM: the state of its services and their logs | R3 | Open | `compose_status`, `compose_logs` |
-| O7 | Run one read-only query on a named Postgres connection, with a time limit and a row limit | R3 | Open | `postgres_query` |
-| O8 | Read keys from a named Redis connection, with reading commands only | R3 | Open | `redis_read` |
-| O9 | Read Kafka: topics, how far each consumer group is behind, and the latest messages without committing an offset | R3 | Open | `kafka_topics`, `kafka_lag`, `kafka_peek` |
+| O5 | Read a Kubernetes namespace: pods, one resource in full, events and logs | R3 | Decided | `kube_pods`, `kube_describe`, `kube_events`, `kube_logs` |
+| O6 | Read Docker Compose on the VM: the state of its services and their logs | R3 | Decided | `compose_status`, `compose_logs` |
+| O7 | Run one read-only query on a named Postgres connection, with a time limit and a row limit | R3 | Decided | `postgres_query` |
+| O8 | Read keys from a named Redis connection, with reading commands only | R3 | Decided | `redis_read` |
+| O9 | Read Kafka: topics, how far each consumer group is behind, and the latest messages without committing an offset | R3 | Decided | `kafka_topics`, `kafka_lag`, `kafka_peek` |
 | O10 | Offer the graph tools in this mode, for code context. Every tool of the mode only reads, and no configuration can change that | R3 | Decided | `workbench manual --mode operational-support` |
 
 ## X. Ground rules
@@ -233,8 +234,3 @@ Behaviour that every command shares.
 
 | Rows | What needs deciding |
 |---|---|
-| K2 | How a skill reaches the AI tool (`TO_REFINE`). Proposed: the manual lists each skill with its file path and description, and the AI tool reads the file |
-| O5 to O9 | The operational tools: their names, arguments and limits. The list is a proposal drafted from the sample context file |
-| O2 | Whether a context file may hold a password. The sample allows `ssh.password`; the workspace configuration forbids secrets in files |
-| O5, O6 | How a pod or a Compose service on the VM is tied to a service, a binary or a project in the graph |
-| M8 | Whether a real UTCP client enforces the schema or inserts values faithfully. If neither, the fallback options in [utcp-manual.md](./utcp-manual.md#the-solution-draft) apply. `TO_REFINE` |

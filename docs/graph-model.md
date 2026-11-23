@@ -139,6 +139,7 @@ The first model gave every node the same optional fields: doc, signature, visibi
 | One flat set of optional fields | Replaced | Nothing stopped a field that made no sense for the kind or the language |
 | One data type per kind and language (`PyFunction`, `TsFunction`, ...) | Rejected | The number of types multiplies with each language. Languages differ in which values they allow, not in which fields exist |
 | One data type per shape of kind, checked against what the language can express | Adopted | Kinds that look alike share a type: `Callable`, `TypeDecl`, `Member`, `RouteData`. A table per language refuses what it cannot express |
+| The kind and its data as two fields, checked against each other | Rejected | The check can be forgotten. Each kind's variant holds its data instead, so a mismatch cannot be written (rule N8) |
 
 The language is not on code nodes. It is the file's, held by the file record, and the project's main language is on the `Project` node. A binary also carries data: its framework and its app.
 

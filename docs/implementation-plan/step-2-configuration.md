@@ -141,7 +141,7 @@ pub struct Project {
 }
 pub struct Binary {
     pub name: String, pub entry: RelPath,
-    pub framework: Option<Framework>,  // Fastapi | Angular | None; absent: read from compose, then the entry file
+    pub framework: Option<FrameworkName>,  // Plain | Fastapi | Angular (`none` in YAML is Plain); absent: read from compose, then the entry file
     pub app: Option<AppRef>,           // module:attribute; only with Fastapi
 }
 pub struct Link { pub target: LinkTarget, pub via: Via, pub binary: Option<String>, pub note: Option<String> }

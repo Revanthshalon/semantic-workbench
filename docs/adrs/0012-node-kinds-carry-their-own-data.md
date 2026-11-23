@@ -19,6 +19,7 @@ The language is not stored on code nodes. A code node's language is always its f
 ## Consequences
 
 - Every parser, and the store's row mapping, matches on the kind to reach its data.
+- In Rust the data sits inside the kind's variant, `NodeKind::Function(Callable)`, not in a field beside the kind, so rule N8 is kept by the type. A fieldless `NodeKindName` serves filters, ids and storage.
 - The `nodes` table keeps one column per field, grouped by data type, with checks that a kind fills only its own (ADR 0006).
 - `Node::parsed` takes the file's language to check what the node may hold, and does not store it.
 

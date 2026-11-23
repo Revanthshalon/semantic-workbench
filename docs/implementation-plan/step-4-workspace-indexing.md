@@ -231,7 +231,7 @@ It builds every node and edge of the workspace layer as [domain-model.md](../dom
 
 | Test | Asserts |
 |---|---|
-| `acme_layer_has_the_expected_counts` | The node and edge counts of the table in [domain-model.md](../domain-model.md#validating-an-implementation): 27 nodes, 53 edges |
+| `acme_layer_has_the_expected_counts` | The node and edge counts of the table in [domain-model.md](../domain-model.md#validating-an-implementation): 27 nodes, 54 edges |
 | `acme_layer_equals_the_fixture` | The same node ids and edges as `fixtures::acme_workspace_layer()` |
 | `acme_layer_is_valid` | `Graph::validate` returns nothing |
 | `acme_layer_has_no_warnings` | An empty list from the builder. Acme's one warning, about billing's stack name, comes from task 4 |
@@ -334,7 +334,7 @@ Warnings, each with the binary as subject:
 | `nothing_gives_none` | `None`, `Entry` |
 | `configuration_none_with_an_app_in_the_entry_warns` | `None` and one `FrameworkMismatch` |
 | `module_command_against_another_entry_warns` | `python -m ledger.consumer` with entry `src/ledger/worker.py` gives one `EntryCommandMismatch` |
-| `acme_binaries` | Billing's `api` is `Fastapi` with `billing.api.app`; `worker` and ledger's `consumer` are `None`; `web-app`'s `admin` is `Angular`, `Declared` |
+| `acme_binaries` | Billing's `api` is `Fastapi` with `billing.api.app`; `worker` and ledger's `consumer` are `Plain`; `web-app`'s `admin` is `Angular`, `Declared` |
 
 **Commit:** `feat(index): decide each binary's framework`
 
@@ -360,7 +360,7 @@ impl<S: GraphStore, F: Files, G: Git> IndexWorkspace<S, F, G> {
 
 | Test | Asserts |
 |---|---|
-| `acme_indexes_into_the_store` | `counts()` gives 27 nodes and 53 edges |
+| `acme_indexes_into_the_store` | `counts()` gives 27 nodes and 54 edges |
 | `indexing_twice_changes_nothing` | The node ids and the edges are the same after a second run |
 | `removing_a_link_removes_its_edge` | After deleting ledger's link and indexing again: no `Subscribes` edge, and the `Topic` remains because billing still publishes |
 | `checkouts_are_stored_per_project` | Four rows, each with the fixture's branch |

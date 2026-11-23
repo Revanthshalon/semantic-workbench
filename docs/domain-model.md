@@ -687,10 +687,10 @@ Three levels, each a set of tests.
 | `Stack` | 3 | | `Runs` | 4 |
 | `Service` | 4 | | `BuiltFrom` | 0 |
 | `ExternalService` | 2 | | `Joins` | 8 |
-| `Network` | 2 | | `ConnectsTo` | 2 |
+| `Network` | 2 | | `ConnectsTo` | 3 |
 | `Topic` | 1 | | `Publishes` | 1 |
 | `Queue` | 0 | | `Subscribes` | 1 |
-| **Total** | **27** | | **Total** | **53** |
+| **Total** | **27** | | **Total** | **54** |
 
 The five `File` nodes are the binaries' entry files, each with a file record. `EntryPoint` needs them as targets. There are 26 `Contains` edges because every node but the root has one parent.
 

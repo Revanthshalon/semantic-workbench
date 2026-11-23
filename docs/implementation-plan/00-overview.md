@@ -217,7 +217,7 @@ Later slices use these names. A slice that has to change one changes it here in 
 | `Graph` | Nodes, edges, file records, references, warnings and checkouts together. `fn validate(&self) -> Vec<RuleViolation>` |
 | `RuleViolation` | `{ rule: RuleId, message: String }`. `RuleId` lists every rule id of the domain model, such as `RuleId::T2`, and prints as `T2` |
 | `DomainError`, `RuleId` | What building a broken value returns: `Rule { rule: RuleId, message }` or `Malformed { value, input, reason }` |
-| `fixtures::acme_workspace_layer() -> Graph` | The Acme Shop workspace layer: 27 nodes and 53 edges |
+| `fixtures::acme_workspace_layer() -> Graph` | The Acme Shop workspace layer: 27 nodes and 54 edges |
 | `fixtures::acme() -> Graph` | The same, plus the code nodes and edges the walk of [graph-model.md](../graph-model.md#walking-the-graph) needs |
 
 Both fixtures are compiled only for tests.

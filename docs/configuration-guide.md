@@ -215,6 +215,7 @@ List the files in the order you pass them to Docker with `-f`. As in Docker, a l
 Docker runs a stack under a Compose name.
 
 - **Set `name` only when the name is given outside the files,** with `docker compose -p` or `COMPOSE_PROJECT_NAME`.
+- **A stack named after its folder can have another name on another machine,** where the repository was cloned under another folder name. When a link names such a stack with `stack`, `index` warns (`StackNamedAfterFolder`). A `name` in the compose file, or here, removes the warning.
 - **No two stacks may have the same Compose name.** Files that run under one name belong in one entry.
 - **The same service name in two stacks is two services.**
 - **A network with no stated name** is called `<Compose name>_<network>` by Docker, which is why the Compose name must be right.
@@ -339,7 +340,7 @@ The shape that is checked:
 | Kind | Effect | Examples |
 |---|---|---|
 | Error | The command stops and nothing is written | Any rule above is broken |
-| Warning | Indexing continues; the warning is shown at the end and by `status` | A network whose real name cannot be read. A link between two services that share no network. A discovered dependency path that is not a listed project. A binary's framework named one way and built another. An `app` that names no app. A compose command that runs a module other than the binary's `entry` |
+| Warning | Indexing continues; the warning is shown at the end and by `status` | A network whose real name cannot be read. A link between two services that share no network. A discovered dependency path that is not a listed project. A binary's framework named one way and built another. An `app` that names no app. A compose command that runs a module other than the binary's `entry`. A stack named after its folder that a link names |
 | Log line | Shown with `-v` | A network name from the configuration replaced the one in the file. A reserved section was read and not used |
 
 ## Recipes
@@ -368,5 +369,4 @@ The shape that is checked:
 
 These are known gaps in the format.
 
-- **A stack named after its folder.** With no `name` in the file or the configuration, the Compose name is the folder's name, which can differ between machines. A link that names such a stack can break elsewhere. The indexer should warn. The billing stack in the [example workspace](./example-workspace.md) is one.
 - **Services outside any compose file.** A managed database or broker cannot be the target of a link yet. The current assumption is that the compose files describe everything that runs.

@@ -178,7 +178,7 @@ pub struct ResolvedNetwork { pub key: String, pub real_name: Option<String>, pub
 pub fn resolve_stacks(config: &Config, stacks: Vec<(StackSource, ComposeStack)>) -> Result<(Vec<ResolvedStack>, Vec<Warning>), Vec<ConfigProblem>>;
 ```
 
-- **Compose name:** the configuration's `name`, else the file's, else the first file's folder name.
+- **Compose name:** the configuration's `name`, else the file's, else the first file's folder name. A name taken from the folder, for a stack that a link names with `stack`, gives a `StackNamedAfterFolder` warning.
 - **A network's real name:** the configuration's entry, else the stated name, else `<Compose name>_<key>`. An `Unreadable` name with no entry gives `real_name: None` and a `NetworkNameUnknown` warning.
 - **A service's role:** the configuration's mapping when there is one, with `Declared`. Otherwise the project whose folder is the build context, and the binary whose name is the build target, with `Compose`. A project with no matching binary gives `BuiltFrom`. No build context and no mapping gives `External`. When neither the mapping nor the build target names a binary, the binary whose entry the service's command line runs (task 8), with the command line's provenance.
 
@@ -197,6 +197,7 @@ pub fn resolve_stacks(config: &Config, stacks: Vec<(StackSource, ComposeStack)>)
 | `unreadable_network_without_an_entry_warns` | One `NetworkNameUnknown`, and `real_name == None` |
 | `rule_14_unknown_service_key` to `rule_16_project_not_in_the_stack` | One problem each, with that rule number |
 | `rule_11_two_stacks_with_one_compose_name` | One problem, found here because the name can come from a file |
+| `folder_named_stack_that_a_link_names_warns` | Billing's stack gives one `StackNamedAfterFolder`, because web-app's link names `billing-api`. A folder-named stack that no link names gives none |
 | `build_context_with_a_variable_needs_a_mapping` | A problem that names the service and says to map it under `services` |
 
 **Commit:** `feat(index): resolve stacks, networks and services`
@@ -233,7 +234,7 @@ It builds every node and edge of the workspace layer as [domain-model.md](../dom
 | `acme_layer_has_the_expected_counts` | The node and edge counts of the table in [domain-model.md](../domain-model.md#validating-an-implementation): 27 nodes, 53 edges |
 | `acme_layer_equals_the_fixture` | The same node ids and edges as `fixtures::acme_workspace_layer()` |
 | `acme_layer_is_valid` | `Graph::validate` returns nothing |
-| `acme_layer_has_no_warnings` | An empty list |
+| `acme_layer_has_no_warnings` | An empty list from the builder. Acme's one warning, about billing's stack name, comes from task 4 |
 | `declared_dependency_wins_over_discovered` | One `DependsOn` edge, `Declared`, with the note |
 | `discover_false_uses_only_declared` | No `Manifest` edge |
 | `dependency_path_that_is_no_project_warns` | One `DependencyPathNotAProject` whose subject is the project |
@@ -370,6 +371,6 @@ impl<S: GraphStore, F: Files, G: Git> IndexWorkspace<S, F, G> {
 ## Done when
 
 - The Acme Shop fixture indexes into SQLite with exactly the counts of the domain model, and passes every rule.
-- Each of the six warnings this step raises has a test that raises it, and each of rules 14 to 19 a test that breaks it.
+- Each of the seven warnings this step raises has a test that raises it, and each of rules 14 to 19 a test that breaks it.
 - Every binary has a decided framework, and every project its language.
 - Indexing twice gives the same graph.

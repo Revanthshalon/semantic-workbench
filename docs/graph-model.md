@@ -2,7 +2,7 @@
 
 How the structure of the knowledge graph was decided, and what the graph looks like for a real workspace. The exact types, fields and rules to implement and validate against are in [domain-model.md](./domain-model.md).
 
-This describes the designed model. None of its types are written yet; they are specified in the implementation plan, which is not in this repository yet. The running example is the Acme Shop workspace from [example-workspace.md](./example-workspace.md). Terms are defined in [GLOSSARY.md](./GLOSSARY.md).
+This describes the designed model. None of its types are written yet. They are specified in [domain-model.md](./domain-model.md), and slices 1A to 1E of the [implementation plan](./implementation-plan/00-overview.md#the-slices) build them. The running example is the Acme Shop workspace from [example-workspace.md](./example-workspace.md). Terms are defined in [GLOSSARY.md](./GLOSSARY.md).
 
 ## What the graph is for
 
@@ -79,7 +79,7 @@ Related choices:
 
 A network is only a name. Services that join the same network can reach each other, and the indexer reads this from the compose files. That is reachability, not communication: by default every service in a stack shares one network.
 
-What actually talks to what, and how (HTTP, a topic, a database), comes from links written by hand in the configuration. Finding them in source code is on the roadmap. The two are checked against each other: a link between two services that share no network gets a warning.
+What actually talks to what, and how (HTTP, a topic, a database), comes from links written by hand in the configuration. Links stay declared: what the code shows is matched against them instead, an HTTP call to the route it calls and a producer or consumer to a declared topic or queue, with a warning when no link is declared (decisions 13 and 14). Networks and links are also checked against each other: a link between two services that share no network gets a warning.
 
 ### 6. An edge's data is part of its kind
 
@@ -128,7 +128,7 @@ A binary's entry file always gets a file node, even when its language is not par
 
 ### 9. Workspace edges have rules about what they connect
 
-A "joins" edge from a function to a network is a bug. Each of the nine workspace edge kinds may only connect certain kinds of node, and building an edge that breaks its rule is refused. Code edges are not restricted, except the three framework edges of decision 11.
+A "joins" edge from a function to a network is a bug. Each of the ten workspace edge kinds may only connect certain kinds of node, and building an edge that breaks its rule is refused (rule E1). Code edges are not restricted, except the six framework edges of decisions 11, 13 and 14: `Mounts`, `Handles`, `Injects`, `Requests`, `Sends` and `Receives` (rule E11).
 
 ### 10. A node kind carries its own data
 
@@ -332,6 +332,6 @@ A file that imports `Invoice` and is not an entry file is reached the same way, 
 - **A confidence score on inferred edges.** Nothing produces `Heuristic` edges yet. Edges resolved by `flow` need none: they exist only when every caller agrees.
 - **Timestamps.** The content hash of a file already says whether it changed.
 - **A copy of the source code.** A node stores where its source is. A query reads the file through the node's span, and marks a file that has changed since the last index.
-- **Topics, queues and HTTP calls found in code.** They are declared by hand for now.
+- **Topics, queues and links created from code.** Code is matched to what the configuration declares: an HTTP call to a route, as a `Requests` edge, and a send or a receive to a declared topic or queue, as a `Sends` or `Receives` edge. A name found in code never creates a topic, a queue or a link. One with nothing declared for it is a warning (decisions 13 and 14).
 - **Services that run outside any compose file,** such as a managed database. The current assumption is that the compose files describe everything that runs.
 - **How the graph is kept in SQLite.** That is in [storage-model.md](./storage-model.md): one table of nodes and one of edges, for both layers.

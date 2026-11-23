@@ -314,6 +314,8 @@ One per source file the indexer has read. It decides whether a file is read agai
 | `project` | `ProjectId` | The project the file belongs to |
 | `path` | `RelPath` | From the project's root |
 | `content_hash` | `ContentHash` | The hash of the file's bytes when it was read |
+| `size` | number | The file's size in bytes when it was read |
+| `mtime` | number | The file's modification time when it was read, in nanoseconds since 1970 UTC |
 | `language` | `Language` | Detected from the file |
 | `status` | `ParseStatus` | `Parsed`, `Failed` with a message, or `GrammarUnavailable` |
 
@@ -559,6 +561,7 @@ Something the indexer noticed that does not stop the run. The warnings of the la
 | `HttpCallWithoutLink` | An HTTP call matches a route served by a binary of another project, and the caller declares no `http` link to a service that runs that binary | The node the call is in |
 | `MessageWithoutLink` | A producer or consumer names a topic or queue that is not declared, or one the caller's project declares no link for | The node that sends or receives |
 | `CommandNotFound` | A compose service's command words name no `Command` of the binary it runs | The service |
+| `StackNamedAfterFolder` | A stack's Compose name comes from its first file's folder, because neither its compose files nor the configuration give a `name`, and a link names that stack with `stack` | The stack |
 
 | Id | Rule | Enforced |
 |---|---|---|

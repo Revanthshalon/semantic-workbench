@@ -10,7 +10,7 @@ Related pages: [product vision](./product-vision.md), [configuration guide](./co
 
 1. You describe your workspace once, in `.workbench/config.yml`.
 2. `workbench index` reads the configuration, your compose files and your source code, and builds a graph.
-3. You, or an AI tool through the UTCP manual, ask the graph questions.
+3. You, or an AI tool through the same command line, ask the graph questions.
 4. When your code changes, you run `workbench index` again. Nothing else changes the graph.
 
 ## Install
@@ -62,6 +62,7 @@ Projects may sit outside the workspace folder. A command started inside such a p
 | Command | What it does | Changes the graph |
 |---|---|---|
 | `workbench init` | Sets up a workspace in the current folder | no |
+| `workbench skills link` | Links the shared skills into the AI platforms' skills folders in the workspace root | no |
 | `workbench check` | Checks the configuration | no |
 | `workbench index` | Builds or updates the graph | **yes** |
 | `workbench status` | Reports what is in the graph and whether it is current | no |
@@ -118,7 +119,7 @@ It ends with a summary: files read, files skipped, nodes and edges written, warn
 
 ### `workbench status`
 
-Reports when the graph was last indexed, how many nodes, edges and files it holds, the branch and commit each project was on, how many files have changed on disk since, the warnings from the last run, and the files that failed to parse.
+Reports when the graph was last indexed, how many nodes, edges and files it holds, the branch and commit each project was on, how many files have changed on disk since and which projects are now on another commit, the warnings from the last run, and the files that failed to parse.
 
 The sample below is the Acme Shop workspace before the `networks` entry for ledger is added to the configuration:
 
@@ -127,11 +128,12 @@ Workspace   ~/acme/workspace
 Indexed     2026-11-16 09:12, 4 projects, 3 stacks
 Graph       1,284 nodes, 3,907 edges, 212 files
 Changed     3 files since the last index. Run `workbench index`.
-Warnings    1
+Warnings    2
   ledger-api: network `backbone` has no known real name
+  billing-api: stack `billing-api` is named after its folder, and a link names it
 ```
 
-Ledger's compose file takes that network's name from a variable, so the tool cannot read it. Once the configuration gives the real name, as the [example workspace](./example-workspace.md#the-configuration) does, the warning is gone.
+Ledger's compose file takes that network's name from a variable, so the tool cannot read it. Once the configuration gives the real name, as the [example workspace](./example-workspace.md#the-configuration) does, the warning is gone. The second goes once billing's compose file gives the stack a `name`.
 
 Other warnings `status` can show: a binary whose framework is named one way and built another, an `app` that names no app, a compose command that runs a module other than the binary's entry, an HTTP call in one project that matches a route of another with no declared link, a message to a topic or queue with no declared link, a compose command that names no command of its binary, and carrying types from callers stopping at its round limit. The last one names `analysis.flow_rounds` in the [configuration](./configuration-guide.md#analysis), which can be raised to carry types deeper.
 
@@ -257,6 +259,19 @@ Prints the UTCP manual to standard output: a JSON document that describes the qu
 
 ## Connecting an AI tool
 
+### Claude Code and GitHub Copilot
+
+These AI tools run `workbench` themselves ([ADR 0024](./adrs/0024-claude-code-and-copilot-use-the-command-line-guided-by-a-skill.md)). The `workbench` skill tells them which command answers which question.
+
+```bash
+cd ~/acme/workspace
+workbench init --enable-shared-skills     # or, in a workspace that already exists: workbench skills link
+```
+
+Open the AI tool at the workspace root, so that it sees `.claude/skills/` or `.github/skills/`. It then runs commands such as `workbench explore "<question>" --json` and `workbench impact <node> --json`. It finds the workspace from the folder it runs in, and every command it runs only reads.
+
+### Any AI tool that speaks UTCP
+
 Write the manual to a file, and point your AI tool's UTCP client at it with a `text` call template, or have the client run `workbench manual` itself with a `cli` call template. The exact setting depends on the client; check its documentation. Both forms are drafted in [the UTCP manual page](./utcp-manual.md#loading-the-manual-draft), tagged `TO_REFINE`.
 
 ```bash
@@ -265,9 +280,9 @@ workbench manual --workspace ~/acme/workspace > ~/acme/workbench.utcp.json
 
 The workspace path is written into every call template, as an absolute path. AI tools usually run a command inside whichever repository you have open, and that is often a project outside the workspace folder. The manual does not change until you generate it again, so generate it again after upgrading `workbench`.
 
-A tool call is a line of shell that the client builds from the AI tool's arguments, so every argument is checked against a pattern in the manual. [The manual page](./utcp-manual.md#why-arguments-need-care) explains why, and what is still to be confirmed with a real client (`TO_REFINE`).
+A tool call is a line of shell that the client builds from the AI tool's arguments, so every argument is checked against a pattern in the manual. [The manual page](./utcp-manual.md#why-arguments-need-care) explains why. The client is assumed to check arguments against the schema or insert them as given; the patterns are a second guard.
 
-**What the AI tool gets:** one tool per query, eleven in all. Each gives the same answer as its command. The AI tool must give every argument a tool lists, using its default when it has no other value, and `*` for no filter. The options that only switch something on, such as `--no-source`, `--failed`, `--unreached` and `--edge`, are on the command line only.
+**What the AI tool gets:** one tool per query, twelve in all. Each gives the same answer as its command. The AI tool must give every argument a tool lists, using its default when it has no other value, and `*` for no filter. The options that only switch something on, such as `--no-source`, `--failed`, `--unreached` and `--edge`, are on the command line only.
 
 | UTCP tool | Command | Use it to |
 |---|---|---|
@@ -278,12 +293,21 @@ A tool call is a line of shell that the client builds from the AI tool's argumen
 | `callers` | `workbench callers` | See what calls a node |
 | `callees` | `workbench callees` | See what a node calls |
 | `impact` | `workbench impact` | See what a change affects |
+| `tests` | `workbench impact --tests` | List the tests to run for a change |
 | `neighbors` | `workbench neighbors` | See what is directly related to a node |
 | `files` | `workbench files` | List the indexed files |
 | `dependencies` | `workbench deps` | List dependencies between projects |
 | `status` | `workbench status` | See what is in the graph and whether it is current |
 
-**Skills.** The manual also names the skills in `.workbench/skills/`, each with its file and a one-line description: a guide to using Workbench well, and the best practices of each language. The AI tool reads the file when it needs it. They are the same in every mode, and your team can edit them. How a skill reaches the AI tool is still an [open decision](./capability-map.md#open-decisions) (K2).
+**Skills.** The skills in `.workbench/skills/` are a guide to using Workbench well, and the best practices of each language. They are the same in every mode, and your team can edit them. The manual does not list them: they reach the AI tool through links in the workspace root ([ADR 0023](./adrs/0023-skills-reach-ai-tools-through-links-in-the-workspace-root.md)).
+
+```bash
+workbench init --enable-shared-skills            # on first setup: links for Claude Code and GitHub Copilot
+workbench skills link                            # any time later: a teammate's machine, or a skill added since
+workbench skills link --platform claude          # one platform only
+```
+
+Each skill gets `.claude/skills/<name>` and `.github/skills/<name>`, relative links to `.workbench/skills/<name>`. Open the AI tool at the workspace root to use them. A link is never written over anything already there; that path is reported instead.
 
 **What the tools never do:** none of them changes the graph or re-indexes. Every answer says when the graph was indexed and whether files have changed since, so the AI tool can tell you the graph is out of date.
 

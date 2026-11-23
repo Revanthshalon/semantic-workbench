@@ -6,7 +6,7 @@
 
 **Tech stack:** `serde` for the result types. No new crate.
 
-**Spec:** [usage-guide.md](../usage-guide.md#asking-the-graph), [graph-model.md](../graph-model.md#walking-the-graph), [storage-model.md](../storage-model.md#how-the-store-is-read). Capabilities Q1 to Q7, Q10, Q11.
+**Spec:** [usage-guide.md](../usage-guide.md#asking-the-graph), [graph-model.md](../graph-model.md#walking-the-graph), [storage-model.md](../storage-model.md#how-the-store-is-read). Capabilities Q1 to Q7, Q10 to Q14, and the query side of I20 and I21.
 
 **Read first:** [00-overview.md](./00-overview.md).
 
@@ -58,6 +58,9 @@ A value outside its range is brought to the nearest end of the range, not refuse
 | `src/use_cases/query/calls.rs`, `neighbors.rs` | `callers`, `callees`, `neighbors` |
 | `src/use_cases/query/impact.rs` | `impact` |
 | `src/use_cases/query/explore.rs` | `explore` |
+| `src/use_cases/query/node_details.rs` | What `node` shows by kind, from the results of stage 2 |
+| `src/use_cases/query/tests.rs` | The tests to run for a change |
+| `src/use_cases/query/contracts.rs` | API and event contracts |
 
 ## Slices
 
@@ -71,8 +74,12 @@ Each slice is one pull request. The [overview](./00-overview.md#working-in-paral
 | 6D | 5, 6 | 6A | `walk.rs`, `calls.rs`, `neighbors.rs` |
 | 6E | 7 | 6D | `impact.rs` |
 | 6F | 8 | 6B, 6E | `explore.rs` |
+| 6G | 9 | 6B, 6C, 6D | `node_details.rs`; one call each added to `node.rs`, `search.rs`, `calls.rs`, `files.rs` |
+| 6H | 10 | 6E | `impact.rs` |
+| 6I | 11 | 6H | `tests.rs` |
+| 6J | 12 | 6H | `contracts.rs`; the contract sections added to `impact.rs` |
 
-After 6A, three developers take 6B, 6C and 6D at once. This whole step runs beside steps 3, 4 and 5: it needs only C0, because it is tested on the fixture in memory.
+After 6A, three developers take 6B, 6C and 6D at once. Tasks 9 to 12 then bring the queries up to the results of stage 2 ([python-parsing.md](../python-parsing.md)): 6G once 6B, 6C and 6D are merged, 6H once 6E is, and 6I and 6J side by side after 6H. This whole step runs beside steps 3, 4 and 5: it needs only C0, because it is tested on the fixture in memory.
 
 ## Task 1: Name a node
 
@@ -109,7 +116,7 @@ Sixteen hex characters are an id. Otherwise the text before the first `:` is a s
 **Produces:**
 
 ```rust
-pub async fn freshness<S: GraphStore, F: Files>(store: &S, files: &F, roots: &ProjectRoots) -> Result<Freshness, QueryError>;
+pub async fn freshness<S: GraphStore, F: Files, G: Git>(store: &S, files: &F, git: &G, roots: &ProjectRoots) -> Result<Freshness, QueryError>;
 pub fn clamp(value: Option<u32>, default: u32, min: u32, max: u32) -> u32;
 
 pub struct SourceBlock { pub file: FileRef, pub start_line: u32, pub lines: Vec<String>, pub state: SourceState }
@@ -117,13 +124,19 @@ pub enum SourceState { Current, ChangedSinceIndex, Missing }
 pub async fn read_source<S: GraphStore, F: Files>(store: &S, files: &F, roots: &ProjectRoots, node: &Node) -> Result<Option<SourceBlock>, QueryError>;
 ```
 
-`ProjectRoots` maps a `ProjectId` to its folder on disk, built from the configuration. `freshness` hashes every recorded file and counts those whose hash differs or which are gone. `read_source` returns `None` for a declared node.
+`ProjectRoots` maps a `ProjectId` to its folder on disk, built from the configuration. `freshness` works in two steps, so that an answer on a large workspace reads almost nothing:
+
+1. **Each project's commit.** Read through the `Git` port and compare with the stored checkout. A project on another commit is listed in `moved_projects`. This reads one or two small files per project.
+2. **Each file's size and mtime.** `stat` every recorded file. A file whose size and mtime equal its record is unchanged and is not read. A file where either differs is hashed: it counts as changed only when its hash differs too. A file that is gone counts as changed. `read_source` returns `None` for a declared node.
 
 **Tests:**
 
 | Test | Asserts |
 |---|---|
-| `nothing_changed_gives_zero` | `changed_files == 0`, and `indexed_at` from the store |
+| `nothing_changed_gives_zero` | `changed_files == 0`, `moved_projects` empty, and `indexed_at` from the store |
+| `unchanged_stat_is_not_hashed` | With every size and mtime equal, a counting `Files` sees no `read` |
+| `touched_but_unchanged_file_is_not_counted` | A newer mtime and the same bytes: `changed_files == 0`, and the file was read once |
+| `moved_commit_is_reported` | A project whose checkout moved to another commit is in `moved_projects` with both commits |
 | `edited_file_is_counted` | `1` |
 | `deleted_file_is_counted` | `1` |
 | `clamp_brings_a_value_into_range` | `clamp(Some(500), 10, 1, 100) == 100`; `clamp(None, 10, 1, 100) == 10`; `clamp(Some(0), 10, 1, 100) == 1` |
@@ -314,12 +327,145 @@ pub async fn explore<S, F>(ctx: &QueryContext<S, F>, question: &str, project: Op
 
 **Commit:** `feat(query): explore`
 
+## Task 9: What stage 2 adds to `node`, `search`, `callers` and `files`
+
+**Files:** create `src/use_cases/query/node_details.rs`; modify `node.rs`, `search.rs`, `calls.rs`, `files.rs`.
+
+**Produces:**
+
+```rust
+pub enum NodeDetails {
+    Code { reached_by: Vec<Root>, inferred: Option<InferredType> },
+    Function { reached_by: Vec<Root>, inferred_return: Option<InferredType>, http_calls: Vec<HttpCall>, messages: Vec<MessageUse> },
+    Route { reached_by: Vec<Root>, paths: Vec<RoutePath>, callers: Vec<Location> },
+    Binary { framework: Framework, framework_source: FrameworkSource, app: Option<String>, commands: Vec<Location>, reaches: ReachCount },
+    Command { options: Vec<String>, handler: Option<Location>, services: Vec<Location> },
+    Topic { senders: Vec<MessageUse>, handlers: Vec<MessageUse>, payloads: Vec<Location> },
+    Project { language: Language },
+    None,
+}
+pub enum HttpCall { Matched { route: Location, path: String, site: Site }, Unmatched { path: String, site: Site, candidates: Vec<Location> } }
+pub async fn node_details<S: GraphStore>(store: &S, node: &Node) -> Result<NodeDetails, QueryError>;
+```
+
+`NodeView` gains `details: NodeDetails`. Each `Call` of `CallList` gains `resolved_by: Option<Resolution>`. `search` also matches the full paths of route paths. `files` gains `unreached: bool`, served by `unreached_files`.
+
+**Tests**, on `fixtures::acme()`:
+
+| Test | Asserts |
+|---|---|
+| `route_shows_full_paths_and_binaries` | `GET /{invoice_id}`: one path, `GET /v1/invoices/{invoice_id}`, complete, served by billing's `api` |
+| `route_shows_its_http_callers` | Ledger's `fetch_invoice` and `test_get_invoice` |
+| `parameter_shows_its_inferred_type` | `r` of `process`: `InvoiceRepo`, evidence 2 |
+| `code_node_shows_reached_by` | `services.py`: `worker` and the test file `test_services.py` |
+| `function_shows_http_calls_and_messages` | `fetch_invoice` has one matched call; `send_invoice` sends to `kafka/invoice.created` |
+| `unmatched_http_call_lists_its_candidates` | A call with two candidate routes, added to the fixture, shows both |
+| `binary_shows_framework_commands_and_reach` | Billing's `api`: `Fastapi`, `billing.api.app`, source `Dockerfile`. Ledger's `consumer`: three commands |
+| `command_shows_options_handler_and_services` | `ledger-consumer run`: handler `run_consume`, service `consumer`. `ledger-consumer replay`: option `--from`, no service |
+| `topic_shows_senders_handlers_and_payloads` | `send_invoice`, `run_consume`, payload `Invoice` |
+| `callers_show_how_each_call_was_resolved` | The caller of `InvoiceRepo.save` is `process`, with `resolved_by: Flow` |
+| `search_finds_a_route_by_its_full_path` | `/v1/invoices` finds `GET /{invoice_id}` |
+| `files_unreached_lists_a_file_no_root_reaches` | A file added to the fixture that nothing imports is listed; `services.py` is not |
+
+**Commit:** `feat(query): show the results of stage 2`
+
+## Task 10: `impact` over the results of stage 2
+
+**Files:** modify `src/use_cases/query/impact.rs`.
+
+Task 7 walks code and declared links. This task widens both parts.
+
+**Through the code**, also inwards over `Handles` (a handler to its routes and commands), `Mounts` (a route or router to what mounts it), `Injects` (a provider to the routes, providers, tests and fixtures that use it) and `Requests` (a route to the code that calls it over HTTP, in any project). Each step keeps its edge, so its provenance and `resolved_by` can be shown. A step over an `Imports` edge with `type_only` is labelled type-only.
+
+**Through what runs:**
+
+1. The binaries that run a node are its reach records ([python-parsing.md](../python-parsing.md#stage-2e-reach)). A node with no reach record falls back to every binary of its project, and the entry says so.
+2. A binary's services: those that `Runs` it. When the walk reached the binary through a `Command`, only the services that `Invokes` that command, and those that run the binary with no command words.
+3. Across a topic or queue: a node with a `Sends` edge reaches the nodes with a `Receives` edge into the same topic or queue, in any project. The step is labelled as crossing it.
+4. Then the declared links, as in task 7.
+
+Test roots that reach an affected node are listed under `tests`, by file.
+
+**Tests:**
+
+| Test | Asserts |
+|---|---|
+| `handler_change_names_its_route_and_only_the_api_service` | `get_invoice`: the route, Binary `api`, Service `api` of stack `billing-api`; not `worker` |
+| `route_reaches_http_callers_in_other_projects` | `get_invoice` reaches ledger's `fetch_invoice` through `Handles` and `Requests`, `resolved_by: RouteMatch` |
+| `provider_reaches_the_routes_that_inject_it` | `get_db` reaches `GET /{invoice_id}` |
+| `reach_narrows_the_binaries` | `services.py` reaches `worker` and not `api`; no fallback label |
+| `unreached_node_falls_back_to_its_project_and_says_so` | A function no root reaches lists both billing binaries, labelled as a fallback |
+| `command_handler_names_only_the_services_that_invoke_it` | `run_replay`: command `ledger-consumer replay`, no service. `run_consume`: Service `consumer` |
+| `send_crosses_the_topic_to_its_handlers` | `send_invoice` reaches ledger's `run_consume`, the step labelled as crossing `kafka/invoice.created` |
+| `type_only_step_is_labelled` | An import under `if TYPE_CHECKING:` added to the fixture gives a type-only step |
+| `each_step_shows_provenance_and_resolved_by` | `Requests` shows `TreeSitter` and `RouteMatch` |
+
+**Commit:** `feat(query): impact over the results of stage 2`
+
+## Task 11: The tests to run for a change
+
+**Files:** create `src/use_cases/query/tests.rs`.
+
+**Produces:**
+
+```rust
+pub enum TestsFor { Nodes(Vec<NodeRef>), File(FileRef) }
+pub struct TestCase { pub id: String, pub location: Location }    // id: tests/test_api.py::TestInvoices::test_get
+pub struct TestList { pub tests: Vec<TestCase> }
+pub async fn tests_to_run<S, F>(ctx: &QueryContext<S, F>, of: &TestsFor) -> Result<Answer<TestList>, QueryError>;
+```
+
+As [python-parsing.md](../python-parsing.md#tests-to-run-for-a-change) sets out: reach narrows the search to the test files whose root reaches a node. Inside them, a walk backwards over the edges reach follows stops at each test function. `--file` takes every node of the file. Tests are sorted by id.
+
+**Tests:**
+
+| Test | Asserts |
+|---|---|
+| `handler_change_lists_test_get_invoice` | `tests/test_api.py::test_get_invoice`, found through `Requests` from `TestClient` |
+| `fixture_change_lists_the_tests_that_use_it` | The fixture `repo` lists `test_get_invoice`, through `Injects` |
+| `services_change_lists_the_tests_of_test_services` | The tests in `tests/test_services.py` |
+| `method_test_id_names_its_class` | A test method in `class TestInvoices` gives `file::TestInvoices::test_x` |
+| `file_option_covers_every_node_of_the_file` | The same list as giving each node |
+| `node_no_test_reaches_gives_an_empty_list` | Empty, and no error |
+
+**Commit:** `feat(query): the tests to run for a change`
+
+## Task 12: API and event contracts
+
+**Files:** create `src/use_cases/query/contracts.rs`; modify `impact.rs` to add the two sections.
+
+**Produces:**
+
+```rust
+pub struct ApiContract { pub class: Location, pub routes: Vec<ContractRoute> }
+pub struct ContractRoute { pub route: Location, pub paths: Vec<RoutePath>, pub side: Side, pub via_fields: Vec<String>, pub callers: Vec<Consumer>, pub tests: Vec<TestCase> }
+pub enum Side { Request, Response }
+pub enum Consumer { Code(Location), DeclaredLink { from: Location } }   // a declared link has no call site
+pub struct EventContract { pub class: Location, pub channels: Vec<ContractChannel> }
+pub struct ContractChannel { pub topic: Location, pub broker: Location, pub senders: Vec<(Location, Location)>, pub handlers: Vec<(Location, Location)>, pub mismatch: bool }
+```
+
+`ImpactResult` gains `api_contract: Option<ApiContract>` and `event_contract: Option<EventContract>`, filled when the node is a class, or a field of one, used by a route or carried as a payload. Nesting through fields is followed up to 5 levels, as [python-parsing.md](../python-parsing.md#api-contracts) sets out.
+
+**Tests:**
+
+| Test | Asserts |
+|---|---|
+| `invoice_api_contract` | `GET /v1/invoices/{invoice_id}`, response, served by `api`. Called by ledger's `fetch_invoice`, by web-app's `admin` as a declared link, tested by `test_get_invoice` |
+| `nested_model_is_followed_up_to_five_levels` | `Invoice` inside `InvoiceList.items` gives the route of `InvoiceList`, with `via_fields == ["items"]`. A sixth level is not followed |
+| `invoice_event_contract` | `kafka/invoice.created` on `kafka`, sent by `send_invoice`, handled by `run_consume`, both with `Invoice` |
+| `sender_and_handler_disagreeing_are_flagged` | A handler reading another class gives `mismatch == true` |
+| `class_used_by_no_route_has_no_contract` | Both sections are `None` |
+
+**Commit:** `feat(query): API and event contracts in impact`
+
 ## Done when
 
 - Each of the ten queries has a use case that returns an `Answer`.
-- `impact` on `Invoice` gives the six steps of the walk in the graph model.
+- `impact` on `Invoice` gives the six steps of the walk in the graph model, its API contract and its event contract.
+- `impact` on billing's `get_invoice` names Service `api` and not `worker`, and its tests to run are `tests/test_api.py::test_get_invoice`.
 - One `explore` about `Invoice` returns its source, the flow from billing's worker to ledger's consumer, and all four projects.
 
 ## Left open
 
-- **What freshness costs.** Task 2 hashes every recorded file for every answer. That is cheap for a few thousand files and may not be for more. Measure it on a large workspace in this step. If it is too slow, check only the files an answer read, and leave the full check to `status`.
+- **What freshness costs.** Settled ([#17](https://github.com/Revanthshalon/semantic-workbench/issues/17)): task 2 compares each project's commit, then each file's size and mtime, and hashes only the files whose size or mtime changed. Measure it on a large workspace in this step all the same.

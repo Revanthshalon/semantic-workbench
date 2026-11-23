@@ -45,7 +45,7 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 |---|---|---|---|
 | 1A | Value types: `NodeId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash`, `Span`, `Site` | | [domain-model.md](../domain-model.md#value-types) |
 | 1B | `Node`, its kinds, scope, origin, identity and data. Rules N1 to N5, N8 to N10 | 1A | [domain-model.md](../domain-model.md#node) |
-| 1C | `Edge`, its kinds and data, provenance with `Flow`. Rules E1 to E4 | 1A | [domain-model.md](../domain-model.md#edge) |
+| 1C | `Edge`, its kinds and data, its provenance, and `resolved_by` with `Resolution`. There is no `Flow` provenance (ADR 0017). Rules E1 to E4 and E13 | 1A | [domain-model.md](../domain-model.md#edge) |
 | 1D | `FileRecord`, `UnresolvedReference`, `CallSite`, `Binding`, `Return`, `InferredType`, `Reach`, `Warning`, `ProjectCheckout`. Rules C2, L2, Y3, M2, G2 | 1A | [domain-model.md](../domain-model.md#file-record) |
 | 1E | `Graph`, `validate` with every Graph rule, and the Acme Shop fixture | 1B, 1C, 1D | [domain-model.md](../domain-model.md#validating-an-implementation) |
 | C0 | Contracts: the ports, the query result types, `MemoryStore`, the shared store tests, every crate | 1E | [below](#slice-c0-contracts) |
@@ -54,6 +54,7 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 | 2C | Check rules 1 to 13, and `load` | 1A, 2B | [step 2](./step-2-configuration.md) |
 | 2D | What `init` writes | 2B | [step 2](./step-2-configuration.md) |
 | 2E | The text of the `workbench` and `python` skills | | [step 2](./step-2-configuration.md) |
+| 2F | Link the shared skills for AI platforms | 2D | [step 2](./step-2-configuration.md) |
 | 3A | The schema, opening a store, the format version | C0 | [storage-model.md](../storage-model.md#the-schema) |
 | 3B | Reading: every read operation of the port | 3A | [storage-model.md](../storage-model.md#how-the-store-is-read) |
 | 3C | Writing: one index as one transaction, replacing a file, the workspace layer | 3A | [storage-model.md](../storage-model.md#how-the-store-is-written) |
@@ -79,15 +80,18 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 | 6D | The walk, `callers`, `callees`, `neighbors` | 6A | [step 6](./step-6-queries.md) |
 | 6E | `impact` | 6D | [step 6](./step-6-queries.md) |
 | 6F | `explore` | 6B, 6E | [step 6](./step-6-queries.md) |
+| 6G | What stage 2 adds to `node`, `search`, `callers`, `files` | 6B, 6C, 6D | [step 6](./step-6-queries.md) |
+| 6H | `impact` over the results of stage 2 | 6E | [step 6](./step-6-queries.md) |
+| 6I | The tests to run for a change | 6H | [step 6](./step-6-queries.md) |
+| 6J | API and event contracts | 6H | [step 6](./step-6-queries.md) |
 | 7A | The command tree, flags and exit codes | C0 | [step 7](./step-7-command-line.md) |
 | 7B | Text output of the read commands | C0 | [step 7](./step-7-command-line.md) |
 | 7C | Text output of `init`, `check`, `index`, `status` | C0, 2C | [step 7](./step-7-command-line.md) |
-| 7D | Wiring, and tests that run the binary | 7A, 7B, 7C, 3B, 3C, 4G, 6F | [step 7](./step-7-command-line.md) |
+| 7D | Wiring, and tests that run the binary | 7A, 7B, 7C, 2F, 3B, 3C, 4G, 6F, 6G, 6I, 6J | [step 7](./step-7-command-line.md) |
 | 7E | Installation | 7D | [step 7](./step-7-command-line.md) |
 | 8A | The manual document, and modes | C0 | [step 8](./step-8-utcp-manual.md) |
-| 8B | The eleven tools, as call templates | 8A, 7A | [step 8](./step-8-utcp-manual.md) |
-| 8C | Skills, listed in the manual | 8A | [step 8](./step-8-utcp-manual.md) |
-| 8D | Wiring `workbench manual`, and tests that run the binary | 8B, 8C, 7D | [step 8](./step-8-utcp-manual.md) |
+| 8B | The twelve tools, as call templates | 8A, 7A | [step 8](./step-8-utcp-manual.md) |
+| 8D | Wiring `workbench manual`, and tests that run the binary | 8B, 7D | [step 8](./step-8-utcp-manual.md) |
 
 ### What can run at once
 
@@ -95,15 +99,16 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 |---|---|---|
 | 1 | 1A, 2A, 2B, 2E, 4F | 5 |
 | 2 | 1B, 1C, 1D, 2C, 2D, 4A, 4B | 7 |
-| 3 | 1E, 4I | 2 |
+| 3 | 1E, 2F, 4I | 3 |
 | 4 | C0, 4D | 2 |
 | 5 | 3A, 4C, 4H, 5A, 5B, 5D, 6A, 7A, 7B, 7C, 8A | 11 |
-| 6 | 3B, 3C, 4E, 5C, 5E, 5F, 6B, 6C, 6D, 8B, 8C | 11 |
+| 6 | 3B, 3C, 4E, 5C, 5E, 5F, 6B, 6C, 6D, 8B | 10 |
 | 6b | 4G | 1 |
-| 7 | 5G, 6E | 2 |
-| 8 | 6F | 1 |
-| 9 | 7D | 1 |
-| 10 | 7E, 8D | 2 |
+| 7 | 5G, 6E, 6G | 3 |
+| 8 | 6F, 6H | 2 |
+| 9 | 6I, 6J | 2 |
+| 10 | 7D | 1 |
+| 11 | 7E, 8D | 2 |
 
 Waves 3 and 4 are the narrow point: most of what follows waits for 1E and then C0. Keep those two small and merge them fast. The last waves are narrow too, because they join everything; they are mostly wiring and tests.
 
@@ -277,9 +282,12 @@ pub trait IndexWriter {
 pub trait Files {
     fn read(&self, path: &Path) -> Result<Vec<u8>, FilesError>;
     fn exists(&self, path: &Path) -> bool;
+    fn stat(&self, path: &Path) -> Result<FileStat, FilesError>;     // size and mtime, reading no content
     fn list(&self, dir: &Path) -> Result<Vec<PathBuf>, FilesError>;
     fn walk(&self, root: &Path, exclude: &[String]) -> Result<Vec<RelPath>, FilesError>;
 }
+
+pub struct FileStat { pub size: u64, pub mtime: i64 }      // mtime in nanoseconds since 1970 UTC
 
 pub trait Git { fn checkout(&self, project_root: &Path) -> Checkout; }
 pub struct Checkout { pub branch: Option<String>, pub commit: Option<String> }
@@ -301,18 +309,20 @@ Every query returns `Answer<T>`. The command line prints it, and the UTCP manual
 
 ```rust
 pub struct Answer<T> { pub result: T, pub freshness: Freshness, pub truncated: Option<String> }
-pub struct Freshness { pub indexed_at: Option<String>, pub changed_files: u64 }
+pub struct Freshness { pub indexed_at: Option<String>, pub changed_files: u64, pub moved_projects: Vec<MovedProject> }
+pub struct MovedProject { pub project: ProjectId, pub indexed_commit: Option<String>, pub current_commit: Option<String> }
 pub struct Location { pub node: NodeId, pub kind: NodeKind, pub scope: Scope, pub qualified_name: String, pub path: Option<RelPath>, pub line: Option<u32> }
 ```
 
 | `T` | Returned by | Holds |
 |---|---|---|
 | `SearchResult` | `search` | `matches: Vec<Location>` |
-| `NodeView` | `node` | The node, its source, its direct callers and callees |
+| `NodeView` | `node` | The node, its source, its direct callers and callees, and `details`: what stage 2 says about it, by kind |
 | `FileView` | `node --file` | The file's lines, and the nodes it holds |
-| `CallList` | `callers`, `callees` | `calls: Vec<Call>`, each a `Location`, the `Site` of the call and its depth |
+| `CallList` | `callers`, `callees` | `calls: Vec<Call>`, each a `Location`, the `Site` of the call, its depth and its `resolved_by` |
 | `NeighborsResult` | `neighbors` | The nodes reached, and the edges that reached them |
-| `ImpactResult` | `impact` | `by_project: Vec<ProjectImpact>`, each entry with the path of edges that led to it |
+| `ImpactResult` | `impact` | `by_project: Vec<ProjectImpact>`, each entry with the path of edges that led to it, type-only and topic-crossing steps labelled; the tests that reach it; `api_contract` and `event_contract`, each optional |
+| `TestList` | `impact --tests` | `tests: Vec<TestCase>`, each a pytest node id and its location |
 | `ExploreResult` | `explore` | `sources: Vec<SourceBlock>`, `flow: Vec<Edge>`, `blast_radius: Vec<ImpactSummary>` |
 | `FileList` | `files` | `files: Vec<FileRecord>` |
 | `DependencyList` | `deps` | `dependencies: Vec<Dependency>`, each with its scope and provenance |

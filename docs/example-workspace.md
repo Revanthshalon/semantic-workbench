@@ -160,7 +160,7 @@ Points to notice:
 - **Billing has no `compose` block.** Its compose file is found by default and everything in it is readable.
 - **Ledger's `compose` block lists no `files`.** Its compose file is found by default too; the block only adds what the file cannot say.
 - **`stack: billing-api` on the web-app link is required,** because a service named `api` exists in two stacks.
-- **That stack name comes from a folder name.** It holds only while the repository is cloned as `billing-api`. A `name` in billing's compose file would fix it; see the [open points](./configuration-guide.md#open-points) of the configuration guide.
+- **That stack name comes from a folder name.** It holds only while the repository is cloned as `billing-api`. Because web-app's link names the stack, `index` warns about it (`StackNamedAfterFolder`). A `name` in billing's compose file removes the warning.
 - **Local dependencies are not written.** The indexer reads them from each project's `pyproject.toml`. Both APIs depend on `shared-api`.
 - **`kafka` and `postgres` take no entry anywhere.** They are read from the infrastructure file as external services.
 
@@ -206,4 +206,4 @@ Without the workspace configuration, an AI sees four unrelated repositories. Wit
 5. Web-app's `admin` calls billing's `api` over HTTP, so the shape of its responses may change too.
 6. Ledger's `api` and billing's `api` share a network and have no link, so nothing suggests they call each other.
 
-Steps 3 to 5 exist only because of the hand-written `links`. Finding topics and HTTP calls in source code is on the roadmap.
+Steps 3 to 5 rest on the hand-written `links`. Release 1 also reads the code behind them. Billing's `send_invoice` is matched to `invoice.created` as a `Sends` edge and ledger's `run_consume` as a `Receives` edge, each carrying `Invoice`. A Python HTTP call is matched to the route it calls as a `Requests` edge. A match never creates a link, and a match with no declared link is a warning. Web-app's call in step 5 stays a declared link until TypeScript is parsed in Release 2. [python-parsing.md](./python-parsing.md#acme-shop-with-fastapi) works the same question through with the code.

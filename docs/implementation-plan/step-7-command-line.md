@@ -33,7 +33,8 @@
 
 | Command | Arguments and options | Use case |
 |---|---|---|
-| `init` | | `config::init` |
+| `init` | `--enable-shared-skills`, `--platform claude\|copilot` (repeatable, only with `--enable-shared-skills`) | `config::init`, then `config::link_skills` |
+| `skills link` | `--platform claude\|copilot` (repeatable) | `config::link_skills` |
 | `check` | | `config::load` |
 | `index` | `--force`, `--project <id>` | `IndexWorkspace::run` |
 | `status` | | `status` |
@@ -42,9 +43,9 @@
 | `query <text>` | `--kind <kind>`, `--project <id>`, `--limit <n>` | `search` |
 | `callers <node>` | `--depth <n>`, `--limit <n>` | `callers` |
 | `callees <node>` | `--depth <n>`, `--limit <n>` | `callees` |
-| `impact <node>` | `--depth <n>` | `impact` |
+| `impact <node>...` | `--depth <n>`; `--tests`; or `--file <project>:<path>` in place of nodes | `impact`, or `tests_to_run` with `--tests` |
 | `neighbors <node>` | `--depth <n>`, `--direction in\|out\|both`, `--edge <kind>` (repeatable) | `neighbors` |
-| `files` | `--project <id>`, `--failed` | `files` |
+| `files` | `--project <id>`, `--failed`, `--unreached` | `files` |
 | `deps` | | `deps` |
 | `manual` | `--mode <name>` | step 8 |
 
@@ -86,7 +87,7 @@ Each slice is one pull request. The [overview](./00-overview.md#working-in-paral
 pub struct Cli { pub workspace: Option<PathBuf>, pub verbose: bool, pub json: bool, pub command: Command }
 
 #[derive(clap::Subcommand)]
-pub enum Command { Init, Check, Index { force: bool, project: Option<String> }, Status, Explore { .. }, Node { .. }, Query { .. }, Callers { .. }, Callees { .. }, Impact { .. }, Neighbors { .. }, Files { .. }, Deps, Manual { mode: String } }
+pub enum Command { Init { enable_shared_skills: bool, platforms: Vec<Platform> }, Skills(SkillsCommand), Check, Index { force: bool, project: Option<String> }, Status, Explore { .. }, Node { .. }, Query { .. }, Callers { .. }, Callees { .. }, Impact { .. }, Neighbors { .. }, Files { .. }, Deps, Manual { mode: String } }
 
 pub enum Outcome { Done, Failed(String), Usage(String) }
 impl Outcome { pub fn exit_code(&self) -> u8; }      // 0, 1, 2
@@ -98,15 +99,19 @@ The global flags are marked `global = true`, so they may come before or after th
 
 | Test | Asserts |
 |---|---|
-| `every_command_parses` | One line of arguments for each of the fourteen commands gives the matching variant |
+| `every_command_parses` | One line of arguments for each of the fifteen commands gives the matching variant |
 | `workspace_flag_may_follow_the_command` | `status --workspace x` and `--workspace x status` give the same value |
 | `neighbors_direction_accepts_only_three_values` | `--direction up` is an error |
 | `edge_may_be_given_more_than_once` | Two `--edge` values give a list of two |
 | `node_takes_a_node_or_a_file_not_both` | Both together is an error; neither is an error |
 | `unknown_flag_is_a_usage_error` | The error's exit code is `2` |
 | `no_command_is_a_usage_error` | Exit code `2` |
+| `platform_needs_enable_shared_skills` | `init --platform claude` alone is an error; with `--enable-shared-skills` it parses |
+| `skills_link_takes_platforms` | `skills link --platform claude --platform copilot` gives both |
 | `mode_defaults_to_developer_support` | `manual` alone gives that mode |
 | `star_means_no_filter` | `--project '*'` and `--kind '*'` parse as no filter, for `query`, `explore` and `files` |
+| `impact_takes_several_nodes_or_a_file` | Two nodes give a list of two; `--file` with a node is an error |
+| `impact_tests_and_files_unreached_parse` | `impact x --tests` and `files --unreached` |
 | `exit_codes_are_0_1_and_2` | For `Done`, `Failed` and `Usage` |
 
 **Commit:** `feat(cli): the command tree and exit codes`
@@ -127,6 +132,7 @@ pub fn impact(answer: &Answer<ImpactResult>) -> String;
 pub fn explore(answer: &Answer<ExploreResult>) -> String;
 pub fn files(answer: &Answer<FileList>) -> String;
 pub fn deps(answer: &Answer<DependencyList>) -> String;
+pub fn tests(answer: &Answer<TestList>) -> String;
 pub fn footer(freshness: &Freshness, truncated: Option<&str>) -> String;
 ```
 
@@ -140,7 +146,10 @@ Every function ends with `footer`. A location is printed as `<scope>:<qualified 
 | `source_lines_are_numbered_from_the_span` | The first line starts with the span's start line |
 | `changed_source_block_is_marked` | The block's heading says the file changed since the last index |
 | `deps_line_matches_the_usage_guide` | `billing-api -> shared-api    build   manifest (pyproject.toml)` |
-| `impact_is_grouped_by_project_with_provenance` | A heading for each project, and each step shows its provenance |
+| `impact_is_grouped_by_project_with_provenance` | A heading for each project, and each step shows its provenance and `resolved_by` |
+| `impact_shows_its_contracts` | The API and event contract sections in the layout of [python-parsing.md](../python-parsing.md#api-contracts) |
+| `tests_prints_one_pytest_id_per_line` | `tests/test_api.py::test_get_invoice` |
+| `node_shows_its_details_by_kind` | A route's full paths, a parameter's inferred type, `reached by` |
 | `explore_has_three_parts_in_order` | Source, then call flow, then blast radius |
 | `empty_result_says_so` | "No matches", not an empty string |
 | `footer_names_changed_files_and_says_to_index` | With `changed_files == 3`: the count, and `workbench index` |
@@ -157,6 +166,7 @@ Every function ends with `footer`. A location is printed as `<scope>:<qualified 
 
 ```rust
 pub fn init(report: &InitReport) -> String;
+pub fn link_skills(report: &LinkReport) -> String;
 pub fn problems(problems: &[ConfigProblem]) -> String;      // for `check`, and for `index` when it stops
 pub fn check_ok(config: &Config) -> String;
 pub fn index(summary: &IndexSummary) -> String;
@@ -170,6 +180,7 @@ pub fn status(answer: &Answer<StatusReport>) -> String;
 | Test | Asserts |
 |---|---|
 | `init_lists_written_and_kept_files` | Two groups, each path once |
+| `link_report_lists_linked_kept_and_conflicts` | Three groups; a conflict says it was left alone |
 | `each_problem_shows_its_field_and_message` | `projects[0].links[0].project: no project named "ledger"` |
 | `check_ok_counts_projects_and_stacks` | "4 projects, 1 shared stack" |
 | `check_ok_lists_reserved_sections_under_verbose` | One line per notice |
@@ -210,7 +221,10 @@ pub struct Env { pub cwd: PathBuf, pub workspace_var: Option<OsString>, pub stdo
 | `no_workspace_exits_1_and_names_the_flag` | The message holds `--workspace` |
 | `query_before_index_says_to_index` | Exit code `1`, and `workbench index` in the message |
 | `init_twice_refuses_the_second_time` | Exit code `1`, and the configuration is unchanged |
+| `init_with_shared_skills_links_both_platforms` | `.claude/skills/python` and `.github/skills/python` resolve to `.workbench/skills/python/SKILL.md` |
+| `skills_link_on_a_clone_adds_what_is_missing` | After deleting one link: exit `0`, the link is back, the others are kept |
 | `ambiguous_node_lists_the_candidates` | `node billing-api:api` exits `1` and lists both nodes |
+| `impact_tests_lists_pytest_ids` | `impact billing-api:billing.routes.invoices.get_invoice --tests` prints `tests/test_api.py::test_get_invoice` |
 | `closed_pipe_exits_quietly` | `files` piped into a reader that closes at once: exit code `0`, and no panic text |
 
 **Commit:** `feat(cli): wire the commands and test the binary`
@@ -233,4 +247,4 @@ pub struct Env { pub cwd: PathBuf, pub workspace_var: Option<OsString>, pub stdo
 
 ## Left open
 
-- **Where the Homebrew formula lives.** A formula in this repository needs a tap, and `brew install workbench` without one needs the formula accepted into Homebrew's own collection. The usage guide already says the name may differ.
+- **Where the Homebrew formula lives.** A formula in this repository needs a tap, and `brew install workbench` without one needs the formula accepted into Homebrew's own collection. The usage guide already says the name may differ. To be settled when the project is ready to release ([#16](https://github.com/Revanthshalon/semantic-workbench/issues/16)).

@@ -742,7 +742,7 @@ A rule whose input is missing reports nothing and leaves that to the rule about 
 **Produces:**
 
 ```rust
-pub fn acme_workspace_layer() -> Result<Graph, DomainError>;   // 27 nodes, 53 edges
+pub fn acme_workspace_layer() -> Result<Graph, DomainError>;   // 27 nodes, 54 edges
 pub fn acme() -> Result<Graph, DomainError>;                   // plus the code layer of python-parsing.md
 ```
 

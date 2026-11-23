@@ -277,6 +277,7 @@ BRIDGES
   Binary worker (billing-api) ───Publishes──> Topic invoice.created
   Binary consumer (ledger-api) ──Subscribes─> Topic invoice.created
   Binary api (billing-api) ──────ConnectsTo─> ExternalService postgres
+  Binary worker (billing-api) ───ConnectsTo─> ExternalService postgres
   Binary admin (web-app) ────────ConnectsTo─> Service api (stack billing-api)
   File worker.py (billing-api) ──Imports────> Class Invoice (shared-api)
 ```
@@ -308,6 +309,7 @@ The two `api` services have the same kind and the same name. Their scopes differ
 | Binary `worker` | `Publishes` | Topic `kafka/invoice.created` | Declared |
 | Binary `consumer` | `Subscribes` | Topic `kafka/invoice.created` | Declared |
 | Binary `api` (`billing-api`) | `ConnectsTo` (database) | ExternalService `postgres` | Declared |
+| Binary `worker` | `ConnectsTo` (database) | ExternalService `postgres` | Declared |
 | Binary `admin` | `ConnectsTo` (HTTP) | Service `api` (stack `billing-api`) | Declared |
 | File `worker.py` | `Imports` (`shared_api.models`) | Class `Invoice` | TreeSitter |
 

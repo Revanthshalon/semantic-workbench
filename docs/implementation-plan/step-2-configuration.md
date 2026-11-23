@@ -157,7 +157,7 @@ pub fn validate(raw: RawConfig) -> Result<Config, Vec<ConfigProblem>>;
 
 | Test | Asserts |
 |---|---|
-| `acme_configuration_is_valid` | No problems, four projects, five binaries, four links |
+| `acme_configuration_is_valid` | No problems, four projects, five binaries, five links |
 | `complete_template_is_valid` | No problems, and three notices |
 | `every_problem_is_reported` | A file breaking rules 3, 7 and 11 gives three problems |
 | `problem_names_its_field` | A link to an unknown project has `field == "projects[0].links[0].project"` |

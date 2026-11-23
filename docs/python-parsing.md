@@ -808,7 +808,7 @@ Event contract: shared_api.models.Invoice
 
 ## Acme Shop, with FastAPI
 
-The fixture's Python source grows as follows. The workspace layer does not change.
+The fixture's Python source grows as follows. The workspace layer does not change. [example-workspace.md](./example-workspace.md#the-code) lists the code in full, including billing's transactional outbox, and draws the resolved graph.
 
 ```
 billing-api/src/billing/
@@ -816,8 +816,13 @@ billing-api/src/billing/
 ├── routes/invoices.py  router = APIRouter(prefix="/invoices")
 │                       @router.get("/{invoice_id}", response_model=Invoice)
 │                       async def get_invoice(invoice_id: int, db: Session = Depends(get_db))
-├── db.py               def get_db(): ...
-└── worker.py           def main(): send_invoice(...);  if __name__ == "__main__": main()
+│                       @router.post("/", response_model=Invoice, status_code=201)
+│                       async def create_invoice(body: InvoiceIn, db: Session = Depends(get_db))
+│                           # writes the invoice and outbox.record(db, ...) in one transaction
+├── db.py               SessionLocal = sessionmaker(engine); def get_db(): ...
+├── outbox.py           class OutboxEvent(Base); def record(...); def pending(...); def mark_sent(...)
+└── worker.py           def relay_once(): for each pending outbox row, send_invoice(...)
+                        def main(): loop relay_once();  if __name__ == "__main__": main()
 
 ledger-api/src/ledger/
 ├── api.py              app = FastAPI(); @app.post("/entries") def add_entry(entry: EntryIn)
@@ -845,7 +850,7 @@ billing-api/tests/
 ```
 
 - **2b:** both call sites pass `InvoiceRepo`. So `r` takes `InvoiceRepo`, and `r.save()` becomes a `Calls` edge to `InvoiceRepo.save` with `resolved_by: flow`.
-- **2e:** `routes/invoices.py` is reached by `api` only. `services.py` is reached by `worker` and by the test `test_services.py`. `db.py` is reached by `api` through `Injects`.
+- **2e:** `routes/invoices.py` is reached by `api` only. `services.py` is reached by `worker` and by the test `test_services.py`. `db.py` is reached by `api` through `Injects` and by `worker` through `SessionLocal`. `outbox.py` is reached by both: the API writes outbox rows and the worker relays them.
 - **2c:** `GET /v1/invoices/{invoice_id}`, complete, served by `api`. `search "/v1/invoices"` finds it.
 
 Release 1's cross-repository answers add:

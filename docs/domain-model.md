@@ -8,6 +8,7 @@ The types of the knowledge graph and the rules they must keep. This is the page 
 
 Every rule has an id, so a test can name the rule it proves. The last column of each rule table says where the rule is enforced:
 
+- **Type**: the Rust types cannot hold a broken value, so there is nothing to check. See [How the types are written in Rust](#how-the-types-are-written-in-rust).
 - **Build**: building the value is refused. A broken value can never exist.
 - **Graph**: the rule needs the whole graph, so it is checked by one `validate` pass over a finished graph. Tests run it, and `index` runs it before it writes.
 
@@ -43,9 +44,15 @@ Small types that check their own content. Each is refused at build time when its
 | `ComposeName` | A stack's Compose name | Lowercase letters, digits, `-` and `_`; starts with a letter or digit |
 | `RelPath` | A path to a file | Relative, uses `/`, not empty, no `.` segments. `..` segments are allowed only at the start |
 | `ContentHash` | The BLAKE3 hash of a file's bytes | All 256 bits, as 64 lowercase hex characters. It is never shown to a user |
-| `NodeId` | A node's identity | Computed, never assigned: 64 bits, as 16 lowercase hex characters such as `9f2c41d07ab35e18`. See [Node identity](#node-identity) |
-| `Span` | A region of a file | Start line, start column, end line, end column. Lines count from 1, columns from 0. The start is not after the end |
-| `Site` | One place in a file | A `RelPath`, a line and a column, counted as in `Span` |
+| `NodeId` | A node's identity | Computed, never assigned: 64 bits, shown as 16 lowercase hex characters such as `9f2c41d07ab35e18`. See [Node identity](#node-identity) |
+| `ReferenceId` | An unresolved reference's identity | Computed as a `NodeId` is, from the reference's own fields |
+| `Name` | A node's short name | Not empty |
+| `QualifiedName` | A node's full name within its scope, or a FastAPI app's | Not empty |
+| `Line` | A line in a file | Counts from 1, so 0 cannot be held |
+| `Column` | A column in a line | Counts from 0 |
+| `Span` | A region of a file | Start `Line` and `Column`, end `Line` and `Column`. The start is not after the end |
+| `Site` | One place in a file | A `RelPath`, a `Line` and a `Column` |
+| `CommitId` | A git commit | 40 lowercase hex characters |
 
 ## Scope
 
@@ -73,12 +80,11 @@ Where a node came from. It is one of two things.
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `id` | `NodeId` | yes | Computed from the fields below |
-| `kind` | `NodeKind` | yes | One of the 33 kinds listed in [graph-model.md](./graph-model.md#node-kinds) |
-| `name` | text | yes | The short name, such as `Invoice` |
-| `qualified_name` | text | yes | The full name within the scope, such as `shared_api.models.Invoice` |
+| `kind` | `NodeKind` | yes | One of the 33 kinds listed in [graph-model.md](./graph-model.md#node-kinds), holding the kind's own data, which may be nothing. See [Node data](#node-data) |
+| `name` | `Name` | yes | The short name, such as `Invoice` |
+| `qualified_name` | `QualifiedName` | yes | The full name within the scope, such as `shared_api.models.Invoice` |
 | `scope` | `Scope` | yes | What the node belongs to |
 | `origin` | `Origin` | yes | Parsed or declared |
-| `data` | `NodeData` | yes | The kind's own data, which may be nothing. See [Node data](#node-data) |
 
 A node holds no timestamp and no copy of the source code. Source is read from the file through the node's span when a query needs it.
 
@@ -86,12 +92,12 @@ A code node holds no language. Its language is its file's, held by the [file rec
 
 ### Node data
 
-The data is part of the kind, as an edge's is, so a kind can never carry another kind's fields.
+The data is part of the kind, as an edge's is, so a kind can never carry another kind's fields. Each `NodeKind` variant holds its data, such as `NodeKind::Function(Callable)`, and a kind without data is a variant with nothing in it, such as `NodeKind::Service`.
 
 | Kinds | Data |
 |---|---|
 | `Project` | `ProjectData { language }`: the project's main language, from the configuration |
-| `Binary` | `BinaryData { framework, app, framework_source }` |
+| `Binary` | `BinaryData { framework, framework_source }` |
 | `Workspace`, `Stack`, `Service`, `ExternalService`, `Network`, `Topic`, `Queue` | none |
 | `Function`, `Method`, `Property` | `Callable { doc, signature, visibility, is_async, is_static, is_abstract, is_exported, decorators, type_parameters, return_type, role }` |
 | `Class`, `Struct`, `Interface`, `Trait`, `Protocol`, `Enum`, `Union`, `TypeAlias`, `Component` | `TypeDecl { doc, signature, visibility, is_abstract, is_exported, decorators, type_parameters, role }` |
@@ -106,8 +112,8 @@ The fields:
 | Field | Type | Meaning |
 |---|---|---|
 | `language` | `Language` | `Python` or `TypeScript` |
-| `framework` | `Framework` | `Fastapi`, `Angular` or `None` |
-| `app` | text, optional | The qualified name of a FastAPI binary's app, such as `billing.api.app` |
+| `framework` | `Framework` | `Plain` (no framework: a plain binary), `Fastapi { app }` or `Angular` |
+| `app` | `QualifiedName`, optional | Inside `Fastapi` only: the qualified name of the binary's app, such as `billing.api.app` |
 | `framework_source` | `FrameworkSource` | Where `framework` came from: `Declared` (the configuration), `Compose` (a compose command), `Dockerfile` (a Dockerfile's `CMD` or `ENTRYPOINT`) or `Entry` (the entry file) |
 | `doc` | text, optional | The doc string |
 | `signature` | text, optional | The declaration as written, on one line |
@@ -177,16 +183,16 @@ An id of 64 bits is short enough for an AI to read and repeat. Two nodes sharing
 
 | Id | Rule | Enforced |
 |---|---|---|
-| N1 | `name` and `qualified_name` are not empty | Build |
+| N1 | `name` and `qualified_name` are not empty | Type |
 | N2 | The id equals the hash of the five inputs. A node cannot be built with any other id | Build |
 | N3 | The scope suits the kind, as in the [Scope](#scope) table | Build |
 | N4 | A code node is always `Parsed`. `Workspace`, `Project`, `Binary`, `Topic` and `Queue` are always `Declared`. The other workspace kinds may be either | Build |
 | N5 | Building the same node twice from the same inputs gives the same id | Build |
 | N6 | No two nodes in a graph share an id | Graph |
 | N7 | There is exactly one `Workspace` node | Graph |
-| N8 | The data suits the kind, as in the [node data](#node-data) table | Build |
+| N8 | The data suits the kind, as in the [node data](#node-data) table | Type |
 | N9 | A code node's data suits the language of the file it is parsed from, and a binary's framework suits its project's language, as in the language table. The language is given when the node is built and is not stored on it | Build |
-| N10 | A role suits the kind, as in the role table. `app` is given only when `framework` is `Fastapi` | Build |
+| N10 | A role suits the kind, as in the role table. `app` is given only when `framework` is `Fastapi` | Build for the role, Type for `app` |
 
 ## Edge
 
@@ -196,9 +202,8 @@ An id of 64 bits is short enough for an AI to read and repeat. Two nodes sharing
 | `target` | `NodeId` | yes | The node the edge ends at |
 | `kind` | `EdgeKind` | yes | One of the 29 kinds listed in [graph-model.md](./graph-model.md#edge-kinds), with its data |
 | `site` | `Site` | no | Where in a file the relationship occurs, when it has a place |
-| `provenance` | `Provenance` | yes | How the edge came to exist |
+| `provenance` | `Provenance` | yes | How the edge came to exist. `Declared` holds `note`, the free text of a hand-written dependency or link, when there is one |
 | `resolved_by` | `Resolution` | no | The rule that resolved the reference this edge came from. Empty for an edge not made by resolution. See [How an edge was resolved](#how-an-edge-was-resolved) |
-| `note` | text | no | The free text of a hand-written dependency or link |
 
 ### Edge data
 
@@ -223,7 +228,7 @@ The data is part of the kind, so a kind can never carry another kind's data.
 | `Manifest` | Read from a dependency manager's files | `DependsOn` |
 | `Compose` | Read from a compose file | `Runs`, `BuiltFrom`, `Joins`, `Uses`, `Invokes` |
 | `Dockerfile` | Read from a Dockerfile: the command line a service runs | `Runs`, `Invokes` |
-| `Declared` | Written by hand in the configuration | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `ConnectsTo`, `Publishes`, `Subscribes` |
+| `Declared { note }` | Written by hand in the configuration, with the free text given there, if any | `DependsOn`, `Uses`, `EntryPoint`, `Runs`, `BuiltFrom`, `ConnectsTo`, `Publishes`, `Subscribes` |
 | `Scip` | Read from a SCIP index | none yet |
 | `Heuristic` | Inferred, and may be wrong | none yet |
 
@@ -269,10 +274,10 @@ Six code edge kinds hold what a web framework does with code, what calls it over
 
 | Id | Rule | Enforced |
 |---|---|---|
-| E1 | A workspace edge connects only the node kinds its row allows in the [workspace edge table](./graph-model.md#edge-kinds) | Build |
+| E1 | A workspace edge connects only the node kinds its row allows in the [workspace edge table](./graph-model.md#edge-kinds). `Edge::new` takes the two end nodes, not their ids, so that it can check this | Build |
 | E2 | A workspace edge never starts and ends at the same node | Build |
 | E3 | The provenance suits the kind, as in the table above | Build |
-| E4 | `note` appears only on a `Declared` edge | Build |
+| E4 | `note` appears only on a `Declared` edge | Type |
 | E5 | Both ends of every edge are nodes in the graph | Graph |
 | E6 | No two edges share source, target, kind and site. Two calls from one function to another on different lines are two edges | Graph |
 | E7 | There is at most one `DependsOn` edge from one project to another. When the manifest and the configuration both name the pair, the declared one is kept | Graph |
@@ -356,7 +361,7 @@ One call expression, with its arguments as written. Stage 1 records it from the 
 | `callee` | text | The callee as written: `process`, `self.repo.save`, `models.Invoice` |
 | `arguments` | list of `Argument` | In source order |
 
-An `Argument` is a `position` (from 0) or a `keyword`, and a `Shape`. A `Shape` is one of:
+An `Argument` is a slot, `Position(n)` (from 0) or `Keyword(name)`, and a `Shape`. A `Shape` is one of:
 
 | Shape | Written as |
 |---|---|
@@ -375,7 +380,7 @@ A `Template` is also the type of a route's local path and of a prefix (`Mounts`,
 | Id | Rule | Enforced |
 |---|---|---|
 | C1 | `from` is a node in the graph | Graph |
-| C2 | Each argument has a position or a keyword, never both. Positions run from 0 without a gap | Build |
+| C2 | Each argument has a position or a keyword, never both. Positions run from 0 without a gap | Type for "never both", Build for the gap |
 | C3 | No two call sites share `from` and `site` | Graph |
 
 ## Binding
@@ -420,13 +425,13 @@ A node's class, worked out by stage 2b. It exists only when all of the node's ev
 |---|---|---|
 | `node` | `NodeId` | A `Parameter` (evidence: its call sites), a `Function` or `Method` (its returns), a `Field` (its bindings), or a `Variable` or `Constant` bound more than once (its bindings) |
 | `class` | `NodeId` | The class all of the evidence gives |
-| `evidence` | number | How many call sites, returns or bindings agreed |
+| `evidence` | non-zero number | How many call sites, returns or bindings agreed |
 
 | Id | Rule | Enforced |
 |---|---|---|
 | Y1 | `node` is a `Parameter`, `Function`, `Method`, `Field`, `Variable` or `Constant` node, and `class` is a `Class`, `Protocol` or `Enum` node | Graph |
 | Y2 | At most one inferred type per node | Graph |
-| Y3 | `evidence` is at least 1 | Build |
+| Y3 | `evidence` is at least 1 | Type |
 | Y4 | Every index removes all inferred types and every edge with `resolved_by: Flow`, and writes the ones it computed | Indexer |
 
 ## Reach
@@ -454,7 +459,7 @@ One full path of a route, and the binary that serves it, found by stage 2c. A ro
 | `binary` | `NodeId`, optional | The FastAPI binary whose `app` the mounts lead to. Empty when no binary names that app |
 | `method` | `HttpMethod` | The route's method |
 | `full_path` | text | The prefixes and the local path, joined, with names filled in by stage 2b. A part whose value exists only at run time is written `{?}` |
-| `complete` | flag | True when no part is unknown |
+| `complete` | flag, computed | True when no part is unknown. Worked out from `full_path` when asked, not stored on the value |
 | `uses_defaults` | flag | True when a part was filled from a settings default, which the environment may change |
 | `providers` | list of `NodeId` | The providers that run for this path: from the route, its handler, each router and app on the chain, and each mount on the chain |
 | `tags` | list of text | The tags of the route, its routers and its mounts |
@@ -462,7 +467,7 @@ One full path of a route, and the binary that serves it, found by stage 2c. A ro
 | Id | Rule | Enforced |
 |---|---|---|
 | U1 | `route` is a `Route` node. `binary`, when given, is a `Binary` node whose framework is `Fastapi` | Graph |
-| U2 | `complete` is true exactly when `full_path` holds no `{?}` | Build |
+| U2 | `complete` is true exactly when `full_path` holds no `{?}` | Type |
 | U3 | No two route paths share `route`, `binary` and `full_path` | Graph |
 | U4 | Every index removes all route paths and writes the ones it computed | Indexer |
 | U5 | Every provider is a `Function`, `Method` or `Class` node | Graph |
@@ -528,14 +533,15 @@ Which version of a project the graph was built from. Each project is its own rep
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `project` | `ProjectId` | yes | The project |
-| `branch` | text | no | The branch that was checked out. Empty when the project was on no branch |
-| `commit` | text | no | The commit that was checked out, as 40 hex characters. Empty when the project is not a git repository |
+| `head` | `Head` | no | What was checked out. Empty when the project is not a git repository |
+| `head.commit` | `CommitId` | yes, within `head` | The commit that was checked out |
+| `head.branch` | text | no | The branch that was checked out. Empty when the project was on no branch |
 
 | Id | Rule | Enforced |
 |---|---|---|
 | P1 | There is at most one checkout per project | Graph |
 | P2 | `project` is a `Project` node in the graph | Graph |
-| P3 | A `branch` is given only together with a `commit` | Build |
+| P3 | A `branch` is given only together with a `commit` | Type |
 | P4 | Every index writes the checkout of each project it indexes, read from the project's own `.git` folder. Nothing is fetched | Indexer |
 
 ## Warning
@@ -568,6 +574,51 @@ Something the indexer noticed that does not stop the run. The warnings of the la
 | A1 | `message` is not empty | Build |
 | A2 | A `subject`, when given, is a node in the graph | Graph |
 | A3 | Every index replaces all stored warnings with the ones it raised | Indexer |
+
+## How the types are written in Rust
+
+The tables above say what each type holds. This section says how a Rust type holds it, so that the compiler keeps as many rules as it can and a check keeps only the rest. A rule marked **Type** has no check and no test: a value that breaks it cannot be written.
+
+### Newtypes
+
+Every value with a rule of its own is a newtype: a struct with one private field.
+
+- **One way in.** A value read from text is built by `parse(&str) -> Result<Self, DomainError>`. A computed value has a named constructor, such as `NodeId::compute` or `ContentHash::of`. There is no public field, no `From<String>`, and no constructor that skips the rule.
+- **The narrowest inner type.** `NodeId` and `ReferenceId` hold `[u8; 8]`, and `ContentHash` holds `[u8; 32]`. The hex text exists only in `Display` and `parse`. `Line` and `evidence` hold a `NonZeroU32`, so 0 cannot be held.
+- **Read access, not conversion.** A text newtype offers `as_str(&self) -> &str` and `Display`. It does not implement `Deref<Target = str>`, because that would let every `&str` method treat a `RelPath` as plain text.
+- **Derives.** Every newtype derives `Debug`, `Clone`, `PartialEq`, `Eq` and `Hash`. A newtype with a fixed-size inner value also derives `Copy`: `NodeId`, `ReferenceId`, `ContentHash`, `Line`, `Column`, `Span`. `PartialOrd` and `Ord` are derived only where the order means something: `Line`, `Column`, `Span`, `RelPath`.
+- **Serde through the rule.** A newtype that is read with serde uses `#[serde(try_from = "String", into = "String")]`, so reading one runs `parse`.
+- **No rule, no newtype.** A doc string, a signature, a decorator, a branch name or a note is a plain `String`. A newtype that keeps no rule only adds noise.
+
+### Enums
+
+- **A variant holds its data.** When a value is one of several things, and each thing has its own fields, it is one enum whose variants hold those fields. It is never a tag beside an optional struct. `NodeKind`, `EdgeKind`, `Framework`, `Provenance`, `Scope`, `Origin`, `Shape`, `Root` and `ParseStatus` all follow this.
+- **Kinds that share data share a type.** `NodeKind::Function(Callable)` and `NodeKind::Method(Callable)`. A kind without data is a unit variant: `NodeKind::Service`, `EdgeKind::Calls`.
+- **A fieldless twin names a kind.** Code that needs a kind without its data, to filter, to hash into an id, to store or to look up a rule table, uses a fieldless enum beside the data enum: `NodeKindName`, `EdgeKindName`, `FrameworkName`. `fn name(&self)` maps one to the other in one `match`. The id hashes the name, never the data (N2).
+- **Absence is `Option`.** No enum has a `None` variant: it would shadow `Option::None`, and give two ways to say "nothing". A choice that is a real answer gets a name of its own, as `Framework::Plain` does for a binary decided to have no framework.
+- **Matches are exhaustive.** No `match` in `src/domain` on these enums has a `_` arm, and none of them is `#[non_exhaustive]`. The crate is one binary, so a new kind should break every match that has to decide about it.
+- **Flags stay `bool`** when each is an independent yes or no and every combination is valid, as `is_async`, `is_static`, `is_abstract`, `is_exported` and `type_only` are. A choice between two named things is an enum: `DependencyScope::Build` or `Dev`, never `is_dev`.
+- **Large variants are boxed.** clippy's `large_enum_variant` is denied in this crate. A variant that trips it holds its data in a `Box`, such as `NodeKind::Function(Box<Callable>)`. Which variants need it is found by clippy, not decided here.
+
+### Rules the types keep
+
+| Rule | How the type keeps it |
+|---|---|
+| N1 | `Name` and `QualifiedName` cannot be empty |
+| N8 | The data is inside the `NodeKind` variant, so no other data can be there |
+| N10, for `app` | `app` is a field of `Framework::Fastapi` and of no other variant |
+| E4 | `note` is a field of `Provenance::Declared` and of no other variant |
+| C2, for "never both" | An argument's slot is `Position(u32)` or `Keyword(String)` |
+| U2 | `complete` is not stored. `RoutePath::is_complete()` works it out from `full_path` |
+| Y3 | `evidence` is a `NonZeroU32` |
+| P3 | `commit` and `branch` sit together in `Head { commit: CommitId, branch: Option<String> }`, and a checkout holds `head: Option<Head>` |
+
+### Building nodes and edges
+
+- **Private fields, read through methods.** `Node` and `Edge` have no public field and no setter. A changed node is a new node, since its id depends on its fields.
+- **One input struct per constructor.** `Node::parsed` and `Node::declared` each take one struct of named fields, not a long list of arguments, so two fields of the same type cannot be swapped by mistake. `Node::parsed` also takes the file's `Language`, for N9, and does not store it.
+- **An edge is built from its ends.** `Edge::new` takes `&Node` for the source and the target, so it can check E1 and E2 against their kinds. A store that reads edges back uses `Edge::restore`, which takes the ids and skips E1: what a store holds passed `validate` before it was written ([ADR 0003](./adrs/0003-the-graph-changes-only-on-index.md)). Only stores call `restore`.
+- **A build error names its rule.** Each `DomainError` variant carries the id of the rule it enforces, as `RuleViolation` does, so a test can check that the right rule refused the value.
 
 ## Storing the model
 
@@ -618,7 +669,7 @@ Each query in the [usage guide](./usage-guide.md#commands) works only if the mod
 
 Three levels, each a set of tests.
 
-**1. Each type on its own.** For every rule marked Build: one test that a valid value is accepted, and one that a broken value is refused with an error that names the rule.
+**1. Each type on its own.** For every rule marked Build: one test that a valid value is accepted, and one that a broken value is refused with an error that names the rule. A rule marked Type has no test, since the broken value cannot be written.
 
 **2. The whole graph.** `validate` takes a graph and returns every rule it breaks, not only the first. For every rule marked Graph: one small graph that breaks only that rule, and a check that `validate` reports exactly it.
 
@@ -648,7 +699,7 @@ The fixture must also show that:
 
 `fixtures::acme()` adds the code layer of [python-parsing.md](./python-parsing.md#acme-shop-with-fastapi) and must show that:
 
-- Billing's `api` binary has `framework: Fastapi` and `app: billing.api.app`, and `worker` has `framework: None`.
+- Billing's `api` binary has `framework: Fastapi { app: billing.api.app }`, and `worker` has `framework: Plain`.
 - The route `GET /{invoice_id}` reaches billing's app through two `Mounts` edges, and has one route path: `GET /v1/invoices/{invoice_id}`, complete, served by `api`.
 - `r` in `process` has the inferred type `InvoiceRepo` from 2 call sites, and `r.save()` is a `Calls` edge to `InvoiceRepo.save` with `resolved_by: Flow`, and its reference is kept.
 - `routes/invoices.py` is reached by `api` only, and `services.py` by `worker` and by the test `test_services.py`.
@@ -676,7 +727,9 @@ Points the other pages left open, settled here and confirmed by the project owne
 | Warnings | A structured record: a code, an optional subject node and a message |
 | The release a graph was built from | A checkout is kept for each project, not one for the workspace, so that the `operational-support` mode can check each project against its release branch |
 | The SQLite layout | One `nodes` table and one `edges` table for both layers, with a column per field. The data of an edge kind is typed columns, not JSON. Walks are done in the core, not in SQL |
-| Node data | Part of the kind, as an edge's data is. A field a kind does not have cannot be set |
+| Node data | Part of the kind, as an edge's data is. A field a kind does not have cannot be set. In Rust, each `NodeKind` variant holds its data, so there is no separate data field |
+| Rust types | Newtypes for every value with a rule, data held inside enum variants, a fieldless `...Name` enum where a kind is needed without its data, no `None` variants. Rules N1, N8, E4, P3, U2 and Y3 are kept by the types, and part of N10 and C2. See [How the types are written in Rust](#how-the-types-are-written-in-rust) |
+| A binary with no framework | `Framework::Plain`, not an absent value, so that the configuration's "not given" stays distinct from "decided: none" |
 | Language | On the `Project` node, from the configuration, and on the file record, detected. Not on code nodes |
 | How an index builds the graph | Stage 1 reads every file, one at a time. Stage 2 analyses the finished graph from each root and reads no file again |
 | Types carried from callers | Only when every call site in the workspace passes the same class. Such edges have `resolved_by: Flow`, and their references are kept. Up to 10 rounds by default, set by `analysis.flow_rounds` |

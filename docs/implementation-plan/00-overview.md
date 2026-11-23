@@ -200,11 +200,11 @@ Later slices use these names. A slice that has to change one changes it here in 
 
 | Name | What it is |
 |---|---|
-| `NodeId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash` | The value types. Each has `fn parse(&str) -> Result<Self, DomainError>` |
-| `Node`, `NodeKind`, `Scope`, `Origin`, `Span` | A node. `Node::parsed(...)` and `Node::declared(...)` build one and compute its id. `Node::parsed` takes the file's `Language` to check rule N9, and does not store it |
-| `NodeData`, `ProjectData`, `BinaryData`, `Callable`, `TypeDecl`, `Member`, `RouteData`, `CommandData`, `Doc` | The data a node kind carries |
-| `Framework`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `Fastapi`, `Angular`, `None`; `Declared`, `Compose`, `Dockerfile`, `Entry`; `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
-| `Edge`, `EdgeKind`, `Provenance`, `Site` | An edge. `EdgeKind` carries its data: `Imports { specifier, alias, type_only }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix }`, `Requests { method, path }`, `Sends { name }`, `Invokes { words }`, and the data-less `Receives`. An edge made by resolution records `resolved_by: Option<Resolution>` |
+| `NodeId`, `ReferenceId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash`, `Name`, `QualifiedName`, `Line`, `Column`, `CommitId` | The value types, each a newtype with a private field. Each read from text has `fn parse(&str) -> Result<Self, DomainError>`; ids and hashes are computed. See [How the types are written in Rust](../domain-model.md#how-the-types-are-written-in-rust) |
+| `Node`, `NodeKind`, `NodeKindName`, `Scope`, `Origin`, `Span` | A node. `NodeKind` holds the kind's data in its variant, such as `Function(Callable)`; `NodeKindName` is the same kind without data. `Node::parsed(...)` and `Node::declared(...)` each take one input struct, and compute the id. `Node::parsed` takes the file's `Language` to check rule N9, and does not store it |
+| `ProjectData`, `BinaryData`, `Callable`, `TypeDecl`, `Member`, `RouteData`, `CommandData`, `Doc` | The data a node kind carries, held inside its `NodeKind` variant |
+| `Framework`, `FrameworkName`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `Plain`, `Fastapi { app: Option<QualifiedName> }`, `Angular`; the same three without data; `Declared`, `Compose`, `Dockerfile`, `Entry`; `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
+| `Edge`, `EdgeKind`, `EdgeKindName`, `Provenance`, `Site` | An edge. `Edge::new` takes the two end nodes, to check E1; stores rebuild edges with `Edge::restore`. `Provenance::Declared { note: Option<String> }` holds the note. `EdgeKind` carries its data: `Imports { specifier, alias, type_only }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix }`, `Requests { method, path }`, `Sends { name }`, `Invokes { words }`, and the data-less `Receives`. An edge made by resolution records `resolved_by: Option<Resolution>` |
 | `Resolution`, `Template` | `Import`, `SelfMember`, `SameFile`, `Project`, `CrossProject`, `ReExport`, `Annotation`, `LocalInference`, `Inherited`, `Flow`, `Framework`, `RouteMatch`, `MessageMatch`, `CommandMatch`; parts `Text(String)`, `Hole(String)` or `Unknown`, for a route's path, a prefix and a template value |
 | `DependencyScope`, `Protocol` | `Build` or `Dev`; `Http`, `Grpc` or `Database` |
 | `Language`, `DependencyManager` | `Python`, `TypeScript`; `Uv`, `Poetry`, `Npm`, `Pnpm`, `Yarn`, `Bun` |
@@ -213,7 +213,7 @@ Later slices use these names. A slice that has to change one changes it here in 
 | `CallSite`, `Argument`, `Shape`, `Binding`, `Return` | What stage 1 records about calls, assignments and returns |
 | `InferredType`, `Reach`, `Root`, `RoutePath`, `UnmatchedHttpCall`, `UnmatchedMessage`, `MessagePayload` | What stage 2 computes |
 | `Warning`, `WarningCode` | A warning |
-| `ProjectCheckout` | A project's branch and commit |
+| `ProjectCheckout`, `Head` | A project's checkout: `head: Option<Head>`, with `Head { commit: CommitId, branch: Option<String> }` |
 | `Graph` | Nodes, edges, file records, references, warnings and checkouts together. `fn validate(&self) -> Vec<RuleViolation>` |
 | `RuleViolation` | `{ rule: &'static str, message: String }`. `rule` is an id from the domain model, such as `"T2"` |
 | `DomainError` | What building a broken value returns |
@@ -263,8 +263,7 @@ pub trait IndexWriter {
 | Name | What it is |
 |---|---|
 | `Direction` | `Out`, `In` or `Both` |
-| `EdgeKindName` | An edge kind without its data, for filtering |
-| `NodeFilter` | `{ kinds: Vec<NodeKind>, project: Option<ProjectId> }` |
+| `NodeFilter` | `{ kinds: Vec<NodeKindName>, project: Option<ProjectId> }` |
 | `FileFilter` | `{ project: Option<ProjectId>, status: Option<ParseStatus> }` |
 | `FileRef` | `{ project: ProjectId, path: RelPath }` |
 | `ParsedFile` | `{ record: FileRecord, nodes: Vec<Node>, edges: Vec<Edge>, unresolved: Vec<UnresolvedReference>, call_sites: Vec<CallSite>, bindings: Vec<Binding>, returns: Vec<Return> }` |

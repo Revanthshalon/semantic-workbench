@@ -924,6 +924,18 @@ for f in sorted(FILE_MODULE, key=lambda x: (project_of(x), path_of(x))):
 FOLLOW = {"imports", "calls", "instantiates", "references", "decorates", "mounts", "handles", "injects", "requests"}
 
 
+def package_inits(file_id):
+    """The __init__.py File of every package that contains the module, outermost first."""
+    project, path = project_of(file_id), path_of(file_id)
+    folders = path.split("/")[:-1]
+    found = []
+    for depth in range(1, len(folders) + 1):
+        init = FILES.get((project, "/".join(folders[:depth] + ["__init__.py"])))
+        if init and init != file_id:
+            found.append(init)
+    return found
+
+
 def reach_from(starts):
     seen, stack = set(), list(starts)
     while stack:
@@ -937,7 +949,14 @@ def reach_from(starts):
             k = e["kind"]
             if k not in FOLLOW:
                 continue
-            if k == "imports" and (kind(e["target"]) != "file" or (e["data"] or {}).get("type_only")):
+            if k == "imports":
+                if (e["data"] or {}).get("type_only"):
+                    continue
+                # Importing a name runs the module that defines it, not the name itself:
+                # `from billing.services import process` reaches the File services.py.
+                module_file = e["target"] if kind(e["target"]) == "file" else file_of(e["target"])
+                stack.append(module_file)
+                stack.extend(package_inits(module_file))  # each package on the way runs first
                 continue
             stack.append(e["target"])
             if k == "instantiates":

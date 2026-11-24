@@ -43,20 +43,40 @@ python3 -m http.server -d examples/acme-shop/site 8000   # then open http://loca
 | Edges | 287, of which 177 `Contains` |
 | Unresolved references | 112, all into packages outside the workspace |
 | Call sites, bindings, returns | 77, 33, 19 |
-| Inferred types, reach records, route paths, payloads | 2, 117, 3, 2 |
+| Inferred types, reach records, route paths, payloads | 2, 197, 3, 2 |
 | Warnings | 2: `StackNamedAfterFolder`, `HttpCallWithoutLink` |
 
 The checkout commits are made up, and every file's modification time is fixed, so that the output does not change from one run to the next.
 
-## Where the spec was unclear
+## How to use it
 
-Building the graph showed these gaps in the spec. Each was settled one way in the scripts, as noted.
+The scripts are an executable copy of the spec, and their output is the answer the Rust implementation must give for this workspace.
 
-1. **Test functions.** Reach starts at a test file, but nothing in the code calls a `test_*` function; pytest does. Test reach starts at the file's test functions and fixtures as well.
-2. **Module-level names.** `app.include_router(...)` gives a `Mounts` edge from the `app` variable, not from the file, and reach follows edges out of a `File`. A reached file also reaches its module-level variables and constants.
-3. **Reach of `routes/invoices.py`.** `domain-model.md` says it is reached by `api` only. Ledger's `api` reaches it too, through `Requests` and then `Handles`, as the reach rules define.
-4. **`set_defaults(func=f)`** gives both a `Handles` edge (argparse) and a `References` edge (plain-binary callbacks). Both are emitted. Without the `References` edge, `run_consume` is reached by no binary.
-5. **SQLAlchemy models.** `class InvoiceRow(Base)`, with `Base = declarative_base()`, gives no `Extends` edge, because `Base` is a variable.
-6. **A plain binary's `framework_source`** is not specified. It is `entry` here.
-7. **The ledger stack** takes its name from the configuration, so it is `Declared`, as in `graph-model.md`.
-8. **The fixture `repo`** gets an inferred return type, `InvoiceRepo` with evidence 1, which the example's tables do not list.
+| When | Use |
+|---|---|
+| Writing `NodeId` (step 1, task 2) | `lib/ids.py` gives the expected id of any node, so `known_inputs_give_a_known_id` tests real values. The workspace node is `node_id("workspace", "", "", "workspace", "workspace", 0)` = `cf04ba99fe901113` |
+| Writing the fixtures (step 1, task 10) | `site/graph.json` is the expected graph. `acme_workspace_layer()` must give its 27 workspace nodes and 54 workspace edges with the same ids; every node `acme()` holds must have the id given there |
+| Writing the Python reader (step 5) | `out/stage1.json` is the expected stage 1 output per file: nodes, `Contains` edges, unresolved references, call sites, bindings and returns. `out/stage2.json` is the expected stage 2 output. Both use the same line and column convention as tree-sitter |
+| Writing the queries (step 6) | `site/graph.json` answers the Acme questions the query tests ask: who reaches a node, which tests to run, which route a call matches |
+| Changing the model | Change the docs, change the script that builds that part, and run the four scripts again. The diff of `site/graph.json` shows exactly what the change does to a real workspace, and `merge.py` says whether it breaks a rule |
+| Reviewing a change | Open the viewer and follow a node through its edges and records. Every field of the model is on screen |
+
+The scripts are a stand-in, not the product. They read Python with `ast` and know only what this workspace needs: where the spec and the scripts differ, the spec wins and the script is fixed.
+
+## The spec gaps this graph exposed
+
+Building the graph showed where the spec was silent or wrong. Each gap is now settled in the docs, and the scripts follow them.
+
+| Gap | Settled as | Where |
+|---|---|---|
+| Nothing in the code calls a `test_*` function, so reach from a test file found nothing | Test reach starts at the file and at each test function and fixture in it | [python-parsing.md, stage 2e](../../docs/python-parsing.md#stage-2e-reach) |
+| `app = FastAPI()` and its `Mounts` hang off a variable, and reach followed only edges out of a `File` | A reached file reaches its module-level variables and constants, and follows their edges | stage 2e |
+| `from billing.services import process` reached the function, not the module, so `services.py` was unreached | An import reaches the `File` of the module, and the `__init__.py` of each package on the way, never the imported name | stage 2e |
+| "`routes/invoices.py` is reached by `api` only" read as if ledger's `api` were excluded | Reach is per node. The file is reached by billing's `api` and `test_api.py`; its handler also by ledger's `api` | [domain-model.md, Reach](../../docs/domain-model.md#reach) and the fixture checks |
+| `set_defaults(func=f)` fell under two rules | Both edges are intended: `Handles` from the command, `References` to `f` | [python-parsing.md, argparse](../../docs/python-parsing.md#command-line-binaries-argparse) |
+| `class InvoiceRow(Base)` with `Base = declarative_base()` | Stays unresolved: there is no class to point at. SQLAlchemy 2's `DeclarativeBase` resolves | python-parsing.md, References, `Extends` |
+| A plain binary's `framework_source` | `entry`, or `declared` when the configuration writes `framework: none` | domain-model.md, node data, and python-parsing.md, framework |
+| A stack's origin when its name comes from the configuration | `Declared`. `Parsed` when the name comes from the compose file or its folder | [domain-model.md, Origin](../../docs/domain-model.md#origin) |
+| The fixture `repo` takes an inferred return the examples did not list | Correct by the existing rule; now listed | example-workspace.md and the fixture checks |
+
+Each is also a row in the [decisions of domain-model.md](../../docs/domain-model.md#decisions-made-on-this-page).

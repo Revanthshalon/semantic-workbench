@@ -190,7 +190,7 @@ The bytes of a node id, in order, each written with `field`:
 | `node_id_refuses_upper_case_and_wrong_length` | `9F2C41D07AB35E18` and a 15-character id are `Malformed` |
 | `content_hash_of_empty_input_is_blake3s` | Equals BLAKE3's published hash of no bytes |
 | `length_prefix_separates_shifted_fields` | `field("a").field("bc")` and `field("ab").field("c")` give different ids |
-| `known_inputs_give_a_known_id` | A fixed set of six fields gives a fixed id, written in the test. It guards against an accidental change of the encoding |
+| `known_inputs_give_a_known_id` | A fixed set of six fields gives a fixed id, written in the test. It guards against an accidental change of the encoding. Take the expected ids from [`examples/acme-shop/lib/ids.py`](../../examples/acme-shop/lib/ids.py): the workspace node, `node_id("workspace", "", "", "workspace", "workspace", 0)`, is `cf04ba99fe901113`, and `site/graph.json` holds the id of every other Acme node |
 
 **Commit:** `feat(domain): add node ids and content hashes`
 
@@ -747,6 +747,8 @@ pub fn acme() -> Result<Graph, DomainError>;                   // plus the code 
 ```
 
 They return `Result`, not `Graph`, because building through the constructors can fail and `unwrap` is denied. A test calls `acme()?`.
+
+The expected graph is [`examples/acme-shop/site/graph.json`](../../examples/acme-shop/site/graph.json). `acme_workspace_layer()` must give exactly its 27 workspace nodes and 54 workspace edges, with the same ids. `acme()` holds the subset of its code layer the checks below need, and every node it holds has the id that file gives it.
 
 Nodes are built with `Node::workspace`, `Node::declared`, `Node::binary` and `Node::parsed`, and edges with `Edge::new`. Private helpers keep the fixture short: `project(&mut Graph, id, language)`, `contains(&mut Graph, parent, child, provenance)`, and so on.
 

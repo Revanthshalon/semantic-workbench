@@ -343,13 +343,13 @@ A call made inside a helper is matched once for each copy 2b carried to a caller
 |---|---|
 | A binary | Its entry `File` (`EntryPoint`) |
 | A named module | A module named in a string that Stage 1 or the workspace layer found: a compose `command` (`uvicorn billing.api:app`, `python -m ledger.consumer`), a binary's `app`, a `uvicorn.run("billing.api:app")` call |
-| A test | A file named `test_*.py` or `*_test.py`, a file under a folder named `tests`, and `conftest.py` |
+| A test | A file named `test_*.py` or `*_test.py`, a file under a folder named `tests`, and `conftest.py`. Reach starts at the file and at each test function and fixture in it, because pytest calls them and no code in the workspace does |
 
 **Edges followed, from a root outwards.**
 
 | Edge | Why it means "may run" |
 |---|---|
-| `Imports`, to a `File`, unless the import is `type_only` | Importing a module runs its module-level code. An import under `if TYPE_CHECKING:` never runs, so reach does not follow it |
+| `Imports`, unless the import is `type_only` | Importing a module runs its module-level code. An import of a name, such as `from billing.services import process`, runs the module that defines the name, so reach goes to that `File`, not to the name itself. The `__init__.py` of each package on the way runs first, so it is reached too. An import under `if TYPE_CHECKING:` never runs, so reach does not follow it |
 | `Calls`, `Instantiates` | The callee runs. `Instantiates` also reaches the class's `__init__` |
 | `References` | A function passed as a value is assumed to be called |
 | `Overrides`, followed backwards | A call to a base method may run any override of it |
@@ -358,7 +358,9 @@ A call made inside a helper is matched once for each copy 2b carried to a caller
 | `Injects` | A route or provider runs its providers, and a test or fixture runs its fixtures |
 | `Requests`, then `Handles` | A call to a route runs its handler. This is how an API test, or a client in another project, reaches the handler |
 
-Module-level code of a reached `File` reaches what it calls. A reached class does not reach its methods by itself; each method is reached through its own calls.
+Module-level code of a reached `File` runs. So reach follows the file's own edges, and also reaches the file's module-level `Variable` and `Constant` nodes and follows theirs. This is how `app = FastAPI()` is reached, and from it the `Mounts` edges to its routers and routes. A reached class does not reach its methods by itself; each method is reached through its own calls.
+
+Reach is recorded per node. A file is reached when its `File` node is. A node inside it can be reached by more roots than the file, through a call or a `Requests` edge: ledger's `api` reaches billing's handler `get_invoice` without reaching the file `routes/invoices.py`.
 
 **What is stored.** For each code node, the roots that reach it. It is computed again at every index, and replaced in the same transaction.
 
@@ -521,7 +523,7 @@ The parser records each as an unresolved reference. Resolution turns it into an 
 | `Imports` | `import a.b`, `from a import b`, with or without `as`, relative or absolute | The `File` | `from x import *` gives one edge, to the module's `File`. An import inside `if TYPE_CHECKING:` or `if typing.TYPE_CHECKING:` is marked `type_only`: it resolves like any import, and reach does not follow it |
 | `Calls` | A call expression | The node the call is in, or the `File` at module level | |
 | `Instantiates` | A call that resolves to a class | as `Calls` | |
-| `Extends` | A base in a `class` statement | The class | |
+| `Extends` | A base in a `class` statement | The class | A base that resolves to a variable, such as SQLAlchemy's `Base = declarative_base()`, stays unresolved: there is no class to point at, so the models of one `Base` share no `Extends` edge. SQLAlchemy 2's `class Base(DeclarativeBase)` is a class, and resolves |
 | `Implements` | A base that resolves to a `Protocol`, or to a class with an abstract method | The class | Replaces `Extends` for that base |
 | `Overrides` | A method whose name is also a method of a resolved base class, searched up the chain | The method | When the bases resolve and none has the name, the reference is dropped instead of kept |
 | `Decorates` | A decorator that resolves to a node | The decorator's node, to the decorated node | Decorators from outside the workspace, such as `staticmethod`, stay unresolved |
@@ -588,7 +590,7 @@ The workspace layer decides it, in [step 4](./implementation-plan/step-4-workspa
 | 1 | The configuration: `binaries[].framework` and `binaries[].app` | The framework, and the app | `{name: api, entry: src/billing/main.py, framework: fastapi, app: billing.app:create_app}` |
 | 2 | The command line of a service that runs the binary: its compose `command` and `entrypoint`, else its Dockerfile's `CMD` and `ENTRYPOINT` (see [The command a service runs](#the-command-a-service-runs)) | The framework, and the app | `uvicorn billing.api:app`, `fastapi run src/billing/api.py`, `gunicorn -k uvicorn.workers.UvicornWorker billing.api:app` |
 | 3 | The entry file | The framework, and the app | It imports from `fastapi`, and binds `FastAPI(...)` to a name at module level, or defines a function that returns one |
-| 4 | None of the above | `none`: a plain binary | Billing's `worker` |
+| 4 | None of the above | `none`: a plain binary, with `framework_source: entry`, the last source read. A configuration that writes `framework: none` gives `declared` instead, at source 1 | Billing's `worker` |
 
 The framework is set on a binary only, never on a project. A project's library files need no setting: the framework's rules read every file that imports it (principle 3).
 
@@ -691,7 +693,7 @@ When a file imports `argparse`, its parsers and subcommands become `Command` nod
 | `parser = argparse.ArgumentParser(prog="ledger-consumer", description=...)` | A `Command` for the program, with an empty path | | `program`, `help`, `options` |
 | `sub = parser.add_subparsers(dest="cmd")`, then `replay = sub.add_parser("replay", help=...)` | A `Command` with path `["replay"]`, child of the program's command. A subparser of a subparser nests further: `["db", "migrate"]` | | `help` |
 | `replay.add_argument("--from", ...)`, `add_argument("source")` | | | Each option and positional argument, as written, in `options` |
-| `replay.set_defaults(func=run_replay)` | | `Handles` from the command to `run_replay` | |
+| `replay.set_defaults(func=run_replay)` | | `Handles` from the command to `run_replay`. Also `References` from the node the call is in to `run_replay`, by the core's callback rule | Both edges are intended. `Handles` says which command runs the function. `References` makes it reachable from the binary's entry, because reach does not follow a command's `Handles`: a command runs only when it is invoked |
 | `if args.cmd == "replay": run_replay(args)`, or `match args.cmd: case "replay": ...`, where `cmd` is the `dest` of the subparsers | | `Handles` from the command to each function the branch calls | |
 
 - **The program's name** is `prog` when it is text, and otherwise the binary's name when the file is a binary's entry, and otherwise the module's last name.
@@ -849,8 +851,8 @@ billing-api/tests/
 └── test_services.py    process(InvoiceRepo())
 ```
 
-- **2b:** both call sites pass `InvoiceRepo`. So `r` takes `InvoiceRepo`, and `r.save()` becomes a `Calls` edge to `InvoiceRepo.save` with `resolved_by: flow`.
-- **2e:** `routes/invoices.py` is reached by `api` only. `services.py` is reached by `worker` and by the test `test_services.py`. `db.py` is reached by `api` through `Injects` and by `worker` through `SessionLocal`. `outbox.py` is reached by both: the API writes outbox rows and the worker relays them.
+- **2b:** both call sites pass `InvoiceRepo`. So `r` takes `InvoiceRepo`, and `r.save()` becomes a `Calls` edge to `InvoiceRepo.save` with `resolved_by: flow`. The fixture `repo` in `conftest.py` returns `InvoiceRepo()` on its one return, so it takes the inferred return `InvoiceRepo`, with evidence 1.
+- **2e:** the file `routes/invoices.py` is reached by billing's `api` and by the test `test_api.py`, which imports the app, and not by `worker`. Its handler `get_invoice` is also reached by ledger's `api`, through the `Requests` edge of `fetch_invoice`. `services.py` is reached by `worker` and by the test `test_services.py`, through their imports of `process`, and not by `api`. `db.py` and `outbox.py` are reached by both binaries: the API writes outbox rows and the worker relays them.
 - **2c:** `GET /v1/invoices/{invoice_id}`, complete, served by `api`. `search "/v1/invoices"` finds it.
 
 Release 1's cross-repository answers add:

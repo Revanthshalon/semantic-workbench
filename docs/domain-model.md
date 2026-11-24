@@ -75,6 +75,8 @@ Where a node came from. It is one of two things.
 | `Parsed` | A `RelPath` and a `Span` | A node read from a file: code, and whatever a compose file states |
 | `Declared` | nothing | A node that exists because the configuration says so |
 
+A `Stack` is `Parsed` from its first compose file when its Compose name is read from that file or from the file's folder, and `Declared` when the configuration gives the name. A network that no file entry states, such as `billing-api_default`, is `Declared`.
+
 ## Node
 
 | Field | Type | Required | Meaning |
@@ -115,7 +117,7 @@ The fields:
 | `language` | `Language` | `Python` or `TypeScript` |
 | `framework` | `Framework` | `Plain` (no framework: a plain binary), `Fastapi { app }` or `Angular` |
 | `app` | `QualifiedName`, optional | Inside `Fastapi` only: the qualified name of the binary's app, such as `billing.api.app` |
-| `framework_source` | `FrameworkSource` | Where `framework` came from: `Declared` (the configuration), `Compose` (a compose command), `Dockerfile` (a Dockerfile's `CMD` or `ENTRYPOINT`) or `Entry` (the entry file) |
+| `framework_source` | `FrameworkSource` | Where `framework` came from: `Declared` (the configuration), `Compose` (a compose command), `Dockerfile` (a Dockerfile's `CMD` or `ENTRYPOINT`) or `Entry` (the entry file). A plain binary has `Entry`, the last source read, unless the configuration writes `framework: none`, which gives `Declared` |
 | `doc` | text, optional | The doc string |
 | `signature` | text, optional | The declaration as written, on one line |
 | `visibility` | `Visibility`, optional | `Public`, `Private`, `Protected` or `Internal` |
@@ -437,7 +439,7 @@ A node's class, worked out by stage 2b. It exists only when all of the node's ev
 
 ## Reach
 
-That a root may run a code node, found by stage 2e over resolved edges.
+That a root may run a code node, found by stage 2e over resolved edges. A record is per node: a file is reached when its `File` node is, and a node inside the file may be reached by more roots than the file is.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -705,7 +707,8 @@ The fixture must also show that:
 - Billing's `api` binary has `framework: Fastapi { app: billing.api.app }`, and `worker` has `framework: Plain`.
 - The route `GET /{invoice_id}` reaches billing's app through two `Mounts` edges, and has one route path: `GET /v1/invoices/{invoice_id}`, complete, served by `api`.
 - `r` in `process` has the inferred type `InvoiceRepo` from 2 call sites, and `r.save()` is a `Calls` edge to `InvoiceRepo.save` with `resolved_by: Flow`, and its reference is kept.
-- `routes/invoices.py` is reached by `api` only, and `services.py` by `worker` and by the test `test_services.py`.
+- The file `routes/invoices.py` is reached by billing's `api` and the test `test_api.py`, and not by `worker`. Its handler `get_invoice` is also reached by ledger's `api`. `services.py` is reached by `worker` and the test `test_services.py`, and not by `api`. The package files `billing/__init__.py` and `billing/routes/__init__.py` are reached by billing's `api`.
+- The fixture `repo` has the inferred return `InvoiceRepo`, from 1 return.
 - Ledger's `fetch_invoice` has a `Requests` edge to `GET /{invoice_id}`, with `resolved_by: RouteMatch`, and the index raises one `HttpCallWithoutLink` warning about it.
 - `test_get_invoice` has a `Requests` edge to the same route and an `Injects` edge to the fixture `repo`, and `impact` on the handler `--tests` lists it.
 - `send_invoice` has a `Sends` edge, and `run_consume` a `Receives` edge, to `kafka/invoice.created`, each with `Invoice` as payload.
@@ -746,6 +749,14 @@ Points the other pages left open, settled here and confirmed by the project owne
 | Dockerfiles | Read for the command line a service runs: its binary when nothing else names it, its framework, and the command it invokes. Facts from them have the `Dockerfile` provenance |
 | Commands | `argparse` parsers and subcommands are `Command` nodes. A compose service is linked to the command it runs by `Invokes`, computed in stage 2 |
 | A binary's framework | Decided before parsing, per binary, from the configuration, then a compose command, then the entry file. A framework's rules read every file that imports it |
+| A plain binary's `framework_source` | `Entry`, the last source read, or `Declared` when the configuration writes `framework: none` |
+| A stack's origin | `Parsed` when its Compose name comes from its compose file or that file's folder, `Declared` when the configuration names it |
+| What an import reaches | The `File` of the module, for an import of a module or of a name in it, and the `__init__.py` of each package on the way. Never the imported name itself |
+| Where test reach starts | At the test file, and at each test function and fixture in it |
+| Module-level names | A reached file reaches its module-level variables and constants, so `app = FastAPI()` and its mounts are followed |
+| `set_defaults(func=f)` | Both `Handles` from the command and `References` to `f`: one says which command runs `f`, the other makes `f` reachable from the entry |
+| A base class bound to a variable | `class M(Base)` with `Base = declarative_base()` stays unresolved, since there is no class to point at |
+| The reference output | [`examples/acme-shop`](../examples/acme-shop/README.md) builds this page's Acme Shop graph with scripts, and is what the Rust implementation is checked against |
 
 ## Open points
 

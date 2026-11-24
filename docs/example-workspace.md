@@ -615,16 +615,23 @@ What stage 2 stores beside the edges, for this workspace.
 | Node | Class | Evidence |
 |---|---|---|
 | Parameter `r` of `billing.services.process` | `InvoiceRepo` | 2 call sites |
+| Function `tests.conftest.repo` (its return) | `InvoiceRepo` | 1 return |
 
-**Reach (2e).** Which binaries may run each file. Reach follows calls, imports and framework edges, never `Sends` or `Receives`.
+**Reach (2e).** Which roots may run each file. Reach follows calls, imports and framework edges, never `Sends` or `Receives`. An import of a name reaches the file that defines it, because Python runs that module.
 
 | File | Reached by |
 |---|---|
-| `src/billing/routes/invoices.py` | `api` |
-| `src/billing/outbox.py` | `api` (through `create_invoice`) and `worker` (through `relay_once`) |
-| `src/billing/db.py` | `api` (through `Injects`) and `worker` (through `SessionLocal`) |
-| `src/billing/services.py` | `worker`, and the test `tests/test_services.py` |
+| `src/billing/routes/invoices.py` | billing's `api`, and the test `tests/test_api.py` (it imports the app). Not `worker` |
+| `src/billing/outbox.py` | `api` and `worker`, and the test `tests/test_api.py` |
+| `src/billing/db.py` | `api` and `worker`, and the test `tests/test_api.py` |
+| `src/billing/services.py` | `worker`, and the test `tests/test_services.py`. Not `api` |
+| `src/billing/repo.py` | `worker`, and the tests `tests/conftest.py` and `tests/test_services.py` |
 | `src/ledger/clients.py` | `api` of `ledger-api` |
+| `src/shared_api/models.py` | every binary of `billing-api` and `ledger-api`, and the test `tests/test_api.py` |
+
+Reach is recorded per node, so a function can be reached by more roots than its file. Billing's handler `get_invoice` is also reached by ledger's `api`, through the `Requests` edge of `fetch_invoice`, without that binary reaching the file `routes/invoices.py`. The package files `__init__.py` are reached along with the modules below them.
+
+The [complete graph](../examples/acme-shop/README.md) lists every reach record, with the rest of the graph.
 
 **Messages and payloads (2f).** Both sides carry `Invoice`. The sender builds the message with `invoice.model_dump_json()`, and the handler reads it with `Invoice.model_validate_json(...)`.
 

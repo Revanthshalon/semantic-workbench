@@ -1,0 +1,5 @@
+services:
+  api:      {build: ., networks: [backbone]}
+  consumer: {build: ., command: python -m ledger.consumer run, networks: [backbone]}
+networks:
+  backbone: {external: true, name: "${BACKBONE_NET}"}

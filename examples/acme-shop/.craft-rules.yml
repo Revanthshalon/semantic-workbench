@@ -1,0 +1,4 @@
+rules:
+  PY001: ignore
+  PY003: ignore
+  PY007: ignore

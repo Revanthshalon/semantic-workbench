@@ -27,7 +27,7 @@ Three things make that possible.
 
 1. **Contracts first.** Slice C0 lands the traits and result types that slices share, with no behaviour. After it, a slice that calls the store does not wait for SQLite, and the command line does not wait for the queries.
 2. **A store in memory.** C0 also lands `MemoryStore`, a `GraphStore` that holds a `Graph` in memory. Every use case is tested on it. SQLite must pass the same tests.
-3. **One fixture.** The Acme Shop graph exists as a value in code from slice 1E, so a query can be tested before any indexer exists.
+3. **One fixture.** The Acme Shop graph exists as a value in code from slice 1E, so a query can be tested before any indexer exists. Its expected content, down to every id and record, is the reference output in [`examples/acme-shop`](../../examples/acme-shop/README.md#how-to-use-it).
 
 ### Rules for a slice
 

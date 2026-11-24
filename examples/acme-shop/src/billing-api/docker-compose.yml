@@ -1,0 +1,5 @@
+services:
+  api:    {build: {context: ., target: api},    networks: [default, backbone]}
+  worker: {build: {context: ., target: worker}, networks: [default, backbone]}
+networks:
+  backbone: {external: true, name: acme-backbone}

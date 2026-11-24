@@ -1,0 +1,3 @@
+class InvoiceRepo:
+    def save(self):
+        ...

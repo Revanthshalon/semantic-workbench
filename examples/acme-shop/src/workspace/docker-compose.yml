@@ -1,0 +1,6 @@
+name: acme-infra
+services:
+  kafka:    {image: apache/kafka:3.8, networks: [backbone]}
+  postgres: {image: postgres:16,      networks: [backbone]}
+networks:
+  backbone: {name: acme-backbone}

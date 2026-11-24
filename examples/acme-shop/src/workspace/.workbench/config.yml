@@ -1,0 +1,42 @@
+# ~/acme/workspace/.workbench/config.yml
+version: 1
+compose:
+  - files: [docker-compose.yml]       # the shared infrastructure stack
+    projects: [billing-api, ledger-api]
+projects:
+  - id: shared-api
+    path: ../shared-api
+    language: python
+    dependency_manager: uv
+  - id: billing-api
+    path: ../billing-api
+    language: python
+    dependency_manager: uv
+    binaries:
+      - {name: api,    entry: src/billing/api.py}
+      - {name: worker, entry: src/billing/worker.py}
+    links:
+      - {service: postgres, via: database, binary: api}       # writes invoices and outbox rows
+      - {service: postgres, via: database, binary: worker}    # reads and marks outbox rows
+      - {service: kafka, via: topic, name: invoice.created, role: publish, binary: worker}
+  - id: ledger-api
+    path: ../ledger-api
+    language: python
+    dependency_manager: poetry
+    binaries:
+      - {name: api,      entry: src/ledger/api.py}
+      - {name: consumer, entry: src/ledger/consumer.py}
+    compose:
+      name: ledger                     # set by `-p ledger`, not in the file
+      networks:
+        backbone: acme-backbone        # the file only says ${BACKBONE_NET}
+    links:
+      - {service: kafka, via: topic, name: invoice.created, role: subscribe, binary: consumer}
+  - id: web-app
+    path: ../web-app
+    language: typescript
+    dependency_manager: pnpm
+    binaries:
+      - {name: admin, entry: projects/admin/src/main.ts, framework: angular}
+    links:
+      - {service: api, stack: billing-api, via: http, binary: admin}

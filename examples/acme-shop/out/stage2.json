@@ -1,0 +1,2325 @@
+{
+ "edges": [
+  {
+   "source": "490b14abc230906b",
+   "target": "fff789b76c761c34",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.routes.invoices",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/api.py",
+    "line": 3,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "278361f79e4e8e35",
+   "target": "b88427d5dbd6cd56",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.settings.settings",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/db.py",
+    "line": 4,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "e047319c98ed5b38",
+   "target": "83a7da791ef08367",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.db.Base",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/models.py",
+    "line": 4,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "1ed88472683bfe48",
+   "target": "83a7da791ef08367",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.db.Base",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/outbox.py",
+    "line": 6,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "1ed88472683bfe48",
+   "target": "e25afd6a464c86c0",
+   "kind": "imports",
+   "data": {
+    "specifier": "shared_api.models.Invoice",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/outbox.py",
+    "line": 7,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "cross_project",
+   "stage": "2a"
+  },
+  {
+   "source": "fff789b76c761c34",
+   "target": "1ed88472683bfe48",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.outbox",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 4,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "fff789b76c761c34",
+   "target": "701549bae29968f1",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.db.get_db",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 5,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "fff789b76c761c34",
+   "target": "0dac2e2f91d5d9e2",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.models.InvoiceIn",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 6,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "fff789b76c761c34",
+   "target": "b92661d36248dda7",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.models.InvoiceRow",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 6,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "fff789b76c761c34",
+   "target": "148d142af03b2ade",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.outbox.INVOICE_CREATED",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 7,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "fff789b76c761c34",
+   "target": "e25afd6a464c86c0",
+   "kind": "imports",
+   "data": {
+    "specifier": "shared_api.models.Invoice",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 8,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "cross_project",
+   "stage": "2a"
+  },
+  {
+   "source": "efecff7698d9c906",
+   "target": "1ed88472683bfe48",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.outbox",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 5,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "efecff7698d9c906",
+   "target": "aa648e986161c4aa",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.db.SessionLocal",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 6,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "efecff7698d9c906",
+   "target": "25a45be12e568188",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.repo.InvoiceRepo",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 7,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "efecff7698d9c906",
+   "target": "000bd8a3cb17ea02",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.services.process",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 8,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "efecff7698d9c906",
+   "target": "e25afd6a464c86c0",
+   "kind": "imports",
+   "data": {
+    "specifier": "shared_api.models.Invoice",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 9,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "cross_project",
+   "stage": "2a"
+  },
+  {
+   "source": "b150ff2cf54e2975",
+   "target": "25a45be12e568188",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.repo.InvoiceRepo",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "tests/conftest.py",
+    "line": 3,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "372113b4fb1a3188",
+   "target": "2e664d9516b443ec",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.api.app",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "tests/test_api.py",
+    "line": 3,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "07d27de3d0da1b82",
+   "target": "25a45be12e568188",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.repo.InvoiceRepo",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "tests/test_services.py",
+    "line": 1,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "07d27de3d0da1b82",
+   "target": "000bd8a3cb17ea02",
+   "kind": "imports",
+   "data": {
+    "specifier": "billing.services.process",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "tests/test_services.py",
+    "line": 2,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "3ba86308bed32821",
+   "target": "21e04330c4d5d00a",
+   "kind": "imports",
+   "data": {
+    "specifier": "ledger.clients.fetch_invoice",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/ledger/api.py",
+    "line": 4,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "project",
+   "stage": "2a"
+  },
+  {
+   "source": "da55688593821fdc",
+   "target": "e25afd6a464c86c0",
+   "kind": "imports",
+   "data": {
+    "specifier": "shared_api.models.Invoice",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/ledger/clients.py",
+    "line": 3,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "cross_project",
+   "stage": "2a"
+  },
+  {
+   "source": "b6edd93e26b5fbb6",
+   "target": "e25afd6a464c86c0",
+   "kind": "imports",
+   "data": {
+    "specifier": "shared_api.models.Invoice",
+    "alias": null,
+    "type_only": false
+   },
+   "site": {
+    "path": "src/ledger/consumer.py",
+    "line": 5,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "cross_project",
+   "stage": "2a"
+  },
+  {
+   "source": "0455de566fe681d3",
+   "target": "e25afd6a464c86c0",
+   "kind": "type_of",
+   "data": null,
+   "site": {
+    "path": "src/billing/outbox.py",
+    "line": 20,
+    "column": 45
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "822f630716031e3e",
+   "target": "9f698f271653ce73",
+   "kind": "returns",
+   "data": null,
+   "site": {
+    "path": "src/billing/outbox.py",
+    "line": 24,
+    "column": 51
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "cbd12a1b3093d411",
+   "target": "9f698f271653ce73",
+   "kind": "type_of",
+   "data": null,
+   "site": {
+    "path": "src/billing/outbox.py",
+    "line": 28,
+    "column": 34
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "885ef4b60ff21fa9",
+   "target": "e25afd6a464c86c0",
+   "kind": "returns",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 14,
+    "column": 73
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "e45871f667d8499b",
+   "target": "e25afd6a464c86c0",
+   "kind": "returns",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 13,
+    "column": 44
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "a306933e0c90b097",
+   "target": "e25afd6a464c86c0",
+   "kind": "returns",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 19,
+    "column": 76
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "c813b3c3c85b11f9",
+   "target": "e25afd6a464c86c0",
+   "kind": "returns",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 18,
+    "column": 33
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "d1475c4ff6b5b942",
+   "target": "0dac2e2f91d5d9e2",
+   "kind": "type_of",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 19,
+    "column": 31
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "df81eadb27348869",
+   "target": "e25afd6a464c86c0",
+   "kind": "type_of",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 15,
+    "column": 26
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "aacb1ecee0a81c20",
+   "target": "8e72b212746c311d",
+   "kind": "type_of",
+   "data": null,
+   "site": {
+    "path": "src/ledger/api.py",
+    "line": 14,
+    "column": 21
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "21e04330c4d5d00a",
+   "target": "e25afd6a464c86c0",
+   "kind": "returns",
+   "data": null,
+   "site": {
+    "path": "src/ledger/clients.py",
+    "line": 8,
+    "column": 38
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "d752bf398f5e8b66",
+   "target": "e25afd6a464c86c0",
+   "kind": "type_of",
+   "data": null,
+   "site": {
+    "path": "src/ledger/consumer.py",
+    "line": 17,
+    "column": 26
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "2e664d9516b443ec",
+   "target": "50fb4ddbe7541a3f",
+   "kind": "mounts",
+   "data": {
+    "prefix": {
+     "parts": [
+      {
+       "text": "/v1"
+      }
+     ]
+    },
+    "tags": []
+   },
+   "site": {
+    "path": "src/billing/api.py",
+    "line": 6,
+    "column": 19
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "278361f79e4e8e35",
+   "target": "a44bf3b6b606bf9e",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "src/billing/db.py",
+    "line": 6,
+    "column": 23
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "local_inference",
+   "stage": "2a"
+  },
+  {
+   "source": "278361f79e4e8e35",
+   "target": "8854dec0cb3709f8",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "src/billing/db.py",
+    "line": 7,
+    "column": 28
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "701549bae29968f1",
+   "target": "aa648e986161c4aa",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/db.py",
+    "line": 12,
+    "column": 9
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "4aa16259d2e56e9c",
+   "target": "9f698f271653ce73",
+   "kind": "instantiates",
+   "data": null,
+   "site": {
+    "path": "src/billing/outbox.py",
+    "line": 21,
+    "column": 11
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "822f630716031e3e",
+   "target": "9f698f271653ce73",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "src/billing/outbox.py",
+    "line": 25,
+    "column": 20
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "50fb4ddbe7541a3f",
+   "target": "e45871f667d8499b",
+   "kind": "mounts",
+   "data": {
+    "prefix": null,
+    "tags": []
+   },
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 13,
+    "column": 1
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "e45871f667d8499b",
+   "target": "885ef4b60ff21fa9",
+   "kind": "handles",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 14,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "885ef4b60ff21fa9",
+   "target": "701549bae29968f1",
+   "kind": "injects",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 14,
+    "column": 61
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "50fb4ddbe7541a3f",
+   "target": "c813b3c3c85b11f9",
+   "kind": "mounts",
+   "data": {
+    "prefix": null,
+    "tags": []
+   },
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 18,
+    "column": 1
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "c813b3c3c85b11f9",
+   "target": "a306933e0c90b097",
+   "kind": "handles",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 19,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "a306933e0c90b097",
+   "target": "701549bae29968f1",
+   "kind": "injects",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 19,
+    "column": 64
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "885ef4b60ff21fa9",
+   "target": "b92661d36248dda7",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 15,
+    "column": 41
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "a306933e0c90b097",
+   "target": "b92661d36248dda7",
+   "kind": "instantiates",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 21,
+    "column": 14
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "a306933e0c90b097",
+   "target": "4aa16259d2e56e9c",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 25,
+    "column": 8
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "a306933e0c90b097",
+   "target": "148d142af03b2ade",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "src/billing/routes/invoices.py",
+    "line": 25,
+    "column": 26
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "e25fe44817364a26",
+   "target": "8cf572215b6ab545",
+   "kind": "instantiates",
+   "data": null,
+   "site": {
+    "path": "src/billing/settings.py",
+    "line": 8,
+    "column": 11
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "efecff7698d9c906",
+   "target": "25a45be12e568188",
+   "kind": "instantiates",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 12,
+    "column": 7
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "9b022d435700dacb",
+   "target": "aa648e986161c4aa",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 20,
+    "column": 9
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "9b022d435700dacb",
+   "target": "822f630716031e3e",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 21,
+    "column": 21
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "9b022d435700dacb",
+   "target": "3acfa4f330d41f46",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 22,
+    "column": 12
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "9b022d435700dacb",
+   "target": "9434786a24a02a25",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 23,
+    "column": 12
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "9b022d435700dacb",
+   "target": "000bd8a3cb17ea02",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 24,
+    "column": 4
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "9b022d435700dacb",
+   "target": "32b76e7aeadc9e17",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 24,
+    "column": 12
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "9c1e30dec813823e",
+   "target": "9b022d435700dacb",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 29,
+    "column": 8
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "efecff7698d9c906",
+   "target": "9c1e30dec813823e",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 34,
+    "column": 4
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "7ffd68f0199982d3",
+   "target": "25a45be12e568188",
+   "kind": "instantiates",
+   "data": null,
+   "site": {
+    "path": "tests/conftest.py",
+    "line": 8,
+    "column": 11
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "49dae25cf2843886",
+   "target": "7ffd68f0199982d3",
+   "kind": "injects",
+   "data": null,
+   "site": {
+    "path": "tests/test_api.py",
+    "line": 6,
+    "column": 21
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "49dae25cf2843886",
+   "target": "2e664d9516b443ec",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "tests/test_api.py",
+    "line": 7,
+    "column": 22
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "0534c03d2cefd0c1",
+   "target": "000bd8a3cb17ea02",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "tests/test_services.py",
+    "line": 6,
+    "column": 4
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "0534c03d2cefd0c1",
+   "target": "25a45be12e568188",
+   "kind": "instantiates",
+   "data": null,
+   "site": {
+    "path": "tests/test_services.py",
+    "line": 6,
+    "column": 12
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "9a6475869bec51a6",
+   "target": "57ddc6e06d8b643c",
+   "kind": "mounts",
+   "data": {
+    "prefix": null,
+    "tags": []
+   },
+   "site": {
+    "path": "src/ledger/api.py",
+    "line": 13,
+    "column": 1
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "57ddc6e06d8b643c",
+   "target": "71a55dde6a6dacd1",
+   "kind": "handles",
+   "data": null,
+   "site": {
+    "path": "src/ledger/api.py",
+    "line": 14,
+    "column": 0
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "71a55dde6a6dacd1",
+   "target": "21e04330c4d5d00a",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/ledger/api.py",
+    "line": 15,
+    "column": 14
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "import",
+   "stage": "2a"
+  },
+  {
+   "source": "21e04330c4d5d00a",
+   "target": "7eb284a58ace48df",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "src/ledger/clients.py",
+    "line": 9,
+    "column": 47
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "fdab35d20e22b645",
+   "target": "4b7b17bc237e33bc",
+   "kind": "handles",
+   "data": null,
+   "site": {
+    "path": "src/ledger/consumer.py",
+    "line": 24,
+    "column": 44
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "0edbb08f97b9accc",
+   "target": "b7b7ac4d836526e4",
+   "kind": "handles",
+   "data": null,
+   "site": {
+    "path": "src/ledger/consumer.py",
+    "line": 27,
+    "column": 29
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "framework",
+   "stage": "2a"
+  },
+  {
+   "source": "4b7b17bc237e33bc",
+   "target": "7a1abbfb58997e61",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/ledger/consumer.py",
+    "line": 10,
+    "column": 8
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "5cd342ebc59aa792",
+   "target": "4b7b17bc237e33bc",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "src/ledger/consumer.py",
+    "line": 24,
+    "column": 44
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "5cd342ebc59aa792",
+   "target": "b7b7ac4d836526e4",
+   "kind": "references",
+   "data": null,
+   "site": {
+    "path": "src/ledger/consumer.py",
+    "line": 27,
+    "column": 29
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "b6edd93e26b5fbb6",
+   "target": "5cd342ebc59aa792",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/ledger/consumer.py",
+    "line": 33,
+    "column": 4
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "same_file",
+   "stage": "2a"
+  },
+  {
+   "source": "000bd8a3cb17ea02",
+   "target": "9c8b68b86407d2f3",
+   "kind": "calls",
+   "data": null,
+   "site": {
+    "path": "src/billing/services.py",
+    "line": 2,
+    "column": 4
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "flow",
+   "stage": "2b"
+  },
+  {
+   "source": "49dae25cf2843886",
+   "target": "e45871f667d8499b",
+   "kind": "requests",
+   "data": {
+    "method": "get",
+    "path": "/v1/invoices/1"
+   },
+   "site": {
+    "path": "tests/test_api.py",
+    "line": 7,
+    "column": 27
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "route_match",
+   "stage": "2d"
+  },
+  {
+   "source": "21e04330c4d5d00a",
+   "target": "e45871f667d8499b",
+   "kind": "requests",
+   "data": {
+    "method": "get",
+    "path": "/v1/invoices/{?}"
+   },
+   "site": {
+    "path": "src/ledger/clients.py",
+    "line": 9,
+    "column": 34
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "route_match",
+   "stage": "2d"
+  },
+  {
+   "source": "3acfa4f330d41f46",
+   "target": "e6ed7e6fe039cc1e",
+   "kind": "sends",
+   "data": {
+    "name": "invoice.created"
+   },
+   "site": {
+    "path": "src/billing/worker.py",
+    "line": 16,
+    "column": 4
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "message_match",
+   "stage": "2f"
+  },
+  {
+   "source": "4b7b17bc237e33bc",
+   "target": "e6ed7e6fe039cc1e",
+   "kind": "receives",
+   "data": null,
+   "site": {
+    "path": "src/ledger/consumer.py",
+    "line": 9,
+    "column": 19
+   },
+   "provenance": "tree_sitter",
+   "note": null,
+   "resolved_by": "message_match",
+   "stage": "2f"
+  },
+  {
+   "source": "0b3ed4ec3d33c781",
+   "target": "fdab35d20e22b645",
+   "kind": "invokes",
+   "data": {
+    "words": [
+     "run"
+    ]
+   },
+   "site": null,
+   "provenance": "compose",
+   "note": null,
+   "resolved_by": "command_match",
+   "stage": "2f"
+  }
+ ],
+ "resolved_reference_ids": [
+  "5d5a7ff3dee893ca",
+  "7113353acbe5fac7",
+  "616d9b14139f41e0",
+  "efe6705961147c26",
+  "73334606614e9be3",
+  "80a99cad8a6766be",
+  "a6648109cee091ad",
+  "61ce8e7e8da72430",
+  "39b57daba12697ac",
+  "7dc0540bb9d7a6da",
+  "a05379bb2bc0d0bb",
+  "cbfc1178052e842b",
+  "8a162a0d41cc73c7",
+  "bbaa9f3a75c4fbb9",
+  "998029e2a1117da9",
+  "027f17f43055d7f1",
+  "e7aa09beedfffb9b",
+  "1034d7d7772c565d",
+  "ee1b9941c6e75868",
+  "0efe91a36ee863b2",
+  "c09407c0ac2803cb",
+  "9a5960ba03785d6d",
+  "9f55712a935cde90",
+  "0861a4266a32e3aa",
+  "f67fe677cdefdd13",
+  "bd2d16dcc2dd5ec2",
+  "1449ef16ccade072",
+  "c1385b189eed6db7",
+  "5cd82809668ac82c",
+  "082b0fed131ad7fa",
+  "962df3388eae3e00",
+  "39dd0b9a0d33420d",
+  "3131d1a63ec48d9b",
+  "580bb982b315d170",
+  "c34c5bf7053f2e0c",
+  "4e9397d57a1a1cb9",
+  "ad6b7cac4a8db01d",
+  "65ab74fa42b04630",
+  "cf0b37f331ecba01",
+  "504c618f043201f5",
+  "bae248f73f926ff0",
+  "669bb9e455417771",
+  "33cb75e9ad6bea10",
+  "4bd84c1041d75b6d",
+  "e257b53d8ecc118f",
+  "0df4ac3e0c4e855c",
+  "efd09e3945675e34",
+  "ef33b69efcf3a5a7",
+  "736ed7b1434a5201",
+  "06664cde3d101959",
+  "f370547f60cb6bf9",
+  "3dff0d4beb6bc569",
+  "b2f963939d3bd840",
+  "1ddfa95883b18106",
+  "2c40eda54fa4b80c",
+  "3b847a3ae79c75e5",
+  "7c03621306f07c97",
+  "92a818a4138cb602",
+  "ef263105dd8c7fb1",
+  "e0889ff76ace0145",
+  "0b066151db5f323c",
+  "9121666d8e9079d1",
+  "ea6e5e2432134cfb",
+  "20c493eb9a5f0754",
+  "c4584435c8cb3868",
+  "3bf1d5e6d88f63aa",
+  "b9064802e0f2b550",
+  "6accd0a97cb48c41",
+  "09eea612e56b7a87",
+  "31e42b53c5bbd6e6",
+  "7f890b2c29519924",
+  "7c4ad7f9a84c061c",
+  "1ecae26c9af577da",
+  "2e5371c6256f8b4f",
+  "8dc4e9a2f1d0a4bc",
+  "9681beee27436d1d"
+ ],
+ "flow_resolved_reference_ids": [
+  "3ba38fa8b2aa238b"
+ ],
+ "inferred_types": [
+  {
+   "node": "7b25e07f0a1e82a6",
+   "class": "25a45be12e568188",
+   "evidence": 2
+  },
+  {
+   "node": "7ffd68f0199982d3",
+   "class": "25a45be12e568188",
+   "evidence": 1
+  }
+ ],
+ "reach": [
+  {
+   "node": "148d142af03b2ade",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "1ed88472683bfe48",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "2e664d9516b443ec",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "490b14abc230906b",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "4aa16259d2e56e9c",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "50fb4ddbe7541a3f",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "701549bae29968f1",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "885ef4b60ff21fa9",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "9f698f271653ce73",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "a306933e0c90b097",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "aa648e986161c4aa",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "b92661d36248dda7",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "c813b3c3c85b11f9",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "e45871f667d8499b",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "fff789b76c761c34",
+   "root": {
+    "type": "binary",
+    "node": "9ccbae6bcaf80f61"
+   }
+  },
+  {
+   "node": "000bd8a3cb17ea02",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "148d142af03b2ade",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "1ed88472683bfe48",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "25a45be12e568188",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "32b76e7aeadc9e17",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "3acfa4f330d41f46",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "4cf329d9255fb646",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "822f630716031e3e",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "9434786a24a02a25",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "9b022d435700dacb",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "9c1e30dec813823e",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "9c8b68b86407d2f3",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "9f698f271653ce73",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "aa648e986161c4aa",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "efecff7698d9c906",
+   "root": {
+    "type": "binary",
+    "node": "f95e91baefbd140d"
+   }
+  },
+  {
+   "node": "21e04330c4d5d00a",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "3ba86308bed32821",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "57ddc6e06d8b643c",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "701549bae29968f1",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "71a55dde6a6dacd1",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "7eb284a58ace48df",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "885ef4b60ff21fa9",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "9a6475869bec51a6",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "aa648e986161c4aa",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "b92661d36248dda7",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "e45871f667d8499b",
+   "root": {
+    "type": "binary",
+    "node": "c1db7341d642dd86"
+   }
+  },
+  {
+   "node": "4b7b17bc237e33bc",
+   "root": {
+    "type": "binary",
+    "node": "a879c4ad18c6a0d8"
+   }
+  },
+  {
+   "node": "5cd342ebc59aa792",
+   "root": {
+    "type": "binary",
+    "node": "a879c4ad18c6a0d8"
+   }
+  },
+  {
+   "node": "7a1abbfb58997e61",
+   "root": {
+    "type": "binary",
+    "node": "a879c4ad18c6a0d8"
+   }
+  },
+  {
+   "node": "b6edd93e26b5fbb6",
+   "root": {
+    "type": "binary",
+    "node": "a879c4ad18c6a0d8"
+   }
+  },
+  {
+   "node": "b7b7ac4d836526e4",
+   "root": {
+    "type": "binary",
+    "node": "a879c4ad18c6a0d8"
+   }
+  },
+  {
+   "node": "11d84b299f4fc64d",
+   "root": {
+    "type": "binary",
+    "node": "1db29a0688a9828f"
+   }
+  },
+  {
+   "node": "148d142af03b2ade",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "1ed88472683bfe48",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "2e664d9516b443ec",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "490b14abc230906b",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "4aa16259d2e56e9c",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "50fb4ddbe7541a3f",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "701549bae29968f1",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "885ef4b60ff21fa9",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "9f698f271653ce73",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "a306933e0c90b097",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "aa648e986161c4aa",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "b92661d36248dda7",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "c813b3c3c85b11f9",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "e45871f667d8499b",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "fff789b76c761c34",
+   "root": {
+    "type": "module",
+    "node": "490b14abc230906b"
+   }
+  },
+  {
+   "node": "21e04330c4d5d00a",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "3ba86308bed32821",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "57ddc6e06d8b643c",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "701549bae29968f1",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "71a55dde6a6dacd1",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "7eb284a58ace48df",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "885ef4b60ff21fa9",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "9a6475869bec51a6",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "aa648e986161c4aa",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "b92661d36248dda7",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "e45871f667d8499b",
+   "root": {
+    "type": "module",
+    "node": "3ba86308bed32821"
+   }
+  },
+  {
+   "node": "000bd8a3cb17ea02",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "148d142af03b2ade",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "1ed88472683bfe48",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "25a45be12e568188",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "32b76e7aeadc9e17",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "3acfa4f330d41f46",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "4cf329d9255fb646",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "822f630716031e3e",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "9434786a24a02a25",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "9b022d435700dacb",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "9c1e30dec813823e",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "9c8b68b86407d2f3",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "9f698f271653ce73",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "aa648e986161c4aa",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "efecff7698d9c906",
+   "root": {
+    "type": "module",
+    "node": "efecff7698d9c906"
+   }
+  },
+  {
+   "node": "4b7b17bc237e33bc",
+   "root": {
+    "type": "module",
+    "node": "b6edd93e26b5fbb6"
+   }
+  },
+  {
+   "node": "5cd342ebc59aa792",
+   "root": {
+    "type": "module",
+    "node": "b6edd93e26b5fbb6"
+   }
+  },
+  {
+   "node": "7a1abbfb58997e61",
+   "root": {
+    "type": "module",
+    "node": "b6edd93e26b5fbb6"
+   }
+  },
+  {
+   "node": "b6edd93e26b5fbb6",
+   "root": {
+    "type": "module",
+    "node": "b6edd93e26b5fbb6"
+   }
+  },
+  {
+   "node": "b7b7ac4d836526e4",
+   "root": {
+    "type": "module",
+    "node": "b6edd93e26b5fbb6"
+   }
+  },
+  {
+   "node": "25a45be12e568188",
+   "root": {
+    "type": "test",
+    "node": "b150ff2cf54e2975"
+   }
+  },
+  {
+   "node": "7ffd68f0199982d3",
+   "root": {
+    "type": "test",
+    "node": "b150ff2cf54e2975"
+   }
+  },
+  {
+   "node": "b150ff2cf54e2975",
+   "root": {
+    "type": "test",
+    "node": "b150ff2cf54e2975"
+   }
+  },
+  {
+   "node": "148d142af03b2ade",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "25a45be12e568188",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "2e664d9516b443ec",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "372113b4fb1a3188",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "49dae25cf2843886",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "4aa16259d2e56e9c",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "50fb4ddbe7541a3f",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "701549bae29968f1",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "7ffd68f0199982d3",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "885ef4b60ff21fa9",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "9f698f271653ce73",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "a306933e0c90b097",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "aa648e986161c4aa",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "b92661d36248dda7",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "c813b3c3c85b11f9",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "e45871f667d8499b",
+   "root": {
+    "type": "test",
+    "node": "372113b4fb1a3188"
+   }
+  },
+  {
+   "node": "000bd8a3cb17ea02",
+   "root": {
+    "type": "test",
+    "node": "07d27de3d0da1b82"
+   }
+  },
+  {
+   "node": "0534c03d2cefd0c1",
+   "root": {
+    "type": "test",
+    "node": "07d27de3d0da1b82"
+   }
+  },
+  {
+   "node": "07d27de3d0da1b82",
+   "root": {
+    "type": "test",
+    "node": "07d27de3d0da1b82"
+   }
+  },
+  {
+   "node": "25a45be12e568188",
+   "root": {
+    "type": "test",
+    "node": "07d27de3d0da1b82"
+   }
+  },
+  {
+   "node": "9c8b68b86407d2f3",
+   "root": {
+    "type": "test",
+    "node": "07d27de3d0da1b82"
+   }
+  }
+ ],
+ "route_paths": [
+  {
+   "route": "e45871f667d8499b",
+   "binary": "9ccbae6bcaf80f61",
+   "method": "get",
+   "full_path": "/v1/invoices/{invoice_id}",
+   "complete": true,
+   "uses_defaults": false,
+   "providers": [
+    "701549bae29968f1"
+   ],
+   "tags": []
+  },
+  {
+   "route": "c813b3c3c85b11f9",
+   "binary": "9ccbae6bcaf80f61",
+   "method": "post",
+   "full_path": "/v1/invoices/",
+   "complete": true,
+   "uses_defaults": false,
+   "providers": [
+    "701549bae29968f1"
+   ],
+   "tags": []
+  },
+  {
+   "route": "57ddc6e06d8b643c",
+   "binary": "c1db7341d642dd86",
+   "method": "post",
+   "full_path": "/entries",
+   "complete": true,
+   "uses_defaults": false,
+   "providers": [],
+   "tags": []
+  }
+ ],
+ "unmatched_http_calls": [],
+ "unmatched_messages": [],
+ "payloads": [
+  {
+   "topic": "e6ed7e6fe039cc1e",
+   "node": "3acfa4f330d41f46",
+   "direction": "send",
+   "class": "e25afd6a464c86c0"
+  },
+  {
+   "topic": "e6ed7e6fe039cc1e",
+   "node": "4b7b17bc237e33bc",
+   "direction": "receive",
+   "class": "e25afd6a464c86c0"
+  }
+ ],
+ "warnings": [
+  {
+   "code": "http_call_without_link",
+   "subject": "21e04330c4d5d00a",
+   "message": "ledger.clients.fetch_invoice calls GET /v1/invoices/{invoice_id}, served by binary api of billing-api, and ledger-api declares no http link to a service that runs it; add {service: api, stack: billing-api, via: http, binary: api} to the links of ledger-api."
+  }
+ ]
+}

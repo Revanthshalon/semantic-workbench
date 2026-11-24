@@ -1,0 +1,1235 @@
+{
+  "nodes": [
+    {
+      "id": "cf04ba99fe901113",
+      "kind": "workspace",
+      "name": "workspace",
+      "qualified_name": "workspace",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "189316d1b5c4fe84",
+      "kind": "project",
+      "name": "shared-api",
+      "qualified_name": "shared-api",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": {
+        "language": "python"
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "4df6a64e2a4a7034",
+      "kind": "project",
+      "name": "billing-api",
+      "qualified_name": "billing-api",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": {
+        "language": "python"
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "539630d30abf2407",
+      "kind": "project",
+      "name": "ledger-api",
+      "qualified_name": "ledger-api",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": {
+        "language": "python"
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "c6efaec5439c6eb6",
+      "kind": "project",
+      "name": "web-app",
+      "qualified_name": "web-app",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": {
+        "language": "typescript"
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "9ccbae6bcaf80f61",
+      "kind": "binary",
+      "name": "api",
+      "qualified_name": "api",
+      "scope": {
+        "type": "project",
+        "name": "billing-api"
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": {
+        "framework": {
+          "type": "fastapi",
+          "app": "billing.api.app"
+        },
+        "framework_source": "dockerfile"
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "f95e91baefbd140d",
+      "kind": "binary",
+      "name": "worker",
+      "qualified_name": "worker",
+      "scope": {
+        "type": "project",
+        "name": "billing-api"
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": {
+        "framework": {
+          "type": "plain"
+        },
+        "framework_source": "entry"
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "c1db7341d642dd86",
+      "kind": "binary",
+      "name": "api",
+      "qualified_name": "api",
+      "scope": {
+        "type": "project",
+        "name": "ledger-api"
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": {
+        "framework": {
+          "type": "fastapi",
+          "app": "ledger.api.app"
+        },
+        "framework_source": "dockerfile"
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "a879c4ad18c6a0d8",
+      "kind": "binary",
+      "name": "consumer",
+      "qualified_name": "consumer",
+      "scope": {
+        "type": "project",
+        "name": "ledger-api"
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": {
+        "framework": {
+          "type": "plain"
+        },
+        "framework_source": "entry"
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "1db29a0688a9828f",
+      "kind": "binary",
+      "name": "admin",
+      "qualified_name": "admin",
+      "scope": {
+        "type": "project",
+        "name": "web-app"
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": {
+        "framework": {
+          "type": "angular"
+        },
+        "framework_source": "declared"
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "490b14abc230906b",
+      "kind": "file",
+      "name": "api.py",
+      "qualified_name": "src/billing/api.py",
+      "scope": {
+        "type": "project",
+        "name": "billing-api"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "src/billing/api.py",
+        "span": {
+          "start_line": 1,
+          "start_column": 0,
+          "end_line": 6,
+          "end_column": 49
+        }
+      },
+      "ordinal": 0,
+      "data": {
+        "doc": null
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "efecff7698d9c906",
+      "kind": "file",
+      "name": "worker.py",
+      "qualified_name": "src/billing/worker.py",
+      "scope": {
+        "type": "project",
+        "name": "billing-api"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "src/billing/worker.py",
+        "span": {
+          "start_line": 1,
+          "start_column": 0,
+          "end_line": 34,
+          "end_column": 10
+        }
+      },
+      "ordinal": 0,
+      "data": {
+        "doc": null
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "3ba86308bed32821",
+      "kind": "file",
+      "name": "api.py",
+      "qualified_name": "src/ledger/api.py",
+      "scope": {
+        "type": "project",
+        "name": "ledger-api"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "src/ledger/api.py",
+        "span": {
+          "start_line": 1,
+          "start_column": 0,
+          "end_line": 16,
+          "end_column": 7
+        }
+      },
+      "ordinal": 0,
+      "data": {
+        "doc": null
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "b6edd93e26b5fbb6",
+      "kind": "file",
+      "name": "consumer.py",
+      "qualified_name": "src/ledger/consumer.py",
+      "scope": {
+        "type": "project",
+        "name": "ledger-api"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "src/ledger/consumer.py",
+        "span": {
+          "start_line": 1,
+          "start_column": 0,
+          "end_line": 33,
+          "end_column": 10
+        }
+      },
+      "ordinal": 0,
+      "data": {
+        "doc": null
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "11d84b299f4fc64d",
+      "kind": "file",
+      "name": "main.ts",
+      "qualified_name": "projects/admin/src/main.ts",
+      "scope": {
+        "type": "project",
+        "name": "web-app"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "projects/admin/src/main.ts",
+        "span": {
+          "start_line": 1,
+          "start_column": 0,
+          "end_line": 4,
+          "end_column": 35
+        }
+      },
+      "ordinal": 0,
+      "data": {
+        "doc": null
+      },
+      "layer": "workspace"
+    },
+    {
+      "id": "ac009f7e5e2d35ec",
+      "kind": "stack",
+      "name": "acme-infra",
+      "qualified_name": "acme-infra",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "docker-compose.yml",
+        "span": {
+          "start_line": 1,
+          "start_column": 0,
+          "end_line": 6,
+          "end_column": 33
+        }
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "1611c6866d41bd23",
+      "kind": "stack",
+      "name": "billing-api",
+      "qualified_name": "billing-api",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "../billing-api/docker-compose.yml",
+        "span": {
+          "start_line": 1,
+          "start_column": 0,
+          "end_line": 5,
+          "end_column": 49
+        }
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "cecfd2526c0fd715",
+      "kind": "stack",
+      "name": "ledger",
+      "qualified_name": "ledger",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "e9d2fdd538d33b2b",
+      "kind": "network",
+      "name": "acme-backbone",
+      "qualified_name": "acme-backbone",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "docker-compose.yml",
+        "span": {
+          "start_line": 6,
+          "start_column": 2,
+          "end_line": 6,
+          "end_column": 33
+        }
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "40e474e3b1528d5f",
+      "kind": "network",
+      "name": "billing-api_default",
+      "qualified_name": "billing-api_default",
+      "scope": {
+        "type": "workspace",
+        "name": null
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "29745d83abaa2655",
+      "kind": "external_service",
+      "name": "kafka",
+      "qualified_name": "kafka",
+      "scope": {
+        "type": "stack",
+        "name": "acme-infra"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "docker-compose.yml",
+        "span": {
+          "start_line": 3,
+          "start_column": 2,
+          "end_line": 3,
+          "end_column": 59
+        }
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "a5826a9c895313f1",
+      "kind": "external_service",
+      "name": "postgres",
+      "qualified_name": "postgres",
+      "scope": {
+        "type": "stack",
+        "name": "acme-infra"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "docker-compose.yml",
+        "span": {
+          "start_line": 4,
+          "start_column": 2,
+          "end_line": 4,
+          "end_column": 59
+        }
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "f91e251be7cc4b6a",
+      "kind": "service",
+      "name": "api",
+      "qualified_name": "api",
+      "scope": {
+        "type": "stack",
+        "name": "billing-api"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "../billing-api/docker-compose.yml",
+        "span": {
+          "start_line": 2,
+          "start_column": 2,
+          "end_line": 2,
+          "end_column": 78
+        }
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "bd65c290ef9f60b5",
+      "kind": "service",
+      "name": "worker",
+      "qualified_name": "worker",
+      "scope": {
+        "type": "stack",
+        "name": "billing-api"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "../billing-api/docker-compose.yml",
+        "span": {
+          "start_line": 3,
+          "start_column": 2,
+          "end_line": 3,
+          "end_column": 78
+        }
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "af8ef51373781ac5",
+      "kind": "service",
+      "name": "api",
+      "qualified_name": "api",
+      "scope": {
+        "type": "stack",
+        "name": "ledger"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "../ledger-api/docker-compose.yml",
+        "span": {
+          "start_line": 2,
+          "start_column": 2,
+          "end_line": 2,
+          "end_column": 44
+        }
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "0b3ed4ec3d33c781",
+      "kind": "service",
+      "name": "consumer",
+      "qualified_name": "consumer",
+      "scope": {
+        "type": "stack",
+        "name": "ledger"
+      },
+      "origin": {
+        "type": "parsed",
+        "path": "../ledger-api/docker-compose.yml",
+        "span": {
+          "start_line": 3,
+          "start_column": 2,
+          "end_line": 3,
+          "end_column": 84
+        }
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    },
+    {
+      "id": "e6ed7e6fe039cc1e",
+      "kind": "topic",
+      "name": "invoice.created",
+      "qualified_name": "kafka/invoice.created",
+      "scope": {
+        "type": "stack",
+        "name": "acme-infra"
+      },
+      "origin": {
+        "type": "declared"
+      },
+      "ordinal": 0,
+      "data": null,
+      "layer": "workspace"
+    }
+  ],
+  "edges": [
+    {
+      "source": "cf04ba99fe901113",
+      "target": "189316d1b5c4fe84",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cf04ba99fe901113",
+      "target": "4df6a64e2a4a7034",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cf04ba99fe901113",
+      "target": "539630d30abf2407",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cf04ba99fe901113",
+      "target": "c6efaec5439c6eb6",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "4df6a64e2a4a7034",
+      "target": "9ccbae6bcaf80f61",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "4df6a64e2a4a7034",
+      "target": "f95e91baefbd140d",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "539630d30abf2407",
+      "target": "c1db7341d642dd86",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "539630d30abf2407",
+      "target": "a879c4ad18c6a0d8",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "c6efaec5439c6eb6",
+      "target": "1db29a0688a9828f",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "4df6a64e2a4a7034",
+      "target": "490b14abc230906b",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "tree_sitter",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "4df6a64e2a4a7034",
+      "target": "efecff7698d9c906",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "tree_sitter",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "539630d30abf2407",
+      "target": "3ba86308bed32821",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "tree_sitter",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "539630d30abf2407",
+      "target": "b6edd93e26b5fbb6",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "tree_sitter",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "c6efaec5439c6eb6",
+      "target": "11d84b299f4fc64d",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "tree_sitter",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cf04ba99fe901113",
+      "target": "ac009f7e5e2d35ec",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cf04ba99fe901113",
+      "target": "1611c6866d41bd23",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cf04ba99fe901113",
+      "target": "cecfd2526c0fd715",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cf04ba99fe901113",
+      "target": "e9d2fdd538d33b2b",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cf04ba99fe901113",
+      "target": "40e474e3b1528d5f",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "ac009f7e5e2d35ec",
+      "target": "29745d83abaa2655",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "ac009f7e5e2d35ec",
+      "target": "a5826a9c895313f1",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "1611c6866d41bd23",
+      "target": "f91e251be7cc4b6a",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "1611c6866d41bd23",
+      "target": "bd65c290ef9f60b5",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cecfd2526c0fd715",
+      "target": "af8ef51373781ac5",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "cecfd2526c0fd715",
+      "target": "0b3ed4ec3d33c781",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "29745d83abaa2655",
+      "target": "e6ed7e6fe039cc1e",
+      "kind": "contains",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "4df6a64e2a4a7034",
+      "target": "189316d1b5c4fe84",
+      "kind": "depends_on",
+      "data": {
+        "scope": "build"
+      },
+      "site": null,
+      "provenance": "manifest",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "539630d30abf2407",
+      "target": "189316d1b5c4fe84",
+      "kind": "depends_on",
+      "data": {
+        "scope": "build"
+      },
+      "site": null,
+      "provenance": "manifest",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "4df6a64e2a4a7034",
+      "target": "1611c6866d41bd23",
+      "kind": "uses",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "4df6a64e2a4a7034",
+      "target": "ac009f7e5e2d35ec",
+      "kind": "uses",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "539630d30abf2407",
+      "target": "cecfd2526c0fd715",
+      "kind": "uses",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "539630d30abf2407",
+      "target": "ac009f7e5e2d35ec",
+      "kind": "uses",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "9ccbae6bcaf80f61",
+      "target": "490b14abc230906b",
+      "kind": "entry_point",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "f95e91baefbd140d",
+      "target": "efecff7698d9c906",
+      "kind": "entry_point",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "c1db7341d642dd86",
+      "target": "3ba86308bed32821",
+      "kind": "entry_point",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "a879c4ad18c6a0d8",
+      "target": "b6edd93e26b5fbb6",
+      "kind": "entry_point",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "1db29a0688a9828f",
+      "target": "11d84b299f4fc64d",
+      "kind": "entry_point",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "f91e251be7cc4b6a",
+      "target": "9ccbae6bcaf80f61",
+      "kind": "runs",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "bd65c290ef9f60b5",
+      "target": "f95e91baefbd140d",
+      "kind": "runs",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "af8ef51373781ac5",
+      "target": "c1db7341d642dd86",
+      "kind": "runs",
+      "data": null,
+      "site": null,
+      "provenance": "dockerfile",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "0b3ed4ec3d33c781",
+      "target": "a879c4ad18c6a0d8",
+      "kind": "runs",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "29745d83abaa2655",
+      "target": "e9d2fdd538d33b2b",
+      "kind": "joins",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "a5826a9c895313f1",
+      "target": "e9d2fdd538d33b2b",
+      "kind": "joins",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "f91e251be7cc4b6a",
+      "target": "40e474e3b1528d5f",
+      "kind": "joins",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "f91e251be7cc4b6a",
+      "target": "e9d2fdd538d33b2b",
+      "kind": "joins",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "bd65c290ef9f60b5",
+      "target": "40e474e3b1528d5f",
+      "kind": "joins",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "bd65c290ef9f60b5",
+      "target": "e9d2fdd538d33b2b",
+      "kind": "joins",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "af8ef51373781ac5",
+      "target": "e9d2fdd538d33b2b",
+      "kind": "joins",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "0b3ed4ec3d33c781",
+      "target": "e9d2fdd538d33b2b",
+      "kind": "joins",
+      "data": null,
+      "site": null,
+      "provenance": "compose",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "9ccbae6bcaf80f61",
+      "target": "a5826a9c895313f1",
+      "kind": "connects_to",
+      "data": {
+        "protocol": "database"
+      },
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "f95e91baefbd140d",
+      "target": "a5826a9c895313f1",
+      "kind": "connects_to",
+      "data": {
+        "protocol": "database"
+      },
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "1db29a0688a9828f",
+      "target": "f91e251be7cc4b6a",
+      "kind": "connects_to",
+      "data": {
+        "protocol": "http"
+      },
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "f95e91baefbd140d",
+      "target": "e6ed7e6fe039cc1e",
+      "kind": "publishes",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    },
+    {
+      "source": "a879c4ad18c6a0d8",
+      "target": "e6ed7e6fe039cc1e",
+      "kind": "subscribes",
+      "data": null,
+      "site": null,
+      "provenance": "declared",
+      "note": null,
+      "resolved_by": null,
+      "stage": "workspace"
+    }
+  ],
+  "files": [
+    {
+      "project": "web-app",
+      "path": "projects/admin/src/main.ts",
+      "content_hash": "a2088a685fa36d76996bcf88a2ccfd5d368f7bd2781ab505be28a484bc3fd0fb",
+      "size": 155,
+      "mtime_ns": 1795478400000000000,
+      "language": "typescript",
+      "status": {
+        "type": "grammar_unavailable"
+      }
+    }
+  ],
+  "warnings": [
+    {
+      "code": "stack_named_after_folder",
+      "subject": "1611c6866d41bd23",
+      "message": "Stack billing-api takes its Compose name from the folder of ../billing-api/docker-compose.yml, and web-app's link names it; add a name to that compose file or the configuration."
+    }
+  ],
+  "checkouts": [
+    {
+      "project": "shared-api",
+      "head": {
+        "commit": "e5324bd04b43bd22932e2bc555f6e86d8a1cb8b8",
+        "branch": "main"
+      }
+    },
+    {
+      "project": "billing-api",
+      "head": {
+        "commit": "0bb8bbe3e8d8589d41d79a5449a6308afe9e78cf",
+        "branch": "main"
+      }
+    },
+    {
+      "project": "ledger-api",
+      "head": {
+        "commit": "77f554d2f5ec3a18377f2a2f87e0086c50621380",
+        "branch": "main"
+      }
+    },
+    {
+      "project": "web-app",
+      "head": {
+        "commit": "7d2a84146d5263a312d48d917e56810bb0cb7ff6",
+        "branch": "main"
+      }
+    }
+  ]
+}

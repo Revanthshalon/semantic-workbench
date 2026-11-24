@@ -1,0 +1,1490 @@
+<title>Acme Shop Graph</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --bg: #eef1f4; --surface: #ffffff; --surface-2: #f6f8fa; --sunken: #e5e9ee; --canvas: #f9fafb;
+  --ink: #141c26; --ink-2: #3f4a59; --muted: #647083; --line: #d3d9e0; --line-strong: #aab4c0;
+  --accent: #0b6e75; --accent-soft: #d5ebed; --accent-ink: #ffffff; --focus: #0b6e75;
+  --sel: #f2b705; --hl: #fff4c7; --hl-strong: #ffd970; --danger: #b42318; --danger-soft: #fde9e7;
+  --node-border: #ffffff;
+  --g-ws-root: #0d2f57; --g-ws-project: #1e5aa8; --g-ws-runtime: #4b62c8; --g-ws-network: #6f8ab0; --g-ws-message: #168db6; --g-ws-other: #8896ab;
+  --g-code-file: #7a6136; --g-code-type: #cf6a0c; --g-code-callable: #d6a20b; --g-code-value: #b39b74; --g-code-link: #8c7656; --g-code-endpoint: #b3263a; --g-code-other: #a3968a;
+  --p-tree_sitter: #7c8794; --p-manifest: #7e4fd6; --p-compose: #0e8a7d; --p-dockerfile: #4f8a10; --p-declared: #c4267f; --p-scip: #0a83b8; --p-heuristic: #d33a2c; --p-other: #9aa3ad;
+  --radius: 6px;
+  --hdr-h: 64px;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1319; --surface: #151c24; --surface-2: #1a222c; --sunken: #0b1015; --canvas: #10161d;
+    --ink: #e4e9ef; --ink-2: #b9c3cf; --muted: #8d99a8; --line: #2a3440; --line-strong: #435060;
+    --accent: #5cc3c9; --accent-soft: #163a3d; --accent-ink: #06282a; --focus: #7fd6db;
+    --sel: #ffd23f; --hl: #2c2914; --hl-strong: #5a4a10; --danger: #ff8a80; --danger-soft: #3a1a18;
+    --node-border: #10161d;
+    --g-ws-root: #a8cbf3; --g-ws-project: #5d97e6; --g-ws-runtime: #8c9ef3; --g-ws-network: #9fb2cf; --g-ws-message: #4cc0e6; --g-ws-other: #8e9bb0;
+    --g-code-file: #c4a46a; --g-code-type: #f08a2c; --g-code-callable: #f2c94c; --g-code-value: #d8c39c; --g-code-link: #b39b78; --g-code-endpoint: #f06275; --g-code-other: #b0a490;
+    --p-tree_sitter: #7f8b99; --p-manifest: #a986f5; --p-compose: #35c2b0; --p-dockerfile: #8ccf3f; --p-declared: #f05bab; --p-scip: #3db8ee; --p-heuristic: #ff6b5e; --p-other: #7d8792;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1319; --surface: #151c24; --surface-2: #1a222c; --sunken: #0b1015; --canvas: #10161d;
+  --ink: #e4e9ef; --ink-2: #b9c3cf; --muted: #8d99a8; --line: #2a3440; --line-strong: #435060;
+  --accent: #5cc3c9; --accent-soft: #163a3d; --accent-ink: #06282a; --focus: #7fd6db;
+  --sel: #ffd23f; --hl: #2c2914; --hl-strong: #5a4a10; --danger: #ff8a80; --danger-soft: #3a1a18;
+  --node-border: #10161d;
+  --g-ws-root: #a8cbf3; --g-ws-project: #5d97e6; --g-ws-runtime: #8c9ef3; --g-ws-network: #9fb2cf; --g-ws-message: #4cc0e6; --g-ws-other: #8e9bb0;
+  --g-code-file: #c4a46a; --g-code-type: #f08a2c; --g-code-callable: #f2c94c; --g-code-value: #d8c39c; --g-code-link: #b39b78; --g-code-endpoint: #f06275; --g-code-other: #b0a490;
+  --p-tree_sitter: #7f8b99; --p-manifest: #a986f5; --p-compose: #35c2b0; --p-dockerfile: #8ccf3f; --p-declared: #f05bab; --p-scip: #3db8ee; --p-heuristic: #ff6b5e; --p-other: #7d8792;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.45 var(--sans);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 24px;
+  overflow-x: clip;
+}
+h1, h2, h3, h4 { margin: 0; font-weight: 600; }
+button, input, select { font: inherit; color: inherit; }
+a { color: var(--accent); }
+.mono, code, pre { font-family: var(--mono); font-size: 12.5px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.num { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+
+/* header */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 30;
+  margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px)));
+  margin-right: calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+  padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+  background: var(--surface); border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand svg { flex: none; }
+.brand h1 { font-size: 15px; letter-spacing: .01em; }
+.brand p { margin: 0; font-size: 12px; color: var(--muted); }
+.tabs { display: flex; gap: 2px; background: var(--sunken); padding: 3px; border-radius: 8px; }
+.tabs a { text-decoration: none; color: var(--ink-2); padding: 4px 12px; border-radius: 6px; font-weight: 500; font-size: 13px; }
+.tabs a[aria-current="page"] { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.search { position: relative; flex: 1 1 260px; min-width: 0; max-width: 460px; }
+.search input { width: 100%; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface-2); }
+.qres { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); max-height: 360px; overflow: auto; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 40; }
+.qopt { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; width: 100%; text-align: left; padding: 6px 10px; border: 0; background: none; cursor: pointer; border-bottom: 1px solid var(--line); }
+.qopt:hover, .qopt:focus-visible { background: var(--accent-soft); outline: none; }
+.qopt .qn { grid-column: 2; color: var(--muted); font-family: var(--mono); font-size: 11.5px; overflow-wrap: anywhere; }
+.qempty { padding: 8px 10px; color: var(--muted); }
+.btn { border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--radius); padding: 5px 10px; cursor: pointer; font-size: 13px; }
+.btn:hover { border-color: var(--accent); }
+.btn.sm { padding: 2px 8px; font-size: 12px; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+/* summary */
+.summary { padding: 10px 0 8px; display: grid; gap: 6px; }
+.sgroup { display: grid; grid-template-columns: 112px minmax(0,1fr); align-items: start; gap: 8px; }
+.slabel { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding-top: 4px; font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; cursor: pointer; font-size: 12px; white-space: nowrap; }
+.chip:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.chip .n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 600; }
+.chip.total { font-weight: 600; }
+.sw { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
+.sw.rect { border-radius: 2px; width: 13px; height: 9px; }
+.sw.line { width: 18px; height: 0; border-radius: 0; border-top: 3px solid currentColor; }
+.sw.line.dash { border-top-style: dashed; }
+@media (max-width: 760px) {
+  .sgroup { grid-template-columns: minmax(0,1fr); gap: 2px; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+}
+
+/* main layout */
+.error { border: 1px solid var(--danger); background: var(--danger-soft); color: var(--danger); padding: 12px 14px; border-radius: var(--radius); margin: 10px 0; }
+.error strong { display: block; margin-bottom: 4px; }
+.app { display: grid; grid-template-columns: minmax(0,1fr) 390px; gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .app { grid-template-columns: minmax(0,1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; min-width: 0; }
+.views { min-width: 0; }
+
+/* graph view */
+.graph-layout { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 12px; align-items: start; }
+@media (max-width: 760px) { .graph-layout { grid-template-columns: minmax(0,1fr); } }
+.filters { padding: 0; max-height: calc(100vh - var(--hdr-h) - 24px); overflow: auto; }
+.filters > summary { padding: 10px 12px; font-weight: 600; cursor: pointer; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.fsec { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.fsec:last-child { border-bottom: 0; }
+.fsec h3 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 4px; }
+.fsec h3 .acts { display: flex; gap: 4px; text-transform: none; letter-spacing: 0; }
+.linkbtn { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0 2px; font-size: 12px; }
+.ck { display: flex; align-items: center; gap: 6px; padding: 1px 0; font-size: 12.5px; cursor: pointer; }
+.ck input { margin: 0; accent-color: var(--accent); }
+.ck .lbl { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ck .n { color: var(--muted); font-family: var(--mono); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.seg { display: flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; }
+.seg label { flex: 1; text-align: center; padding: 3px 4px; cursor: pointer; font-size: 12.5px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(input:checked) { background: var(--accent); color: var(--accent-ink); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -2px; }
+.canvas-panel { display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.toolbar label { font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.toolbar select { padding: 3px 6px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface-2); }
+.toolbar .count { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cy-wrap { position: relative; }
+#cy { height: calc(100vh - var(--hdr-h) - 70px); min-height: 440px; background: var(--canvas); }
+@media (max-width: 760px) { #cy { height: 62vh; min-height: 320px; } }
+.cy-status { position: absolute; top: 8px; left: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 3px 8px; font-size: 12px; }
+.cy-hover { position: absolute; left: 8px; bottom: 8px; right: 8px; pointer-events: none; font-size: 12px; color: var(--ink-2); }
+.cy-hover span { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 2px 8px; display: inline-block; max-width: 100%; overflow-wrap: anywhere; }
+.cy-missing { padding: 24px; color: var(--muted); }
+
+/* inspector */
+.inspector { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--hdr-h) + 8px); max-height: calc(100vh - var(--hdr-h) - 20px); overflow: auto; }
+@media (max-width: 1100px) { .inspector { position: static; max-height: none; } }
+.insp-head { padding: 12px; border-bottom: 1px solid var(--line); display: grid; gap: 4px; }
+.insp-head h2 { font-size: 16px; overflow-wrap: anywhere; }
+.insp-head .qn { font-family: var(--mono); font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
+.insp-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
+.note { margin: 6px 0 0; font-size: 12.5px; padding: 6px 8px; border-radius: var(--radius); background: var(--hl); }
+.isec { border-bottom: 1px solid var(--line); }
+.isec > summary { padding: 8px 12px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.isec > summary .n { color: var(--muted); font-weight: 500; font-family: var(--mono); font-size: 12px; }
+.isec .body { padding: 0 12px 10px; }
+.empty { padding: 16px 12px; color: var(--muted); }
+.empty h2 { font-size: 15px; color: var(--ink); margin-bottom: 4px; }
+dl.kv { display: grid; grid-template-columns: minmax(84px, max-content) minmax(0,1fr); gap: 3px 10px; margin: 0; font-size: 12.5px; }
+dl.kv dt { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+dl.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+dl.kv dt.hit { color: var(--accent); font-weight: 600; }
+ol.ids { margin: 0; padding-left: 20px; font-size: 12.5px; display: grid; gap: 2px; }
+ol.ids li { overflow-wrap: anywhere; }
+ol.ids .k { color: var(--muted); }
+.egroup { margin: 4px 0 8px; }
+.egroup > summary { cursor: pointer; font-size: 12.5px; font-family: var(--mono); padding: 2px 0; }
+.erow { list-style: none; padding: 5px 0 5px 8px; border-left: 2px solid var(--line); margin: 3px 0; }
+.erow .top-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.erow .meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.erow .meta b { font-weight: 500; color: var(--ink-2); }
+ul.plain { margin: 0; padding: 0; }
+.recrow { border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 8px; margin: 4px 0; background: var(--surface-2); }
+.recrow .rh { font-size: 11.5px; color: var(--muted); margin-bottom: 3px; font-family: var(--mono); }
+pre.raw { margin: 0; padding: 8px; background: var(--sunken); border-radius: var(--radius); overflow: auto; max-height: 360px; font-size: 11.5px; line-height: 1.5; }
+
+/* value rendering */
+.nref { display: inline-flex; align-items: baseline; gap: 4px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 4px; padding: 0 5px; cursor: pointer; font-size: 12.5px; max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+.nref:hover { border-color: var(--accent); }
+.nref .sid { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.nref .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center; }
+.nref .dot.ws { border-radius: 2px; }
+.eref { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 4px; padding: 0 5px; cursor: pointer; font-family: var(--mono); font-size: 12px; }
+.eref:hover { border-color: var(--accent); }
+.sref { border: 0; background: none; padding: 0; cursor: pointer; color: var(--accent); font-family: var(--mono); font-size: 12px; text-decoration: underline; text-underline-offset: 2px; text-align: left; overflow-wrap: anywhere; }
+.v-null { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.v-bool, .v-num { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.v-str.m { font-family: var(--mono); font-size: 12px; }
+.v-code { font-family: var(--mono); font-size: 12px; background: var(--sunken); border-radius: 3px; padding: 0 4px; overflow-wrap: anywhere; }
+.v-obj { font-family: var(--mono); font-size: 12px; }
+.v-obj .k { color: var(--muted); }
+.v-list { display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: baseline; }
+.absent { color: var(--muted); font-size: 11.5px; font-style: italic; }
+.dangling { color: var(--danger); }
+.provtag { display: inline-flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 11.5px; }
+
+/* records */
+.rec-tabs { display: flex; gap: 2px; overflow-x: auto; padding: 6px; border-bottom: 1px solid var(--line); }
+.rec-tabs button { border: 1px solid transparent; background: none; padding: 4px 9px; border-radius: 6px; cursor: pointer; font-size: 12.5px; white-space: nowrap; color: var(--ink-2); }
+.rec-tabs button[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+.rec-tabs .n { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
+.rec-desc { padding: 8px 12px 0; color: var(--ink-2); font-size: 13px; margin: 0; }
+.rec-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px; }
+.rec-tools input { flex: 1 1 220px; min-width: 0; padding: 5px 9px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface-2); }
+.rec-tools .count { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.table-wrap { overflow-x: auto; border-top: 1px solid var(--line); }
+table.t { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+table.t th { text-align: left; background: var(--surface-2); border-bottom: 1px solid var(--line-strong); padding: 0; white-space: nowrap; }
+table.t th button { border: 0; background: none; padding: 6px 8px; width: 100%; text-align: left; cursor: pointer; font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--ink-2); }
+table.t th[aria-sort="ascending"] button::after { content: " \2191"; }
+table.t th[aria-sort="descending"] button::after { content: " \2193"; }
+table.t td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; max-width: 440px; overflow-wrap: anywhere; }
+table.t tr:hover td { background: var(--surface-2); }
+table.t td.rn { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+
+/* source */
+.src-layout { display: grid; grid-template-columns: 260px minmax(0,1fr); gap: 12px; align-items: start; }
+@media (max-width: 760px) { .src-layout { grid-template-columns: minmax(0,1fr); } }
+.filelist { max-height: calc(100vh - var(--hdr-h) - 24px); overflow: auto; padding: 6px 0; }
+.filelist details > summary { padding: 4px 12px; font-weight: 600; cursor: pointer; font-size: 13px; }
+.filelist button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 3px 12px 3px 24px; cursor: pointer; font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; color: var(--ink-2); }
+.filelist button[aria-current="true"] { background: var(--accent-soft); color: var(--ink); }
+.filelist button .tag { font-family: var(--sans); font-size: 10.5px; color: var(--danger); margin-left: 4px; }
+.src-head { padding: 10px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 4px; }
+.src-head h2 { font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
+.src-head .meta { font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 2px 12px; }
+.lineinfo { padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); font-size: 12.5px; display: grid; gap: 4px; }
+.lineinfo .row { display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
+.code { position: relative; overflow: auto; max-height: calc(100vh - var(--hdr-h) - 150px); min-height: 200px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; background: var(--canvas); }
+.ln { display: grid; grid-template-columns: 52px max-content; min-width: 100%; width: max-content; }
+.ln .lno { border: 0; background: none; color: var(--muted); text-align: right; padding: 0 10px 0 0; font: inherit; cursor: pointer; user-select: none; border-right: 1px solid var(--line); }
+.ln .lc { white-space: pre; padding: 0 12px; }
+.ln.hl { background: var(--hl); }
+.ln.site { background: var(--hl-strong); }
+.ln.picked .lno { color: var(--accent); font-weight: 600; }
+
+/* legend */
+.legend { padding: 12px; display: grid; gap: 16px; }
+.legend h3 { font-size: 13px; margin-bottom: 6px; }
+.legend p { margin: 0 0 6px; color: var(--ink-2); font-size: 13px; }
+.lgrid { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 4px 12px; align-items: baseline; font-size: 12.5px; }
+.lgrid .term { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.lgrid .desc { color: var(--ink-2); overflow-wrap: anywhere; }
+.lgrid .desc .n { font-family: var(--mono); color: var(--muted); }
+.mini-legend { display: grid; gap: 3px; font-size: 12px; }
+.mini-legend .row { display: flex; align-items: center; gap: 6px; }
+</style>
+
+<header class="top" id="top">
+  <div class="brand">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 7 L19 8 L13 19 Z" stroke-opacity=".5"/></g><rect x="3" y="4" width="8" height="6" rx="1.5" fill="var(--g-ws-project)"/><circle cx="19" cy="8" r="3.4" fill="var(--g-code-type)"/><circle cx="13" cy="19" r="3.4" fill="var(--g-code-callable)"/></svg>
+    <div><h1>Acme Shop graph</h1><p id="subtitle">What Workbench builds after indexing the workspace</p></div>
+  </div>
+  <nav class="tabs" aria-label="Views">
+    <a href="#graph" data-view="graph">Graph</a>
+    <a href="#records" data-view="records">Records</a>
+    <a href="#source" data-view="source">Source</a>
+    <a href="#legend" data-view="legend">Legend</a>
+  </nav>
+  <div class="search" role="search">
+    <input id="q" type="search" placeholder="Find a node by name, qualified name or id" aria-label="Find a node" autocomplete="off" spellcheck="false" aria-controls="qres">
+    <div id="qres" class="qres" role="listbox" aria-label="Matching nodes" hidden></div>
+  </div>
+  <button id="themeBtn" class="btn" type="button" aria-label="Colour theme">Theme: auto</button>
+</header>
+
+<section class="summary" aria-label="Counts" id="summary"><div class="sgroup"><span class="slabel">Loading</span><div class="chips"><span class="chip">Reading graph.json</span></div></div></section>
+<div id="errors"></div>
+
+<main class="app">
+  <div class="views">
+    <section id="view-graph" class="view" aria-label="Graph">
+      <div class="graph-layout">
+        <details class="panel filters" id="filters" open>
+          <summary>Filters</summary>
+          <div id="filterBody"></div>
+        </details>
+        <div class="panel canvas-panel">
+          <div class="toolbar">
+            <label>Layout
+              <select id="layoutSel">
+                <option value="tree">Tree (contains)</option>
+                <option value="radial">Radial tree (contains)</option>
+                <option value="network">Network (cross-links)</option>
+                <option value="grid">Grid by kind</option>
+              </select>
+            </label>
+            <button class="btn sm" type="button" id="relayoutBtn">Run layout</button>
+            <button class="btn sm" type="button" id="fitBtn">Fit</button>
+            <span class="count" id="graphCount"></span>
+          </div>
+          <div class="cy-wrap">
+            <div id="cy" aria-label="Graph drawing. Use the Records view for a keyboard-friendly list of every node and edge." role="img"></div>
+            <div class="cy-status" id="cyStatus" hidden></div>
+            <div class="cy-hover" id="cyHover"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-records" class="view panel" aria-label="Records" hidden>
+      <div class="rec-tabs" role="tablist" id="recTabs" aria-label="Tables"></div>
+      <p class="rec-desc" id="recDesc"></p>
+      <div class="rec-tools">
+        <input type="search" id="recFilter" placeholder="Filter rows by any text or id" aria-label="Filter rows" spellcheck="false">
+        <span class="count" id="recCount"></span>
+      </div>
+      <div id="recBody"></div>
+    </section>
+
+    <section id="view-source" class="view" aria-label="Source" hidden>
+      <div class="src-layout">
+        <nav class="panel filelist" id="fileList" aria-label="Files"></nav>
+        <div class="panel" id="srcPane"></div>
+      </div>
+    </section>
+
+    <section id="view-legend" class="view panel" aria-label="Legend" hidden>
+      <div class="legend" id="legend"></div>
+    </section>
+  </div>
+  <aside class="panel inspector" id="inspector" aria-label="Inspector" aria-live="polite"></aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- small helpers ---------- */
+  const $ = (s, r) => (r || document).querySelector(s);
+  function h(tag, props) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) {
+      const v = props[k];
+      if (v == null || v === false) continue;
+      if (k === 'class') e.className = v;
+      else if (k === 'text') e.textContent = v;
+      else if (k.slice(0, 2) === 'on' && typeof v === 'function') e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v === true ? '' : v);
+    }
+    for (let i = 2; i < arguments.length; i++) add(e, arguments[i]);
+    return e;
+  }
+  function add(e, c) {
+    if (c == null || c === false) return;
+    if (Array.isArray(c)) { c.forEach(x => add(e, x)); return; }
+    e.append(c instanceof Node ? c : String(c));
+  }
+  const store = {
+    get(k) { try { return localStorage.getItem('acme-graph:' + k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem('acme-graph:' + k, v); } catch (e) { /* ignore */ } }
+  };
+  const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isNarrow = () => window.matchMedia('(max-width: 1100px)').matches;
+  const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  function debounce(fn, ms) { let t; return function () { const a = arguments; clearTimeout(t); t = setTimeout(() => fn.apply(null, a), ms); }; }
+  const fmtInt = n => Number(n).toLocaleString('en-US');
+
+  /* ---------- the model's vocabulary ---------- */
+  const WS_KINDS = ['workspace', 'project', 'binary', 'stack', 'service', 'external_service', 'network', 'topic', 'queue'];
+  const CODE_KINDS = ['file', 'module', 'class', 'struct', 'interface', 'trait', 'protocol', 'function', 'method', 'property', 'field', 'variable', 'constant', 'enum', 'enum_member', 'type_alias', 'namespace', 'parameter', 'import', 'export', 'route', 'component', 'union', 'command'];
+  const EDGE_KINDS = ['contains', 'calls', 'imports', 'exports', 'extends', 'implements', 'references', 'type_of', 'returns', 'instantiates', 'overrides', 'decorates', 'navigates', 'mounts', 'handles', 'injects', 'requests', 'sends', 'receives', 'depends_on', 'uses', 'entry_point', 'runs', 'built_from', 'joins', 'connects_to', 'publishes', 'subscribes', 'invokes'];
+  const WS_EDGE_KINDS = new Set(['depends_on', 'uses', 'entry_point', 'runs', 'built_from', 'joins', 'connects_to', 'publishes', 'subscribes', 'invokes']);
+  const GROUP_OF = {
+    workspace: 'ws-root', project: 'ws-project', binary: 'ws-project', stack: 'ws-runtime', service: 'ws-runtime', external_service: 'ws-runtime', network: 'ws-network', topic: 'ws-message', queue: 'ws-message',
+    file: 'code-file', module: 'code-file', namespace: 'code-file',
+    class: 'code-type', struct: 'code-type', interface: 'code-type', trait: 'code-type', protocol: 'code-type', enum: 'code-type', union: 'code-type', type_alias: 'code-type', component: 'code-type',
+    function: 'code-callable', method: 'code-callable', property: 'code-callable',
+    field: 'code-value', variable: 'code-value', constant: 'code-value', enum_member: 'code-value', parameter: 'code-value',
+    import: 'code-link', export: 'code-link', route: 'code-endpoint', command: 'code-endpoint'
+  };
+  const GROUPS = [
+    ['ws-root', 'workspace', 'Workspace root', 'The one root of the tree.'],
+    ['ws-project', 'workspace', 'Projects and binaries', 'A project holds code; a binary is a program built from it.'],
+    ['ws-runtime', 'workspace', 'Stacks and services', 'What a compose file runs: stacks, services, external services.'],
+    ['ws-network', 'workspace', 'Networks', 'Who can talk to whom.'],
+    ['ws-message', 'workspace', 'Topics and queues', 'Where messages go, held by an external service.'],
+    ['ws-other', 'workspace', 'Other workspace kinds', 'A workspace kind not in the list above.'],
+    ['code-file', 'code', 'Files and modules', 'File, Module, Namespace.'],
+    ['code-type', 'code', 'Types', 'Class, Struct, Interface, Trait, Protocol, Enum, Union, TypeAlias, Component.'],
+    ['code-callable', 'code', 'Callables', 'Function, Method, Property.'],
+    ['code-value', 'code', 'Values', 'Field, Variable, Constant, EnumMember, Parameter.'],
+    ['code-link', 'code', 'Imports and exports', 'Import, Export.'],
+    ['code-endpoint', 'code', 'Endpoints', 'Route, Command.'],
+    ['code-other', 'code', 'Other code kinds', 'A code kind not in the list above.']
+  ];
+  const PROVENANCE = {
+    tree_sitter: 'Read from source code by a parser',
+    manifest: "Read from a dependency manager's files",
+    compose: 'Read from a compose file',
+    dockerfile: 'Read from a Dockerfile: the command line a service runs',
+    declared: 'Written by hand in the configuration, with its free-text note, if any',
+    scip: 'Read from a SCIP index',
+    heuristic: 'Inferred, and may be wrong'
+  };
+  const RESOLUTION = {
+    import: 'A name the file imported',
+    self_member: 'self.<name>: a member of the class around the reference',
+    same_file: 'A definition in the same file',
+    project: 'The name as a qualified name in the project',
+    cross_project: 'Another project, found through its import names',
+    re_export: 'Followed through re-exports',
+    annotation: "The receiver's declared type",
+    local_inference: 'A local name assigned once from a class, or from a function with a Returns edge',
+    inherited: 'A member found in a resolved base class',
+    flow: 'The receiver is a parameter typed by its callers',
+    framework: "A framework profile's reference, including a pytest fixture",
+    route_match: 'An HTTP client call matched to a route path',
+    message_match: 'A producer or consumer matched to a declared topic or queue',
+    command_match: 'A compose command matched to a Command of the binary its service runs'
+  };
+  const STAGES = {
+    workspace: 'Workspace layer: configuration, compose files, Dockerfiles, manifests',
+    '1': 'Stage 1: read every file',
+    '2a': 'Stage 2a: resolve',
+    '2b': 'Stage 2b: carry types and text through calls',
+    '2c': 'Stage 2c: route paths',
+    '2d': 'Stage 2d: match HTTP calls to routes',
+    '2e': 'Stage 2e: reach',
+    '2f': 'Stage 2f: match messages and commands'
+  };
+  const RECORD_TYPES = ['files', 'references', 'call_sites', 'bindings', 'returns', 'inferred_types', 'reach', 'route_paths', 'unmatched_http_calls', 'unmatched_messages', 'payloads', 'warnings', 'checkouts'];
+  const TABLE_LABEL = {
+    nodes: 'Nodes', edges: 'Edges', files: 'File records', references: 'Unresolved references', call_sites: 'Call sites', bindings: 'Bindings', returns: 'Returns',
+    inferred_types: 'Inferred types', reach: 'Reach', route_paths: 'Route paths', unmatched_http_calls: 'Unmatched HTTP calls', unmatched_messages: 'Unmatched messages',
+    payloads: 'Message payloads', warnings: 'Warnings', checkouts: 'Project checkouts', other: 'Other keys'
+  };
+  const TABLE_DESC = {
+    nodes: 'Every node: the workspace tree and the code below it. The id is a hash of scope, path, kind, qualified name and ordinal.',
+    edges: 'Every edge. Provenance says where the facts came from; resolved_by says which rule connected a reference to its target; stage says who made it.',
+    files: 'One record per file read: its hash, size, modification time, language and parse status.',
+    references: 'A name the parser saw and could not connect to a node. Resolution turns it into an edge; one that cannot be resolved stays.',
+    call_sites: 'One call expression, with its arguments as written. Stage 2 uses it to carry types and text through calls, and to find HTTP calls.',
+    bindings: 'One assignment of a name, with the shape of its value.',
+    returns: 'One way a function or method returns, with the shape of its value.',
+    inferred_types: "A node's class, worked out by stage 2b. It exists only when all of the node's evidence agrees.",
+    reach: 'That a root may run a code node, found by stage 2e over resolved edges.',
+    route_paths: 'One full path of a route, and the binary that serves it, found by stage 2c.',
+    unmatched_http_calls: 'An HTTP client call that stage 2d could not match to exactly one route path, with its candidates.',
+    unmatched_messages: 'A producer or consumer call that stage 2f could not match to exactly one declared topic or queue.',
+    payloads: 'A project class carried on a topic or queue, as the code that sends or receives builds or reads it.',
+    warnings: 'Something the indexer noticed that does not stop the run.',
+    checkouts: 'Which version of each project the graph was built from.',
+    other: 'Top-level keys of graph.json outside nodes, edges and the record lists, shown as they are.'
+  };
+  const COLS = {
+    nodes: ['id', 'kind', 'layer', 'name', 'qualified_name', 'scope', 'origin', 'ordinal', 'data'],
+    edges: ['source', 'target', 'kind', 'data', 'site', 'provenance', 'note', 'resolved_by', 'stage'],
+    files: ['project', 'path', 'content_hash', 'size', 'mtime_ns', 'language', 'status'],
+    references: ['id', 'from', 'name', 'kind', 'data', 'site', 'flow_resolved'],
+    call_sites: ['from', 'site', 'callee', 'arguments'],
+    bindings: ['within', 'name', 'site', 'shape'],
+    returns: ['within', 'site', 'shape'],
+    inferred_types: ['node', 'class', 'evidence'],
+    reach: ['node', 'root'],
+    route_paths: ['route', 'binary', 'method', 'full_path', 'complete', 'uses_defaults', 'providers', 'tags'],
+    unmatched_http_calls: ['from', 'site', 'method', 'path', 'candidates'],
+    unmatched_messages: ['from', 'site', 'direction', 'name', 'broker', 'candidates'],
+    payloads: ['topic', 'node', 'direction', 'class'],
+    warnings: ['code', 'subject', 'message'],
+    checkouts: ['project', 'head']
+  };
+  const MONO_KEYS = new Set(['id', 'qualified_name', 'path', 'content_hash', 'specifier', 'full_path', 'callee', 'signature', 'return_type', 'declared_type', 'default', 'app', 'commit', 'code', 'alias', 'decorators', 'name', 'program', 'mtime_ns', 'kind', 'provenance', 'resolved_by', 'stage', 'method', 'language', 'project']);
+
+  /* ---------- state ---------- */
+  const D = { g: null, nodes: [], edges: [], rec: {}, byId: new Map(), out: new Map(), inn: new Map(), recIdx: new Map(), sources: {}, nodesByKey: new Map(), edgesByKey: new Map(), extra: {}, dupIds: [], dangling: [] };
+  const S = { sel: null, view: 'graph', recTab: store.get('recTab') || 'nodes' };
+  const srcState = { file: null, target: null, renderedKey: null, picked: 0 };
+  let cy = null;
+  const G = { mode: 'tree', layer: 'both', projects: new Set(), kinds: new Set(), ekinds: new Set(), provs: new Set(), stages: new Set(), hideIsolated: false, forced: new Set(), laidSig: null, needsLayout: true, solo: null };
+
+  /* ---------- loading ---------- */
+  function showError(title, detail) {
+    $('#errors').append(h('div', { class: 'error', role: 'alert' }, h('strong', { text: title }), detail));
+  }
+  async function getJSON(name) {
+    const r = await fetch(name);
+    if (!r.ok) throw new Error('the server answered HTTP ' + r.status + ' ' + (r.statusText || ''));
+    return r.json();
+  }
+  async function load() {
+    let g, s = {};
+    try { g = await getJSON('graph.json'); }
+    catch (e) {
+      showError('Could not load graph.json', 'The page needs graph.json next to it to draw anything (' + (e && e.message || e) + ').');
+      $('#summary').replaceChildren(h('div', { class: 'sgroup' }, h('span', { class: 'slabel', text: 'No data' }), h('div', { class: 'chips' })));
+      $('#inspector').replaceChildren(h('div', { class: 'empty' }, h('h2', { text: 'No graph loaded' }), h('p', { text: 'graph.json could not be read.' })));
+      return;
+    }
+    try { s = await getJSON('sources.json'); if (!s || typeof s !== 'object') s = {}; }
+    catch (e) { showError('Could not load sources.json', 'The graph is shown, but the Source view has no file text (' + (e && e.message || e) + ').'); s = {}; }
+    init(g, s);
+  }
+
+  function getRecords(g, name) {
+    if (Array.isArray(g[name])) return g[name];
+    if (g.records && Array.isArray(g.records[name])) return g.records[name];
+    return [];
+  }
+
+  /* ---------- indexes ---------- */
+  function layerOf(n) { return n.layer || (WS_KINDS.includes(n.kind) ? 'workspace' : 'code'); }
+  function groupOf(n) { return GROUP_OF[n.kind] || (layerOf(n) === 'workspace' ? 'ws-other' : 'code-other'); }
+  function projOf(n) {
+    if (n.scope && n.scope.type === 'project' && n.scope.name) return n.scope.name;
+    if (n.kind === 'project') return n.name;
+    return '(workspace and stacks)';
+  }
+  function normPath(p) {
+    const out = [];
+    for (const seg of String(p).split('/')) {
+      if (seg === '' || seg === '.') continue;
+      if (seg === '..') { if (out.length && out[out.length - 1] !== '..') out.pop(); else out.push('..'); }
+      else out.push(seg);
+    }
+    return out.join('/');
+  }
+  const keyCache = new Map();
+  function srcKey(scope, path) {
+    if (!path) return null;
+    const ck = (scope ? scope.type + ':' + scope.name : '') + '|' + path;
+    if (keyCache.has(ck)) return keyCache.get(ck);
+    const cands = [];
+    if (scope && scope.type === 'project' && scope.name) cands.push(scope.name + '/' + path);
+    cands.push(normPath('workspace/' + path));
+    cands.push(normPath(path));
+    let found = cands.find(c => has(D.sources, c));
+    if (!found) {
+      const tail = '/' + normPath(path).replace(/^(\.\.\/)+/, '');
+      found = Object.keys(D.sources).find(k => k.endsWith(tail)) || cands[0];
+    }
+    keyCache.set(ck, found);
+    return found;
+  }
+  function nodeLoc(n) {
+    if (!n || !n.origin || n.origin.type !== 'parsed' || !n.origin.path) return null;
+    const sp = n.origin.span || {};
+    return { key: srcKey(n.scope, n.origin.path), start: sp.start_line || 1, end: sp.end_line || sp.start_line || 1, line: 0 };
+  }
+  function siteKey(site, scope) { return site && site.path ? srcKey(scope, site.path) : null; }
+  function rowScope(row) {
+    for (const k of ['from', 'within', 'source', 'node', 'route', 'subject']) {
+      const n = typeof row[k] === 'string' && D.byId.get(row[k]);
+      if (n) return n.scope;
+    }
+    return null;
+  }
+
+  function init(g, sources) {
+    D.g = g; D.sources = sources;
+    D.nodes = Array.isArray(g.nodes) ? g.nodes : [];
+    D.edges = Array.isArray(g.edges) ? g.edges : [];
+    for (const t of RECORD_TYPES) D.rec[t] = getRecords(g, t);
+    const known = new Set(['nodes', 'edges', 'records'].concat(RECORD_TYPES));
+    for (const k in g) if (!known.has(k)) D.extra[k] = g[k];
+    if (g.records && typeof g.records === 'object') for (const k in g.records) if (!RECORD_TYPES.includes(k)) D.extra['records.' + k] = g.records[k];
+
+    D.nodes.forEach(n => { if (D.byId.has(n.id)) D.dupIds.push(n.id); else D.byId.set(n.id, n); });
+    D.edges.forEach((e, i) => {
+      if (!D.out.has(e.source)) D.out.set(e.source, []);
+      D.out.get(e.source).push(i);
+      if (!D.inn.has(e.target)) D.inn.set(e.target, []);
+      D.inn.get(e.target).push(i);
+      if (!D.byId.has(e.source) || !D.byId.has(e.target)) D.dangling.push(i);
+    });
+    for (const n of D.byId.values()) {
+      const loc = nodeLoc(n);
+      if (loc && loc.key) { if (!D.nodesByKey.has(loc.key)) D.nodesByKey.set(loc.key, []); D.nodesByKey.get(loc.key).push(n); }
+    }
+    D.edges.forEach((e, i) => {
+      const src = D.byId.get(e.source);
+      const k = siteKey(e.site, src && src.scope);
+      if (k) { if (!D.edgesByKey.has(k)) D.edgesByKey.set(k, []); D.edgesByKey.get(k).push(i); }
+    });
+    for (const t of RECORD_TYPES) {
+      D.rec[t].forEach((row, i) => {
+        const found = new Map();
+        walk(row, '', (v, p) => { if (typeof v === 'string' && D.byId.has(v)) { if (!found.has(v)) found.set(v, new Set()); found.get(v).add(p); } });
+        for (const [id, paths] of found) {
+          if (!D.recIdx.has(id)) D.recIdx.set(id, []);
+          D.recIdx.get(id).push({ type: t, i, paths: Array.from(paths) });
+        }
+      });
+    }
+    // filter defaults
+    const mode = store.get('mode');
+    if (['tree', 'radial', 'network', 'grid'].includes(mode)) G.mode = mode;
+    $('#layoutSel').value = G.mode;
+    D.nodes.forEach(n => { G.projects.add(projOf(n)); G.kinds.add(n.kind); });
+    D.edges.forEach(e => { G.ekinds.add(e.kind); G.provs.add(e.provenance); G.stages.add(String(e.stage)); });
+    if (G.mode === 'network') G.ekinds.delete('contains');
+    if (g.meta && g.meta.workspace) $('#subtitle').textContent = 'What Workbench builds after indexing ' + g.meta.workspace;
+
+    renderSummary();
+    renderFilters();
+    renderLegend();
+    renderInspector();
+    initGraph();
+    route();
+  }
+  function walk(v, path, fn) {
+    if (Array.isArray(v)) v.forEach(x => walk(x, path, fn));
+    else if (v && typeof v === 'object') for (const k in v) walk(v[k], path ? path + '.' + k : k, fn);
+    else fn(v, path);
+  }
+
+  /* ---------- value rendering ---------- */
+  function swatchFor(n) { return h('span', { class: 'dot' + (layerOf(n) === 'workspace' ? ' ws' : ''), style: 'background:var(--g-' + groupOf(n) + ')' }); }
+  function nref(id) {
+    const n = D.byId.get(id);
+    if (!n) return h('span', { class: 'v-str m dangling', title: 'No node with this id in the graph' }, id);
+    return h('button', { type: 'button', class: 'nref', 'data-id': id, title: n.kind + ' ' + n.qualified_name + '\n' + id }, swatchFor(n), h('span', { text: n.name }), h('span', { class: 'sid', text: id.slice(0, 8) }));
+  }
+  function eref(i, label) { return h('button', { type: 'button', class: 'eref', 'data-edge': String(i), title: 'Inspect edge #' + i }, label); }
+  function tmplText(parts) {
+    return (parts || []).map(p => {
+      if (p == null) return '';
+      if (typeof p === 'string') return p;
+      if (has(p, 'text')) return p.text;
+      if (has(p, 'hole')) return '{' + p.hole + '}';
+      if (p.unknown) return '{?}';
+      return '{' + JSON.stringify(p) + '}';
+    }).join('');
+  }
+  function isTemplate(v) { return v && typeof v === 'object' && !Array.isArray(v) && Array.isArray(v.parts) && Object.keys(v).length === 1; }
+  const SHAPE_KEYS = { call: ['name'], name: ['name'], text: ['value'], template: ['parts'], item: ['name', 'accessor'], collection: ['kind', 'elements'], spread: ['name'], literal: ['kind'], other: [] };
+  function shapeText(s) {
+    if (!s || typeof s !== 'object' || !SHAPE_KEYS[s.type]) return JSON.stringify(s);
+    let t;
+    switch (s.type) {
+      case 'call': t = 'call ' + s.name; break;
+      case 'name': t = 'name ' + s.name; break;
+      case 'text': t = 'text ' + JSON.stringify(s.value); break;
+      case 'template': t = 'template "' + tmplText(s.parts) + '"'; break;
+      case 'item': t = 'item ' + s.name + '[' + (typeof s.accessor === 'string' ? JSON.stringify(s.accessor) : JSON.stringify(s.accessor)) + ']'; break;
+      case 'collection': t = 'collection ' + s.kind + ' [' + (s.elements || []).map(shapeText).join(', ') + ']'; break;
+      case 'spread': t = 'spread ' + s.name; break;
+      case 'literal': t = 'literal ' + s.kind; break;
+      default: t = 'other';
+    }
+    const extra = Object.keys(s).filter(k => k !== 'type' && !SHAPE_KEYS[s.type].includes(k));
+    if (extra.length) t += ' ' + extra.map(k => k + '=' + JSON.stringify(s[k])).join(' ');
+    return t;
+  }
+  function slotText(sl) {
+    if (!sl || typeof sl !== 'object') return JSON.stringify(sl);
+    if (has(sl, 'position')) return '#' + sl.position;
+    if (has(sl, 'keyword')) return sl.keyword + '=';
+    return JSON.stringify(sl);
+  }
+  function siteLink(site, scope) {
+    const key = siteKey(site, scope);
+    const label = site.path + ':' + site.line + ':' + site.column;
+    const extra = Object.keys(site).filter(k => !['path', 'line', 'column'].includes(k));
+    return h('span', null, h('button', { type: 'button', class: 'sref', 'data-src': key || '', 'data-line': String(site.line || 0), title: 'Show line ' + site.line + ' in the source view' }, label), extra.length ? objView(pick(site, extra), {}) : null);
+  }
+  function pick(o, keys) { const r = {}; keys.forEach(k => { r[k] = o[k]; }); return r; }
+  function spanText(sp) { return 'L' + sp.start_line + ':' + sp.start_column + ' – L' + sp.end_line + ':' + sp.end_column; }
+  function code(t) { return h('span', { class: 'v-code', text: t }); }
+  function objView(o, ctx) {
+    const keys = Object.keys(o);
+    if (!keys.length) return h('span', { class: 'v-null', text: '{}' });
+    const e = h('span', { class: 'v-obj' }, '{ ');
+    keys.forEach((k, i) => { if (i) e.append(', '); e.append(h('span', { class: 'k', text: k + ': ' }), rv(o[k], k, ctx)); });
+    e.append(' }');
+    return e;
+  }
+  function typedView(o, ctx, rest) {
+    // {"type": X, ...rest}: show the type word, then the other fields.
+    const others = Object.keys(o).filter(k => k !== 'type');
+    const e = h('span', { class: 'v-obj' }, h('b', { text: o.type }));
+    others.forEach(k => { e.append(' ', h('span', { class: 'k', text: k + ' ' }), rv(o[k], k, ctx)); });
+    return e;
+  }
+  // rv: render any JSON value faithfully, with the model's compact forms where the key tells us the shape.
+  function rv(v, key, ctx) {
+    ctx = ctx || {};
+    if (v === null) return h('span', { class: 'v-null', text: 'null' });
+    if (v === undefined) return h('span', { class: 'absent', text: 'absent' });
+    if (typeof v === 'boolean') return h('span', { class: 'v-bool', text: String(v) });
+    if (typeof v === 'number') return h('span', { class: 'v-num', text: String(v) });
+    if (typeof v === 'string') {
+      if (D.byId.has(v)) return nref(v);
+      return h('span', { class: 'v-str' + (MONO_KEYS.has(key) ? ' m' : ''), text: v });
+    }
+    if (Array.isArray(v)) {
+      if (!v.length) return h('span', { class: 'v-null', text: '[]' });
+      if (key === 'arguments') return h('span', { class: 'v-list' }, v.map(a => (a && typeof a === 'object' && has(a, 'slot') && has(a, 'shape') && Object.keys(a).length === 2) ? code(slotText(a.slot) + ' ' + shapeText(a.shape)) : rv(a, '', ctx)));
+      if (key === 'parts') return code('"' + tmplText(v) + '"');
+      return h('span', { class: 'v-list' }, '[', v.map((x, i) => [i ? ', ' : '', rv(x, key, ctx)]), ']');
+    }
+    // objects
+    const keys = Object.keys(v);
+    if (key === 'shape' || key === 'elements') return code(shapeText(v));
+    if (isTemplate(v)) return code('template "' + tmplText(v.parts) + '"');
+    if (key === 'slot') return code(slotText(v));
+    if ((key === 'site' || (has(v, 'path') && has(v, 'line') && has(v, 'column'))) && v.path != null) return siteLink(v, ctx.scope);
+    if (key === 'span' || (has(v, 'start_line') && has(v, 'end_line'))) {
+      const extra = keys.filter(k => !['start_line', 'start_column', 'end_line', 'end_column'].includes(k));
+      return h('span', { class: 'v-num' }, spanText(v), extra.length ? [' ', objView(pick(v, extra), ctx)] : null);
+    }
+    if (key === 'scope' && has(v, 'type')) return h('span', { class: 'v-obj' }, h('b', { text: v.type }), v.name != null ? ' ' + v.name : ' (name null)', keys.length > 2 ? [' ', objView(pick(v, keys.filter(k => k !== 'type' && k !== 'name')), ctx)] : null);
+    if (key === 'origin' && has(v, 'type')) {
+      if (v.type === 'parsed' && v.path) {
+        const k = srcKey(ctx.scope, v.path);
+        const sp = v.span || {};
+        const e = h('span', { class: 'v-obj' }, h('b', { text: 'parsed ' }),
+          h('button', { type: 'button', class: 'sref', 'data-src': k || '', 'data-start': String(sp.start_line || 0), 'data-end': String(sp.end_line || 0), title: 'Show this span in the source view' }, v.path),
+          v.span ? [' ', h('span', { class: 'v-num', text: spanText(v.span) })] : ' (no span)');
+        const extra = keys.filter(x => !['type', 'path', 'span'].includes(x));
+        if (extra.length) e.append(' ', objView(pick(v, extra), ctx));
+        return e;
+      }
+      return typedView(v, ctx);
+    }
+    if (key === 'root' && has(v, 'type') && has(v, 'node')) return typedView(v, ctx);
+    if (key === 'head' && has(v, 'commit')) {
+      return h('span', { class: 'v-obj' }, h('span', { class: 'k', text: 'branch ' }), rv(v.branch === undefined ? undefined : v.branch, 'branch', ctx), h('span', { class: 'k', text: ' commit ' }), h('span', { class: 'v-str m', text: String(v.commit) }),
+        keys.length > 2 ? [' ', objView(pick(v, keys.filter(k => k !== 'commit' && k !== 'branch')), ctx)] : null);
+    }
+    if (has(v, 'type') && typeof v.type === 'string' && (key === 'status' || key === 'role' || key === 'framework' || key === 'member_role')) return typedView(v, ctx);
+    return objView(v, ctx);
+  }
+  function dlOf(obj, keys, ctx, hits) {
+    const dl = h('dl', { class: 'kv' });
+    keys.forEach(k => {
+      dl.append(h('dt', { class: hits && hits.has(k) ? 'hit' : null, text: k }), h('dd', null, has(obj, k) ? rv(obj[k], k, ctx) : h('span', { class: 'absent', text: 'absent' })));
+    });
+    return dl;
+  }
+  function columnsFor(type, rows) {
+    const cols = (COLS[type] || []).slice();
+    const seen = new Set(cols);
+    for (const r of rows) if (r && typeof r === 'object') for (const k in r) if (!seen.has(k)) { seen.add(k); cols.push(k); }
+    return cols;
+  }
+  function provTag(p) { return h('span', { class: 'provtag' }, h('span', { class: 'sw line', style: 'color:var(--p-' + (PROVENANCE[p] ? p : 'other') + ')' }), p == null ? 'null' : String(p)); }
+
+  /* ---------- summary chips ---------- */
+  function countBy(arr, f) { const m = new Map(); arr.forEach(x => { const k = f(x); m.set(k, (m.get(k) || 0) + 1); }); return m; }
+  function orderKeys(m, order) { return Array.from(m.keys()).sort((a, b) => { const ia = order.indexOf(a), ib = order.indexOf(b); return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || String(a).localeCompare(String(b)); }); }
+  function chip(label, n, action, opts) {
+    opts = opts || {};
+    return h('button', { type: 'button', class: 'chip' + (opts.total ? ' total' : ''), 'data-action': action, 'aria-pressed': opts.pressed ? 'true' : 'false', title: opts.title || null }, opts.sw || null, h('span', { text: label }), h('span', { class: 'n', text: fmtInt(n) }));
+  }
+  function renderSummary() {
+    const box = $('#summary'); box.replaceChildren();
+    const nodes = Array.from(D.byId.values());
+    const byLayer = countBy(nodes, layerOf);
+    for (const layer of ['workspace', 'code']) {
+      const ln = nodes.filter(n => layerOf(n) === layer);
+      const kinds = countBy(ln, n => n.kind);
+      const chips = h('div', { class: 'chips' }, chip('all', byLayer.get(layer) || 0, 'layer:' + layer, { total: true, pressed: G.layer === layer, title: 'Show only the ' + layer + ' layer in the graph' }));
+      orderKeys(kinds, layer === 'workspace' ? WS_KINDS : CODE_KINDS).forEach(k => {
+        const n0 = ln.find(n => n.kind === k);
+        chips.append(chip(k, kinds.get(k), 'kind:' + k, { pressed: G.solo === 'kind:' + k, sw: h('span', { class: 'sw' + (layer === 'workspace' ? ' rect' : ''), style: 'background:var(--g-' + groupOf(n0) + ')' }), title: 'Show only ' + k + ' nodes in the graph; click again to show all' }));
+      });
+      box.append(h('div', { class: 'sgroup' }, h('span', { class: 'slabel', text: layer === 'workspace' ? 'Workspace nodes' : 'Code nodes' }), chips));
+    }
+    const ek = countBy(D.edges, e => e.kind);
+    const echips = h('div', { class: 'chips' }, chip('all', D.edges.length, 'ekind:*', { total: true, title: 'Show every edge kind in the graph' }));
+    orderKeys(ek, EDGE_KINDS).forEach(k => echips.append(chip(k, ek.get(k), 'ekind:' + k, { pressed: G.solo === 'ekind:' + k, title: 'Show only ' + k + ' edges; click again to show all' })));
+    box.append(h('div', { class: 'sgroup' }, h('span', { class: 'slabel', text: 'Edges' }), echips));
+    const rchips = h('div', { class: 'chips' });
+    RECORD_TYPES.forEach(t => rchips.append(chip(t, D.rec[t].length, 'rec:' + t, { title: 'Open the ' + TABLE_LABEL[t] + ' table' })));
+    box.append(h('div', { class: 'sgroup' }, h('span', { class: 'slabel', text: 'Records' }), rchips));
+  }
+  $('#summary').addEventListener('click', ev => {
+    const b = ev.target.closest('[data-action]');
+    if (!b || !D.g) return;
+    const [kind, val] = b.dataset.action.split(/:(.*)/s);
+    if (kind === 'rec') { S.recTab = val; store.set('recTab', val); go('records'); renderRecords(); return; }
+    if (kind === 'layer') { G.layer = G.layer === val ? 'both' : val; G.solo = null; }
+    else if (kind === 'kind') {
+      if (G.solo === 'kind:' + val) { D.nodes.forEach(n => G.kinds.add(n.kind)); G.solo = null; }
+      else { G.kinds = new Set([val]); G.layer = 'both'; G.solo = 'kind:' + val; }
+    } else if (kind === 'ekind') {
+      if (val === '*' || G.solo === 'ekind:' + val) { D.edges.forEach(e => G.ekinds.add(e.kind)); G.solo = null; }
+      else { G.ekinds = new Set([val]); G.solo = 'ekind:' + val; }
+    }
+    renderSummary(); renderFilters(); go('graph'); applyFilters();
+  });
+
+  /* ---------- filters ---------- */
+  function checklist(title, items, set, extraNote) {
+    const sec = h('div', { class: 'fsec' });
+    const head = h('h3', null, h('span', { text: title }), h('span', { class: 'acts' },
+      h('button', { type: 'button', class: 'linkbtn', onclick: () => { items.forEach(it => set.add(it.value)); G.solo = null; renderFilters(); renderSummary(); applyFilters(); } }, 'all'),
+      h('button', { type: 'button', class: 'linkbtn', onclick: () => { items.forEach(it => set.delete(it.value)); G.solo = null; renderFilters(); renderSummary(); applyFilters(); } }, 'none')));
+    sec.append(head);
+    if (extraNote) sec.append(h('div', { class: 'absent', text: extraNote }));
+    items.forEach(it => {
+      const cb = h('input', { type: 'checkbox' });
+      cb.checked = set.has(it.value);
+      cb.addEventListener('change', () => { if (cb.checked) set.add(it.value); else set.delete(it.value); G.solo = null; renderSummary(); applyFilters(); });
+      sec.append(h('label', { class: 'ck', title: it.title || null }, cb, it.sw || null, h('span', { class: 'lbl', text: it.label }), h('span', { class: 'n', text: fmtInt(it.count) })));
+    });
+    return sec;
+  }
+  function renderFilters() {
+    const body = $('#filterBody'); body.replaceChildren();
+    const nodes = Array.from(D.byId.values());
+    // layer
+    const seg = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': 'Layer' });
+    [['both', 'Both'], ['workspace', 'Workspace'], ['code', 'Code']].forEach(([v, l]) => {
+      const r = h('input', { type: 'radio', name: 'layer', value: v });
+      r.checked = G.layer === v;
+      r.addEventListener('change', () => { G.layer = v; renderSummary(); applyFilters(); });
+      seg.append(h('label', null, r, l));
+    });
+    body.append(h('div', { class: 'fsec' }, h('h3', null, h('span', { text: 'Layer' })), seg,
+      h('label', { class: 'ck', style: 'margin-top:6px' }, (() => { const c = h('input', { type: 'checkbox' }); c.checked = G.hideIsolated; c.addEventListener('change', () => { G.hideIsolated = c.checked; applyFilters(); }); return c; })(), h('span', { class: 'lbl', text: 'Hide nodes with no visible edge' }))));
+    const pc = countBy(nodes, projOf);
+    body.append(checklist('Project', Array.from(pc.keys()).sort((a, b) => (a[0] === '(') - (b[0] === '(') || a.localeCompare(b)).map(p => ({ value: p, label: p, count: pc.get(p) })), G.projects));
+    const kc = countBy(nodes, n => n.kind);
+    const kitems = orderKeys(kc, WS_KINDS.concat(CODE_KINDS)).map(k => { const n0 = nodes.find(n => n.kind === k); return { value: k, label: k, count: kc.get(k), sw: h('span', { class: 'sw' + (layerOf(n0) === 'workspace' ? ' rect' : ''), style: 'background:var(--g-' + groupOf(n0) + ')' }) }; });
+    body.append(checklist('Node kinds', kitems, G.kinds));
+    const ec = countBy(D.edges, e => e.kind);
+    body.append(checklist('Edge kinds', orderKeys(ec, EDGE_KINDS).map(k => ({ value: k, label: k, count: ec.get(k) })), G.ekinds, G.mode === 'network' ? 'contains is off in Network layout; tick it to draw the tree too.' : null));
+    const prc = countBy(D.edges, e => e.provenance);
+    body.append(checklist('Provenance', orderKeys(prc, Object.keys(PROVENANCE)).map(p => ({ value: p, label: String(p), count: prc.get(p), title: PROVENANCE[p] || '', sw: h('span', { class: 'sw line', style: 'color:var(--p-' + (PROVENANCE[p] ? p : 'other') + ')' }) })), G.provs));
+    const sc = countBy(D.edges, e => String(e.stage));
+    body.append(checklist('Stage', orderKeys(sc, Object.keys(STAGES)).map(s => ({ value: s, label: s, count: sc.get(s), title: STAGES[s] || '' })), G.stages));
+    const lg = h('div', { class: 'fsec' }, h('h3', null, h('span', { text: 'Key' }), h('span', { class: 'acts' }, h('a', { href: '#legend', class: 'linkbtn' }, 'full legend'))));
+    lg.append(miniLegend());
+    body.append(lg);
+  }
+  function miniLegend() {
+    const m = h('div', { class: 'mini-legend' });
+    m.append(h('div', { class: 'row' }, h('span', { class: 'sw rect', style: 'background:var(--g-ws-project)' }), 'Workspace node (rounded box)'));
+    m.append(h('div', { class: 'row' }, h('span', { class: 'sw', style: 'background:var(--g-code-callable)' }), 'Code node (circle)'));
+    m.append(h('div', { class: 'row' }, h('span', { class: 'sw rect', style: 'background:transparent;border:2px dashed var(--ink-2)' }), 'Dashed border: origin declared'));
+    m.append(h('div', { class: 'row' }, h('span', { class: 'sw line', style: 'color:var(--ink-2)' }), 'Solid edge: no resolved_by'));
+    m.append(h('div', { class: 'row' }, h('span', { class: 'sw line dash', style: 'color:var(--ink-2)' }), 'Dashed edge: resolved_by is set'));
+    m.append(h('div', { class: 'row', style: 'color:var(--muted)' }, 'Edge colour is the provenance (see Provenance above).'));
+    return m;
+  }
+
+  /* ---------- graph ---------- */
+  function initGraph() {
+    if (typeof window.cytoscape !== 'function') {
+      $('#cy').replaceChildren(h('div', { class: 'cy-missing' }, h('strong', { text: 'The drawing library did not load. ' }), 'Every node and edge is still in the Records view and the inspector.'));
+      return;
+    }
+    const els = [];
+    for (const n of D.byId.values()) els.push({ group: 'nodes', data: { id: n.id, label: n.name == null ? n.id : String(n.name), kind: n.kind, group: groupOf(n), layer: layerOf(n), origin: n.origin && n.origin.type } });
+    D.edges.forEach((e, i) => {
+      if (!D.byId.has(e.source) || !D.byId.has(e.target)) return;
+      els.push({ group: 'edges', data: { id: 'e' + i, source: e.source, target: e.target, kind: e.kind, prov: e.provenance, resolved: e.resolved_by ? 1 : 0, idx: i } });
+    });
+    cy = cytoscape({
+      container: $('#cy'), elements: els, style: buildStyle(), layout: { name: 'preset' },
+      minZoom: 0.03, maxZoom: 5, boxSelectionEnabled: false, selectionType: 'single',
+      hideEdgesOnViewport: D.edges.length > 900, motionBlur: false
+    });
+    cy.on('tap', 'node', e => select({ type: 'node', id: e.target.id() }, { from: 'graph' }));
+    cy.on('tap', 'edge', e => select({ type: 'edge', idx: e.target.data('idx') }, { from: 'graph' }));
+    cy.on('tap', e => { if (e.target === cy) select(null, { from: 'graph' }); });
+    const hov = $('#cyHover');
+    cy.on('mouseover', 'edge', e => { e.target.addClass('hover'); const d = D.edges[e.target.data('idx')]; const s = D.byId.get(d.source), t = D.byId.get(d.target); hov.replaceChildren(h('span', { text: d.kind + ': ' + (s ? s.name : d.source) + ' → ' + (t ? t.name : d.target) + ' · ' + d.provenance + (d.resolved_by ? ' · resolved_by ' + d.resolved_by : '') })); });
+    cy.on('mouseout', 'edge', e => { e.target.removeClass('hover'); hov.replaceChildren(); });
+    cy.on('mouseover', 'node', e => { const n = D.byId.get(e.target.id()); hov.replaceChildren(h('span', { text: n.kind + ' · ' + n.qualified_name + ' · ' + n.id })); });
+    cy.on('mouseout', 'node', () => hov.replaceChildren());
+    applyFilters(true);
+  }
+  function buildStyle() {
+    const cs = getComputedStyle(document.documentElement);
+    const t = n => cs.getPropertyValue(n).trim() || '#888';
+    const st = [
+      { selector: 'node', style: { 'background-color': t('--g-code-other'), label: 'data(label)', 'font-family': 'IBM Plex Sans, system-ui, sans-serif', 'font-size': 9, color: t('--ink'), 'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 3, 'text-outline-color': t('--canvas'), 'text-outline-width': 2, 'min-zoomed-font-size': 7, width: 14, height: 14, 'border-width': 1, 'border-color': t('--node-border') } },
+      { selector: 'node[layer = "workspace"]', style: { shape: 'round-rectangle', width: 30, height: 18, 'font-size': 10, 'font-weight': 600 } },
+      { selector: 'node[kind = "workspace"]', style: { width: 46, height: 26, 'font-size': 12 } },
+      { selector: 'node[layer = "code"]', style: { shape: 'ellipse' } },
+      { selector: 'node[kind = "file"]', style: { width: 18, height: 18 } }
+    ];
+    GROUPS.forEach(([g]) => st.push({ selector: 'node[group = "' + g + '"]', style: { 'background-color': t('--g-' + g) } }));
+    st.push({ selector: 'node[origin = "declared"]', style: { 'border-style': 'dashed', 'border-width': 2, 'border-color': t('--ink-2') } });
+    st.push({ selector: 'edge', style: { width: 1.2, 'line-color': t('--p-other'), 'target-arrow-color': t('--p-other'), 'target-arrow-shape': 'triangle', 'arrow-scale': 0.7, 'curve-style': 'bezier', opacity: 0.85, label: '', 'font-family': 'IBM Plex Mono, ui-monospace, monospace', 'font-size': 9, color: t('--ink'), 'text-background-color': t('--surface'), 'text-background-opacity': 0.95, 'text-background-padding': 2, 'text-rotation': 'autorotate' } });
+    Object.keys(PROVENANCE).forEach(p => st.push({ selector: 'edge[prov = "' + p + '"]', style: { 'line-color': t('--p-' + p), 'target-arrow-color': t('--p-' + p) } }));
+    st.push({ selector: 'edge[kind = "contains"]', style: { width: 0.8, opacity: 0.45, 'arrow-scale': 0.5 } });
+    st.push({ selector: 'edge[resolved = 1]', style: { 'line-style': 'dashed', 'line-dash-pattern': [5, 3] } });
+    st.push({ selector: 'edge.hover, edge:selected', style: { label: 'data(kind)', opacity: 1, width: 2.4, 'z-index': 10 } });
+    st.push({ selector: 'node:selected', style: { 'underlay-color': t('--sel'), 'underlay-opacity': 0.6, 'underlay-padding': 7, 'border-width': 2, 'border-color': t('--ink'), 'z-index': 20, 'font-weight': 600 } });
+    st.push({ selector: 'edge:selected', style: { 'underlay-color': t('--sel'), 'underlay-opacity': 0.55, 'underlay-padding': 3 } });
+    st.push({ selector: '.faded', style: { opacity: 0.13, 'text-opacity': 0 } });
+    st.push({ selector: 'edge.faded', style: { opacity: 0.06 } });
+    st.push({ selector: '.hide', style: { display: 'none' } });
+    return st;
+  }
+  function restyle() { if (cy) cy.style(buildStyle()); }
+
+  function layerOk(n) { return G.layer === 'both' || layerOf(n) === G.layer; }
+  function nodeVisibleByFilter(n) { return layerOk(n) && G.projects.has(projOf(n)) && G.kinds.has(n.kind); }
+  function applyFilters(initial) {
+    if (!cy) return;
+    cy.batch(() => {
+      cy.nodes().forEach(nd => { const n = D.byId.get(nd.id()); nd.toggleClass('hide', !(G.forced.has(n.id) || nodeVisibleByFilter(n))); });
+      cy.edges().forEach(ed => {
+        const e = D.edges[ed.data('idx')];
+        const ok = G.ekinds.has(e.kind) && G.provs.has(e.provenance) && G.stages.has(String(e.stage)) && !ed.source().hasClass('hide') && !ed.target().hasClass('hide');
+        ed.toggleClass('hide', !ok);
+      });
+      if (G.hideIsolated) cy.nodes().not('.hide').forEach(nd => { if (!G.forced.has(nd.id()) && nd.connectedEdges().not('.hide').length === 0) nd.addClass('hide'); });
+    });
+    const vn = cy.nodes().not('.hide').length, ve = cy.edges().not('.hide').length;
+    $('#graphCount').textContent = 'Showing ' + fmtInt(vn) + ' of ' + fmtInt(cy.nodes().length) + ' nodes, ' + fmtInt(ve) + ' of ' + fmtInt(cy.edges().length) + ' edges';
+    if (initial) runLayout(); else scheduleLayout();
+    if (S.sel) renderInspector();
+  }
+  function layoutSig() {
+    const ids = cy.nodes().not('.hide').map(n => n.id()).join(',');
+    return G.mode + '|' + ids + (G.mode === 'network' ? '|' + cy.edges().not('.hide').map(e => e.id()).join(',') : '');
+  }
+  const scheduleLayout = debounce(() => { if (cy && layoutSig() !== G.laidSig) runLayout(); }, 350);
+  function setStatus(t) { const s = $('#cyStatus'); s.textContent = t || ''; s.hidden = !t; }
+  function runLayout() {
+    if (!cy) return;
+    if (S.view !== 'graph' || $('#cy').offsetWidth === 0) { G.needsLayout = true; return; }
+    G.needsLayout = false;
+    const vn = cy.nodes().not('.hide');
+    setStatus('Laying out ' + fmtInt(vn.length) + ' nodes…');
+    setTimeout(() => {
+      cy.resize();
+      let eles, opts;
+      if (G.mode === 'tree' || G.mode === 'radial') {
+        const ce = vn.edgesWith(vn).filter('[kind = "contains"]');
+        eles = vn.union(ce);
+        const inTree = new Set(vn.map(n => n.id()));
+        const parent = new Map();
+        ce.forEach(e => { if (!parent.has(e.target().id())) parent.set(e.target().id(), e.source().id()); });
+        const roots = vn.filter(n => !(parent.has(n.id()) && inTree.has(parent.get(n.id()))));
+        if (G.mode === 'tree') {
+          opts = { name: 'breadthfirst', roots: roots, directed: true, spacingFactor: 0.85, avoidOverlap: true, animate: false, fit: true, padding: 24, nodeDimensionsIncludeLabels: false };
+        } else {
+          const depth = new Map();
+          const kids = new Map();
+          ce.forEach(e => { const s = e.source().id(); if (!kids.has(s)) kids.set(s, []); kids.get(s).push(e.target().id()); });
+          let q = roots.map(r => r.id()); q.forEach(id => depth.set(id, 0));
+          while (q.length) { const nq = []; q.forEach(id => (kids.get(id) || []).forEach(k => { if (!depth.has(k)) { depth.set(k, depth.get(id) + 1); nq.push(k); } })); q = nq; }
+          let maxD = 0; depth.forEach(d => { if (d > maxD) maxD = d; });
+          opts = { name: 'concentric', concentric: n => maxD - (depth.get(n.id()) || 0), levelWidth: () => 1, minNodeSpacing: 8, avoidOverlap: true, animate: false, fit: true, padding: 24, startAngle: 1.5 * Math.PI };
+        }
+      } else if (G.mode === 'network') {
+        eles = vn.union(vn.edgesWith(vn).not('.hide').filter(e => e.data('kind') !== 'contains'));
+        opts = { name: 'cose', animate: false, randomize: true, fit: true, padding: 24, nodeRepulsion: () => 7000, idealEdgeLength: () => 55, edgeElasticity: () => 90, gravity: 0.9, numIter: 900, componentSpacing: 50, nodeOverlap: 6, nodeDimensionsIncludeLabels: false };
+      } else {
+        const gi = g => GROUPS.findIndex(x => x[0] === g);
+        eles = vn;
+        opts = { name: 'grid', animate: false, fit: true, padding: 24, avoidOverlap: true, condense: true, avoidOverlapPadding: 8,
+          sort: (a, b) => gi(a.data('group')) - gi(b.data('group')) || String(a.data('kind')).localeCompare(String(b.data('kind'))) || String((D.byId.get(a.id()) || {}).qualified_name).localeCompare(String((D.byId.get(b.id()) || {}).qualified_name)) };
+      }
+      try { if (eles.length) eles.layout(opts).run(); }
+      catch (err) { showError('Layout failed', String(err && err.message || err)); }
+      G.laidSig = layoutSig();
+      setStatus('');
+    }, 20);
+  }
+  $('#layoutSel').addEventListener('change', ev => {
+    const prev = G.mode; G.mode = ev.target.value; store.set('mode', G.mode);
+    if (G.mode === 'network' && prev !== 'network') G.ekinds.delete('contains');
+    if ((G.mode === 'tree' || G.mode === 'radial') && D.edges.some(e => e.kind === 'contains')) G.ekinds.add('contains');
+    renderFilters(); applyFilters(); runLayout();
+  });
+  $('#relayoutBtn').addEventListener('click', () => runLayout());
+  $('#fitBtn').addEventListener('click', () => { if (cy) cy.fit(cy.elements().not('.hide'), 24); });
+
+  function syncGraphSelection() {
+    if (!cy) return;
+    cy.batch(() => {
+      cy.elements().unselect().removeClass('faded');
+      if (!S.sel) return;
+      const t = S.sel.type === 'node' ? cy.getElementById(S.sel.id) : cy.getElementById('e' + S.sel.idx);
+      if (!t || t.empty()) return;
+      t.select();
+      const nb = S.sel.type === 'node' ? t.closedNeighborhood() : t.union(t.connectedNodes());
+      cy.elements().not(nb).addClass('faded');
+    });
+  }
+  function centerOn() {
+    if (!cy || !S.sel) return;
+    const t = S.sel.type === 'node' ? cy.getElementById(S.sel.id) : cy.getElementById('e' + S.sel.idx);
+    if (!t || t.empty() || t.hasClass('hide')) return;
+    const z = Math.max(cy.zoom(), 1.1);
+    if (reducedMotion()) { cy.zoom(z); cy.center(t); }
+    else cy.animate({ center: { eles: t }, zoom: z }, { duration: 250 });
+  }
+  function isHiddenInGraph(id) { if (!cy) return false; const n = cy.getElementById(id); return n.empty() || n.hasClass('hide'); }
+
+  /* ---------- selection ---------- */
+  function select(sel, opts) {
+    opts = opts || {};
+    S.sel = sel;
+    renderInspector();
+    syncGraphSelection();
+    if (sel && opts.center && S.view === 'graph') centerOn();
+    if (sel) {
+      const loc = locationOf(sel);
+      if (loc && loc.key) { srcState.target = loc; srcState.file = loc.key; }
+    }
+    if (S.view === 'source') renderSource();
+    if (opts.scrollInspector && isNarrow()) $('#inspector').scrollIntoView({ block: 'start', behavior: reducedMotion() ? 'auto' : 'smooth' });
+  }
+  function locationOf(sel) {
+    if (sel.type === 'node') return nodeLoc(D.byId.get(sel.id));
+    const e = D.edges[sel.idx]; if (!e) return null;
+    const src = D.byId.get(e.source);
+    if (e.site && e.site.path) return { key: siteKey(e.site, src && src.scope), start: e.site.line, end: e.site.line, line: e.site.line };
+    return null;
+  }
+  document.addEventListener('click', ev => {
+    const t = ev.target.closest('.nref, .eref, .sref');
+    if (!t) return;
+    const inInsp = !!t.closest('#inspector');
+    if (t.classList.contains('nref')) select({ type: 'node', id: t.dataset.id }, { center: true, scrollInspector: !inInsp });
+    else if (t.classList.contains('eref')) select({ type: 'edge', idx: +t.dataset.edge }, { center: true, scrollInspector: !inInsp });
+    else if (t.classList.contains('sref')) {
+      const key = t.dataset.src;
+      if (!key) return;
+      const line = +t.dataset.line || 0;
+      srcState.file = key;
+      srcState.target = { key, start: line || +t.dataset.start || 1, end: line || +t.dataset.end || +t.dataset.start || 1, line };
+      go('source');
+      renderSource();
+    }
+  });
+
+  /* ---------- inspector ---------- */
+  function section(title, n, body, open) {
+    const d = h('details', { class: 'isec' }, h('summary', null, title, n != null ? h('span', { class: 'n', text: ' ' + fmtInt(n) }) : null), h('div', { class: 'body' }, body));
+    d.open = open !== false;
+    return d;
+  }
+  function copyBtn(text, label) {
+    return h('button', { type: 'button', class: 'btn sm', onclick: ev => {
+      const b = ev.currentTarget; const orig = b.textContent;
+      const done = m => { b.textContent = m; setTimeout(() => { b.textContent = orig; }, 1200); };
+      try { navigator.clipboard.writeText(text).then(() => done('Copied'), () => done('Copy failed')); } catch (e) { done('Copy failed'); }
+    } }, label);
+  }
+  function edgeMeta(e, i) {
+    const src = D.byId.get(e.source);
+    const m = h('div', { class: 'meta' });
+    if (e.data != null) m.append(h('span', null, h('b', { text: 'data ' }), rv(e.data, 'data', { scope: src && src.scope })));
+    m.append(h('span', null, h('b', { text: 'site ' }), e.site ? rv(e.site, 'site', { scope: src && src.scope }) : h('span', { class: 'v-null', text: 'null' })));
+    m.append(h('span', null, h('b', { text: 'provenance ' }), provTag(e.provenance)));
+    if (e.note != null) m.append(h('span', null, h('b', { text: 'note ' }), String(e.note)));
+    m.append(h('span', null, h('b', { text: 'resolved_by ' }), e.resolved_by == null ? h('span', { class: 'v-null', text: 'null' }) : h('span', { class: 'v-str m', text: e.resolved_by, title: RESOLUTION[e.resolved_by] || '' })));
+    m.append(h('span', null, h('b', { text: 'stage ' }), h('span', { class: 'v-str m', text: String(e.stage), title: STAGES[e.stage] || '' })));
+    const known = ['source', 'target', 'kind', 'data', 'site', 'provenance', 'note', 'resolved_by', 'stage'];
+    Object.keys(e).filter(k => !known.includes(k)).forEach(k => m.append(h('span', null, h('b', { text: k + ' ' }), rv(e[k], k, {}))));
+    return m;
+  }
+  function edgeList(idxs, dir) {
+    const groups = new Map();
+    idxs.forEach(i => { const k = D.edges[i].kind; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(i); });
+    const wrap = h('div');
+    orderKeys(groups, EDGE_KINDS).forEach(k => {
+      const list = groups.get(k);
+      const ul = h('ul', { class: 'plain' });
+      list.forEach(i => {
+        const e = D.edges[i];
+        const other = dir === 'out' ? e.target : e.source;
+        ul.append(h('li', { class: 'erow' }, h('div', { class: 'top-line' }, eref(i, '#' + i), dir === 'out' ? '→' : '←', nref(other)), edgeMeta(e, i)));
+      });
+      const d = h('details', { class: 'egroup' }, h('summary', null, k + ' (' + list.length + ')'), ul);
+      d.open = list.length <= 12;
+      wrap.append(d);
+    });
+    if (!idxs.length) wrap.append(h('span', { class: 'absent', text: 'none' }));
+    return wrap;
+  }
+  function relatedRecords(n) {
+    const out = [];
+    const idx = D.recIdx.get(n.id) || [];
+    idx.forEach(r => out.push(r));
+    if (n.kind === 'file' && n.origin && n.origin.path) D.rec.files.forEach((f, i) => { if (f.project === (n.scope && n.scope.name) && f.path === n.origin.path) out.push({ type: 'files', i, paths: ['project', 'path'] }); });
+    if (n.kind === 'project') {
+      D.rec.checkouts.forEach((c, i) => { if (c.project === n.name) out.push({ type: 'checkouts', i, paths: ['project'] }); });
+    }
+    return out;
+  }
+  function recordRows(list) {
+    const by = new Map();
+    list.forEach(r => { if (!by.has(r.type)) by.set(r.type, []); by.get(r.type).push(r); });
+    const wrap = h('div');
+    RECORD_TYPES.filter(t => by.has(t)).forEach(t => {
+      const rows = by.get(t);
+      const box = h('div');
+      rows.forEach(r => {
+        const row = D.rec[t][r.i];
+        const keys = columnsFor(t, [row]);
+        const hits = new Set(r.paths.map(p => p.split('.')[0]));
+        box.append(h('div', { class: 'recrow' }, h('div', { class: 'rh', text: TABLE_LABEL[t] + ' #' + r.i + ' · mentions it in ' + r.paths.join(', ') }), dlOf(row, keys, { scope: rowScope(row) }, hits)));
+      });
+      const d = h('details', { class: 'egroup' }, h('summary', null, t + ' (' + rows.length + ')'), box);
+      d.open = rows.length <= 6;
+      wrap.append(d);
+    });
+    if (!list.length) wrap.append(h('span', { class: 'absent', text: 'No record mentions this node.' }));
+    return wrap;
+  }
+  function renderInspector() {
+    const box = $('#inspector'); box.replaceChildren();
+    if (!S.sel) {
+      box.append(h('div', { class: 'empty' }, h('h2', { text: 'Inspector' }),
+        h('p', { text: 'Select a node or an edge in the graph, in a table, in the source view, or with the search box. Every field it holds is shown here, with its edges and the records that mention it.' })));
+      return;
+    }
+    if (S.sel.type === 'node') {
+      const n = D.byId.get(S.sel.id);
+      if (!n) { box.append(h('div', { class: 'empty', text: 'No node with id ' + S.sel.id })); return; }
+      renderNode(box, n);
+    } else {
+      const e = D.edges[S.sel.idx];
+      if (!e) { box.append(h('div', { class: 'empty', text: 'No edge #' + S.sel.idx })); return; }
+      renderEdge(box, e, S.sel.idx);
+    }
+  }
+  function renderNode(box, n) {
+    const ctx = { scope: n.scope };
+    const loc = nodeLoc(n);
+    const head = h('div', { class: 'insp-head' },
+      h('span', { class: 'badge' }, h('span', { class: 'sw' + (layerOf(n) === 'workspace' ? ' rect' : ''), style: 'background:var(--g-' + groupOf(n) + ')' }), n.kind + ' · ' + layerOf(n) + ' layer'),
+      h('h2', { text: n.name }),
+      h('div', { class: 'qn', text: n.qualified_name }));
+    const acts = h('div', { class: 'insp-actions' });
+    if (cy) acts.append(h('button', { type: 'button', class: 'btn sm', onclick: () => { go('graph'); setTimeout(centerOn, 30); } }, 'Show in graph'));
+    if (loc && loc.key) acts.append(h('button', { type: 'button', class: 'btn sm', onclick: () => { srcState.file = loc.key; srcState.target = loc; go('source'); renderSource(); } }, 'Show source'));
+    acts.append(copyBtn(n.id, 'Copy id'));
+    head.append(acts);
+    if (cy && isHiddenInGraph(n.id)) {
+      head.append(h('p', { class: 'note' }, 'Hidden in the graph by the current filters. ',
+        h('button', { type: 'button', class: 'linkbtn', onclick: () => { G.forced.add(n.id); applyFilters(); go('graph'); setTimeout(centerOn, 450); } }, 'Reveal it')));
+    }
+    box.append(head);
+    const known = ['id', 'kind', 'name', 'qualified_name', 'scope', 'origin', 'ordinal', 'data', 'layer'];
+    const fieldKeys = known.filter(k => k !== 'data').concat(Object.keys(n).filter(k => !known.includes(k)));
+    box.append(section('Fields', null, dlOf(n, fieldKeys, ctx)));
+    let dataBody;
+    if (n.data === null) dataBody = h('span', { class: 'v-null', text: 'null (this kind holds no data)' });
+    else if (n.data === undefined) dataBody = h('span', { class: 'absent', text: 'absent' });
+    else if (typeof n.data === 'object' && !Array.isArray(n.data)) dataBody = dlOf(n.data, Object.keys(n.data), ctx);
+    else dataBody = rv(n.data, 'data', ctx);
+    box.append(section('Data', n.data && typeof n.data === 'object' ? Object.keys(n.data).length : null, dataBody));
+    const o = n.origin || {};
+    const ids = h('ol', { class: 'ids' },
+      h('li', null, h('span', { class: 'k', text: 'scope type: ' }), rv(n.scope && n.scope.type, 'kind'), h('br'), h('span', { class: 'k', text: 'scope name: ' }), rv(n.scope ? n.scope.name : undefined, 'name')),
+      h('li', null, h('span', { class: 'k', text: 'path: ' }), o.type === 'parsed' ? rv(o.path, 'path') : h('span', { class: 'v-null', text: 'none (declared)' })),
+      h('li', null, h('span', { class: 'k', text: 'kind: ' }), rv(n.kind, 'kind')),
+      h('li', null, h('span', { class: 'k', text: 'qualified name: ' }), rv(n.qualified_name, 'qualified_name')),
+      h('li', null, h('span', { class: 'k', text: 'ordinal: ' }), rv(n.ordinal, 'ordinal')));
+    box.append(section('Id inputs (hashed into the id)', null, ids, false));
+    const outs = D.out.get(n.id) || [], ins = D.inn.get(n.id) || [];
+    box.append(section('Outgoing edges', outs.length, edgeList(outs, 'out'), outs.length <= 40));
+    box.append(section('Incoming edges', ins.length, edgeList(ins, 'in'), ins.length <= 40));
+    const rel = relatedRecords(n);
+    box.append(section('Records that mention it', rel.length, recordRows(rel)));
+    box.append(section('Raw JSON', null, h('pre', { class: 'raw', text: JSON.stringify(n, null, 2) }), false));
+  }
+  function renderEdge(box, e, i) {
+    const src = D.byId.get(e.source);
+    const ctx = { scope: src && src.scope };
+    const head = h('div', { class: 'insp-head' },
+      h('span', { class: 'badge' }, h('span', { class: 'sw line' + (e.resolved_by ? ' dash' : ''), style: 'color:var(--p-' + (PROVENANCE[e.provenance] ? e.provenance : 'other') + ')' }), 'edge #' + i + ' · ' + (WS_EDGE_KINDS.has(e.kind) ? 'workspace' : 'code') + ' kind'),
+      h('h2', { text: e.kind }),
+      h('div', { class: 'top-line', style: 'display:flex;flex-wrap:wrap;gap:6px;align-items:center' }, nref(e.source), '→', nref(e.target)));
+    const acts = h('div', { class: 'insp-actions' });
+    if (cy) acts.append(h('button', { type: 'button', class: 'btn sm', onclick: () => { go('graph'); setTimeout(centerOn, 30); } }, 'Show in graph'));
+    const loc = locationOf({ type: 'edge', idx: i });
+    if (loc && loc.key) acts.append(h('button', { type: 'button', class: 'btn sm', onclick: () => { srcState.file = loc.key; srcState.target = loc; go('source'); renderSource(); } }, 'Show site'));
+    head.append(acts);
+    if (cy && cy.getElementById('e' + i).hasClass('hide')) head.append(h('p', { class: 'note', text: 'Hidden in the graph by the current filters.' }));
+    if (!D.byId.has(e.source) || !D.byId.has(e.target)) head.append(h('p', { class: 'note', text: 'An endpoint of this edge is not a node in the graph, so it is not drawn.' }));
+    box.append(head);
+    const known = ['source', 'target', 'kind', 'data', 'site', 'provenance', 'note', 'resolved_by', 'stage'];
+    const keys = known.concat(Object.keys(e).filter(k => !known.includes(k)));
+    box.append(section('Fields', null, dlOf(e, keys, ctx)));
+    if (e.data && typeof e.data === 'object') box.append(section('Data', Object.keys(e.data).length, dlOf(e.data, Object.keys(e.data), ctx)));
+    const expl = h('dl', { class: 'kv' },
+      h('dt', { text: 'provenance' }), h('dd', null, provTag(e.provenance), ' ', PROVENANCE[e.provenance] || 'Not a provenance the legend knows.'),
+      h('dt', { text: 'resolved_by' }), h('dd', null, e.resolved_by == null ? 'Not made by resolving a reference.' : (e.resolved_by + ': ' + (RESOLUTION[e.resolved_by] || 'not a rule the legend knows.'))),
+      h('dt', { text: 'stage' }), h('dd', { text: STAGES[e.stage] || String(e.stage) }));
+    box.append(section('What these values mean', null, expl));
+    box.append(section('Raw JSON', null, h('pre', { class: 'raw', text: JSON.stringify(e, null, 2) }), false));
+  }
+
+  /* ---------- records view ---------- */
+  const tables = {};
+  function tabList() { const t = ['nodes', 'edges'].concat(RECORD_TYPES); if (Object.keys(D.extra).length) t.push('other'); return t; }
+  function rowsOf(type) { return type === 'nodes' ? D.nodes : type === 'edges' ? D.edges : D.rec[type] || []; }
+  function renderRecords() {
+    if (!D.g) return;
+    const tabs = $('#recTabs'); tabs.replaceChildren();
+    const list = tabList();
+    if (!list.includes(S.recTab)) S.recTab = 'nodes';
+    list.forEach(t => {
+      const n = t === 'other' ? Object.keys(D.extra).length : rowsOf(t).length;
+      tabs.append(h('button', { type: 'button', role: 'tab', 'aria-selected': t === S.recTab ? 'true' : 'false', 'data-tab': t, onclick: () => { S.recTab = t; store.set('recTab', t); renderRecords(); } }, TABLE_LABEL[t], h('span', { class: 'n', text: fmtInt(n) })));
+    });
+    const sel = tabs.querySelector('[aria-selected="true"]');
+    if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    $('#recDesc').textContent = TABLE_DESC[S.recTab] || '';
+    const body = $('#recBody'); body.replaceChildren();
+    if (S.recTab === 'other') {
+      $('#recFilter').parentElement.hidden = true;
+      Object.keys(D.extra).forEach(k => body.append(h('div', { style: 'padding:0 12px 12px' }, h('h3', { class: 'mono', style: 'margin:8px 0 4px', text: k }), h('pre', { class: 'raw', text: JSON.stringify(D.extra[k], null, 2) }))));
+      return;
+    }
+    $('#recFilter').parentElement.hidden = false;
+    const tb = tables[S.recTab] || (tables[S.recTab] = buildTable(S.recTab));
+    $('#recFilter').value = tb.filter;
+    body.append(tb.wrap);
+    updateRecCount(tb);
+  }
+  function buildTable(type) {
+    const rows = rowsOf(type);
+    const cols = columnsFor(type, rows);
+    const tb = { type, cols, rows: [], sortCol: -1, sortDir: 1, filter: '' };
+    const thead = h('tr', null, h('th', { 'aria-sort': 'none' }, h('button', { type: 'button', 'data-col': '-1' }, '#')));
+    cols.forEach((c, ci) => thead.append(h('th', { 'aria-sort': 'none' }, h('button', { type: 'button', 'data-col': String(ci), title: 'Sort by ' + c }, c))));
+    const tbody = h('tbody');
+    rows.forEach((row, i) => {
+      const r = row && typeof row === 'object' ? row : { value: row };
+      const ctx = { scope: type === 'nodes' ? r.scope : type === 'edges' ? (D.byId.get(r.source) || {}).scope : type === 'files' ? { type: 'project', name: r.project } : rowScope(r) };
+      const tr = h('tr', null, h('td', { class: 'rn' }, type === 'edges' ? eref(i, '#' + i) : String(i)));
+      const sortVals = [i];
+      cols.forEach(c => {
+        const td = h('td', null, has(r, c) ? rv(r[c], c, ctx) : h('span', { class: 'absent', text: 'absent' }));
+        tr.append(td);
+        const v = r[c];
+        sortVals.push(typeof v === 'number' ? v : typeof v === 'boolean' ? String(v) : td.textContent.toLowerCase());
+      });
+      const ids = [];
+      tr.querySelectorAll('[data-id]').forEach(b => ids.push(b.dataset.id));
+      tb.rows.push({ tr, sortVals, text: (tr.textContent + ' ' + ids.join(' ')).toLowerCase() });
+      tbody.append(tr);
+    });
+    const table = h('table', { class: 't' }, h('thead', null, thead), tbody);
+    tb.tbody = tbody; tb.thead = thead;
+    tb.wrap = h('div', { class: 'table-wrap' }, table);
+    if (!rows.length) tb.wrap.append(h('p', { class: 'empty', text: 'This list is empty in graph.json.' }));
+    thead.addEventListener('click', ev => {
+      const b = ev.target.closest('button[data-col]'); if (!b) return;
+      const ci = +b.dataset.col + 1;
+      if (tb.sortCol === ci) tb.sortDir = -tb.sortDir; else { tb.sortCol = ci; tb.sortDir = 1; }
+      thead.querySelectorAll('th').forEach((th, k) => th.setAttribute('aria-sort', k === ci ? (tb.sortDir > 0 ? 'ascending' : 'descending') : 'none'));
+      const sorted = tb.rows.slice().sort((a, b2) => {
+        const x = a.sortVals[ci], y = b2.sortVals[ci];
+        const c = (typeof x === 'number' && typeof y === 'number') ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true });
+        return c * tb.sortDir || a.sortVals[0] - b2.sortVals[0];
+      });
+      const frag = document.createDocumentFragment();
+      sorted.forEach(r => frag.append(r.tr));
+      tbody.append(frag);
+    });
+    return tb;
+  }
+  function updateRecCount(tb) {
+    const shown = tb.rows.filter(r => !r.tr.hidden).length;
+    $('#recCount').textContent = 'Showing ' + fmtInt(shown) + ' of ' + fmtInt(tb.rows.length) + ' rows · ' + tb.cols.length + ' fields';
+  }
+  $('#recFilter').addEventListener('input', debounce(ev => {
+    const tb = tables[S.recTab]; if (!tb) return;
+    tb.filter = ev.target.value;
+    const terms = tb.filter.toLowerCase().split(/\s+/).filter(Boolean);
+    tb.rows.forEach(r => { r.tr.hidden = !terms.every(t => r.text.includes(t)); });
+    updateRecCount(tb);
+  }, 140));
+
+  /* ---------- source view ---------- */
+  function fileKeys() {
+    const keys = new Set(Object.keys(D.sources));
+    D.rec.files.forEach(f => { if (f.project && f.path) keys.add(f.project + '/' + f.path); });
+    D.nodesByKey.forEach((_, k) => keys.add(k));
+    return Array.from(keys).sort();
+  }
+  function fileRecordFor(key) { return D.rec.files.find(f => f.project + '/' + f.path === key); }
+  function renderFileList() {
+    const nav = $('#fileList'); nav.replaceChildren();
+    const byProj = new Map();
+    fileKeys().forEach(k => { const p = k.split('/')[0]; if (!byProj.has(p)) byProj.set(p, []); byProj.get(p).push(k); });
+    if (!byProj.size) nav.append(h('p', { class: 'empty', text: 'No files.' }));
+    byProj.forEach((keys, p) => {
+      const d = h('details', null, h('summary', null, p, h('span', { class: 'absent', text: ' ' + keys.length })));
+      d.open = true;
+      keys.forEach(k => {
+        const fr = fileRecordFor(k);
+        const bad = fr && fr.status && fr.status.type !== 'parsed';
+        d.append(h('button', { type: 'button', 'aria-current': k === srcState.file ? 'true' : 'false', title: k, onclick: () => { srcState.file = k; srcState.picked = 0; if (!srcState.target || srcState.target.key !== k) srcState.target = null; renderSource(); } },
+          k.slice(p.length + 1), !has(D.sources, k) ? h('span', { class: 'tag', text: 'no text' }) : null, bad ? h('span', { class: 'tag', text: fr.status.type }) : null));
+      });
+      nav.append(d);
+    });
+  }
+  function renderSource() {
+    if (!D.g) return;
+    renderFileList();
+    const pane = $('#srcPane');
+    let key = srcState.file;
+    if (!key) {
+      pane.replaceChildren(h('div', { class: 'empty' }, h('h2', { text: 'Source' }), h('p', { text: 'Pick a file, or select a node or an edge with a site: its span or line is highlighted here. Click a line number to list the nodes whose span covers it.' })));
+      srcState.renderedKey = null;
+      return;
+    }
+    if (srcState.renderedKey !== key) {
+      const fr = fileRecordFor(key);
+      const fileNode = (D.nodesByKey.get(key) || []).find(n => n.kind === 'file');
+      const meta = h('div', { class: 'meta' });
+      if (fr) Object.keys(fr).filter(k => k !== 'project' && k !== 'path').forEach(k => meta.append(h('span', null, k + ': ', rv(fr[k], k, {}))));
+      else meta.append(h('span', { text: 'No file record for this path.' }));
+      const headEl = h('div', { class: 'src-head' }, h('h2', { text: key }), meta, h('div', { class: 'meta' }, fileNode ? ['File node ', nref(fileNode.id)] : null, h('span', { text: fmtInt((D.nodesByKey.get(key) || []).length) + ' nodes, ' + fmtInt((D.edgesByKey.get(key) || []).length) + ' edge sites in this file' })));
+      const info = h('div', { class: 'lineinfo', id: 'lineInfo', hidden: true });
+      const codeBox = h('div', { class: 'code', id: 'codeBox', tabindex: '0', 'aria-label': 'File text' });
+      if (has(D.sources, key)) {
+        const lines = String(D.sources[key]).split('\n');
+        if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+        const frag = document.createDocumentFragment();
+        lines.forEach((t, i) => frag.append(h('div', { class: 'ln', 'data-line': String(i + 1) }, h('button', { type: 'button', class: 'lno', 'data-line': String(i + 1), 'aria-label': 'Line ' + (i + 1) + ': list nodes covering it' }, String(i + 1)), h('span', { class: 'lc', text: t || ' ' }))));
+        codeBox.append(frag);
+      } else codeBox.append(h('p', { class: 'empty', text: 'sources.json holds no text for this file.' }));
+      codeBox.addEventListener('click', ev => { const b = ev.target.closest('.ln'); if (b) pickLine(+b.dataset.line); });
+      pane.replaceChildren(headEl, info, codeBox);
+      srcState.renderedKey = key;
+      srcState.picked = 0;
+    }
+    const codeBox = $('#codeBox');
+    codeBox.querySelectorAll('.ln.hl, .ln.site').forEach(l => l.classList.remove('hl', 'site'));
+    const t = srcState.target;
+    if (t && t.key === key) {
+      let first = null;
+      for (let L = t.start; L <= t.end; L++) { const el = codeBox.querySelector('.ln[data-line="' + L + '"]'); if (el) { el.classList.add('hl'); if (!first) first = el; } }
+      if (t.line) { const el = codeBox.querySelector('.ln[data-line="' + t.line + '"]'); if (el) { el.classList.add('site'); first = el; } }
+      if (first) {
+        const top = first.offsetTop - codeBox.clientHeight / 3;
+        codeBox.scrollTop = Math.max(0, top);
+        const r = codeBox.getBoundingClientRect();
+        if (r.top < 0 || r.top > window.innerHeight) codeBox.scrollIntoView({ block: 'nearest' });
+      }
+      pickLine(t.line || t.start, true);
+    } else if (srcState.picked) pickLine(srcState.picked, true);
+  }
+  function pickLine(L, keep) {
+    const codeBox = $('#codeBox'); if (!codeBox) return;
+    codeBox.querySelectorAll('.ln.picked').forEach(l => l.classList.remove('picked'));
+    const el = codeBox.querySelector('.ln[data-line="' + L + '"]'); if (el) el.classList.add('picked');
+    srcState.picked = L;
+    const key = srcState.renderedKey;
+    const covering = (D.nodesByKey.get(key) || []).filter(n => { const sp = n.origin.span; return sp && sp.start_line <= L && L <= sp.end_line; })
+      .sort((a, b) => { const sa = a.origin.span, sb = b.origin.span; return ((sa.end_line - sa.start_line) - (sb.end_line - sb.start_line)) || (sb.start_column - sa.start_column); });
+    const sites = (D.edgesByKey.get(key) || []).filter(i => D.edges[i].site.line === L);
+    const info = $('#lineInfo');
+    info.hidden = false;
+    info.replaceChildren(
+      h('div', { class: 'row' }, h('b', { text: 'Line ' + L + ': ' }), covering.length ? fmtInt(covering.length) + ' nodes cover it, innermost first' : 'no node covers it'),
+      covering.length ? h('div', { class: 'row' }, covering.map(n => nref(n.id))) : null,
+      sites.length ? h('div', { class: 'row' }, h('span', { class: 'absent', text: 'Edge sites on this line: ' }), sites.map(i => [eref(i, D.edges[i].kind + ' #' + i), ' '])) : null);
+  }
+
+  /* ---------- legend ---------- */
+  function renderLegend() {
+    const box = $('#legend'); box.replaceChildren();
+    const nodes = Array.from(D.byId.values());
+    const gc = countBy(nodes, groupOf);
+    const g1 = h('div', { class: 'lgrid' });
+    GROUPS.forEach(([g, layer, label, desc]) => {
+      if (!gc.get(g) && /other/.test(g)) return;
+      g1.append(h('span', { class: 'term' }, h('span', { class: 'sw' + (layer === 'workspace' ? ' rect' : ''), style: 'background:var(--g-' + g + ')' }), label), h('span', { class: 'desc' }, desc + ' ', h('span', { class: 'n', text: '(' + fmtInt(gc.get(g) || 0) + ')' })));
+    });
+    box.append(h('div', null, h('h3', { text: 'Node colour: the kind group' }), h('p', { text: 'Workspace kinds use the blue family, code kinds the amber family. Each group gets one shade.' }), g1));
+    box.append(h('div', null, h('h3', { text: 'Node shape and border' }), h('div', { class: 'lgrid' },
+      h('span', { class: 'term' }, h('span', { class: 'sw rect', style: 'background:var(--g-ws-project)' }), 'rounded box'), h('span', { class: 'desc', text: 'A workspace-layer node: workspace, project, binary, stack, service, external service, network, topic, queue.' }),
+      h('span', { class: 'term' }, h('span', { class: 'sw', style: 'background:var(--g-code-type)' }), 'circle'), h('span', { class: 'desc', text: 'A code-layer node: a file and everything parsed below it.' }),
+      h('span', { class: 'term' }, h('span', { class: 'sw rect', style: 'background:transparent;border:2px dashed var(--ink-2)' }), 'dashed border'), h('span', { class: 'desc', text: 'Origin declared: the node exists because the configuration says so, not because a file was parsed. It has no path, so its id has none.' }),
+      h('span', { class: 'term' }, h('span', { class: 'sw', style: 'background:var(--sel);box-shadow:0 0 0 3px var(--sel)' }), 'halo'), h('span', { class: 'desc', text: 'The selected node or edge. Everything not next to it fades.' }))));
+    const pc = countBy(D.edges, e => e.provenance);
+    const g2 = h('div', { class: 'lgrid' });
+    orderKeys(new Map(Object.keys(PROVENANCE).map(p => [p, 1]).concat(Array.from(pc.keys()).map(p => [p, 1]))), Object.keys(PROVENANCE)).forEach(p => {
+      g2.append(h('span', { class: 'term' }, h('span', { class: 'sw line', style: 'color:var(--p-' + (PROVENANCE[p] ? p : 'other') + ')' }), String(p)), h('span', { class: 'desc' }, (PROVENANCE[p] || 'Not a provenance the model lists.') + ' ', h('span', { class: 'n', text: '(' + fmtInt(pc.get(p) || 0) + ' edges)' })));
+    });
+    box.append(h('div', null, h('h3', { text: 'Edge colour: provenance' }), h('p', { text: 'Provenance says where the facts came from. A contains edge takes its provenance from the child, and is drawn thinner and fainter.' }), g2));
+    const rc = countBy(D.edges.filter(e => e.resolved_by), e => e.resolved_by);
+    const g3 = h('div', { class: 'lgrid' },
+      h('span', { class: 'term' }, h('span', { class: 'sw line', style: 'color:var(--ink-2)' }), 'solid'), h('span', { class: 'desc' }, 'resolved_by is null: the edge was not made by resolving a reference. ', h('span', { class: 'n', text: '(' + fmtInt(D.edges.filter(e => !e.resolved_by).length) + ')' })),
+      h('span', { class: 'term' }, h('span', { class: 'sw line dash', style: 'color:var(--ink-2)' }), 'dashed'), h('span', { class: 'desc' }, 'resolved_by is set: the rule that connected a reference to its target. ', h('span', { class: 'n', text: '(' + fmtInt(D.edges.length - D.edges.filter(e => !e.resolved_by).length) + ')' })));
+    orderKeys(new Map(Object.keys(RESOLUTION).map(r => [r, 1]).concat(Array.from(rc.keys()).map(r => [r, 1]))), Object.keys(RESOLUTION)).forEach(r => {
+      g3.append(h('span', { class: 'term', text: r }), h('span', { class: 'desc' }, (RESOLUTION[r] || 'Not a rule the model lists.') + ' ', h('span', { class: 'n', text: '(' + fmtInt(rc.get(r) || 0) + ')' })));
+    });
+    box.append(h('div', null, h('h3', { text: 'Edge line: resolved_by' }), h('p', { text: 'Edge labels show the kind when you hover or select an edge.' }), g3));
+    const sc = countBy(D.edges, e => String(e.stage));
+    const g4 = h('div', { class: 'lgrid' });
+    orderKeys(new Map(Object.keys(STAGES).map(s => [s, 1]).concat(Array.from(sc.keys()).map(s => [s, 1]))), Object.keys(STAGES)).forEach(s => g4.append(h('span', { class: 'term', text: s }), h('span', { class: 'desc' }, (STAGES[s] || '') + ' ', h('span', { class: 'n', text: '(' + fmtInt(sc.get(s) || 0) + ' edges)' }))));
+    box.append(h('div', null, h('h3', { text: 'Stage: who made the edge' }), g4));
+    const g5 = h('div', { class: 'lgrid' });
+    RECORD_TYPES.forEach(t => g5.append(h('span', { class: 'term', text: t }), h('span', { class: 'desc' }, TABLE_DESC[t] + ' ', h('span', { class: 'n', text: '(' + fmtInt(D.rec[t].length) + ')' }))));
+    box.append(h('div', null, h('h3', { text: 'Records' }), h('p', { text: 'Records sit beside the graph. Each has a table in the Records view, and the inspector lists every record that mentions the selected node.' }), g5));
+    const notes = [];
+    if (D.dupIds.length) notes.push(D.dupIds.length + ' node ids appear more than once; the first copy is used: ' + D.dupIds.join(', '));
+    if (D.dangling.length) notes.push(D.dangling.length + ' edges point at an id that is not a node; they are listed in the Edges table but not drawn: #' + D.dangling.join(', #'));
+    box.append(h('div', null, h('h3', { text: 'Checks on this file' }), notes.length ? notes.map(t => h('p', { text: t })) : h('p', { text: 'Every node id is unique and every edge connects two nodes of the graph.' })));
+    if (Object.keys(D.extra).length) box.append(h('div', null, h('h3', { text: 'Other keys in graph.json' }), Object.keys(D.extra).map(k => [h('div', { class: 'mono', style: 'margin:6px 0 2px', text: k }), h('pre', { class: 'raw', text: JSON.stringify(D.extra[k], null, 2) })])));
+  }
+
+  /* ---------- search ---------- */
+  const qInput = $('#q'), qRes = $('#qres');
+  function searchNodes(q) {
+    q = q.trim().toLowerCase(); if (!q) return [];
+    const res = [];
+    for (const n of D.byId.values()) {
+      const name = String(n.name).toLowerCase(), qn = String(n.qualified_name).toLowerCase(), id = String(n.id);
+      let s = -1;
+      if (id === q || name === q) s = 0; else if (id.startsWith(q)) s = 1; else if (name.startsWith(q)) s = 2; else if (qn === q) s = 0; else if (name.includes(q)) s = 3; else if (qn.includes(q)) s = 4;
+      if (s >= 0) res.push([s, n]);
+    }
+    res.sort((a, b) => a[0] - b[0] || String(a[1].qualified_name).length - String(b[1].qualified_name).length);
+    return res.slice(0, 40).map(x => x[1]);
+  }
+  function chooseNode(id) {
+    qRes.hidden = true;
+    select({ type: 'node', id }, { center: true, scrollInspector: true });
+  }
+  qInput.addEventListener('input', debounce(() => {
+    if (!D.g) return;
+    const list = searchNodes(qInput.value);
+    qRes.replaceChildren();
+    if (!qInput.value.trim()) { qRes.hidden = true; return; }
+    if (!list.length) qRes.append(h('div', { class: 'qempty', text: 'No node matches.' }));
+    list.forEach(n => qRes.append(h('button', { type: 'button', class: 'qopt', role: 'option', 'data-qid': n.id, onclick: () => chooseNode(n.id) }, swatchFor(n), h('span', null, h('b', { text: n.name }), ' ', h('span', { class: 'absent', text: n.kind + ' · ' + n.id })), h('span', { class: 'qn', text: n.qualified_name }))));
+    qRes.hidden = false;
+  }, 120));
+  qInput.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter') { const f = qRes.querySelector('.qopt'); if (f) { ev.preventDefault(); chooseNode(f.dataset.qid); } }
+    else if (ev.key === 'ArrowDown') { const f = qRes.querySelector('.qopt'); if (f) { ev.preventDefault(); f.focus(); } }
+    else if (ev.key === 'Escape') qRes.hidden = true;
+  });
+  qRes.addEventListener('keydown', ev => {
+    const cur = document.activeElement;
+    if (ev.key === 'ArrowDown' && cur.nextElementSibling) { ev.preventDefault(); cur.nextElementSibling.focus(); }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); (cur.previousElementSibling || qInput).focus(); }
+    else if (ev.key === 'Escape') { qRes.hidden = true; qInput.focus(); }
+  });
+  document.addEventListener('click', ev => { if (!ev.target.closest('.search')) qRes.hidden = true; });
+
+  /* ---------- views and theme ---------- */
+  const VIEWS = ['graph', 'records', 'source', 'legend'];
+  function go(v) { if (location.hash !== '#' + v) location.hash = '#' + v; else route(); }
+  function route() {
+    let v = (location.hash || '').slice(1);
+    if (!VIEWS.includes(v)) v = 'graph';
+    S.view = v;
+    VIEWS.forEach(x => { $('#view-' + x).hidden = x !== v; });
+    document.querySelectorAll('.tabs a').forEach(a => { if (a.dataset.view === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    if (!D.g) return;
+    if (v === 'graph' && cy) { cy.resize(); if (G.needsLayout) runLayout(); }
+    if (v === 'records') renderRecords();
+    if (v === 'source') renderSource();
+  }
+  window.addEventListener('hashchange', route);
+
+  const themeBtn = $('#themeBtn');
+  function setTheme(t, save) {
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    else { document.documentElement.removeAttribute('data-theme'); t = 'auto'; }
+    themeBtn.textContent = 'Theme: ' + t;
+    themeBtn.dataset.theme = t;
+    if (save) store.set('theme', t);
+    restyle();
+  }
+  themeBtn.addEventListener('click', () => { const order = ['auto', 'light', 'dark']; setTheme(order[(order.indexOf(themeBtn.dataset.theme || 'auto') + 1) % 3], true); });
+  setTheme(store.get('theme') || 'auto', false);
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  if (mq.addEventListener) mq.addEventListener('change', restyle); else if (mq.addListener) mq.addListener(restyle);
+
+  // keep the sticky offsets in step with the header height
+  const top = $('#top');
+  const setHdr = () => document.documentElement.style.setProperty('--hdr-h', top.offsetHeight + 'px');
+  setHdr();
+  if (window.ResizeObserver) new ResizeObserver(setHdr).observe(top); else window.addEventListener('resize', setHdr);
+  if (window.matchMedia('(max-width: 760px)').matches) $('#filters').open = false;
+
+  route();
+  load();
+})();
+</script>

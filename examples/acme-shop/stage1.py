@@ -394,6 +394,11 @@ class FileReader:
                 self.define_function(st, frec, self.module, in_class=None, module_level=True)
             elif isinstance(st, ast.ClassDef):
                 self.define_class(st, frec, self.module, module_level=True)
+            elif hasattr(ast, "TypeAlias") and isinstance(st, ast.TypeAlias):
+                self.define_type_alias(st.name, [self.src(t) for t in st.type_params], frec)
+            elif (isinstance(st, ast.AnnAssign) and isinstance(st.target, ast.Name)
+                  and (dotted(st.annotation) or "").split(".")[-1] == "TypeAlias"):
+                self.define_type_alias(st.target, [], frec)
             elif isinstance(st, (ast.Assign, ast.AnnAssign)):
                 targets = st.targets if isinstance(st, ast.Assign) else [st.target]
                 for t in targets:
@@ -450,6 +455,14 @@ class FileReader:
         self.module_vars[nm] = rec
         for tn, l, c in self.type_names(ann):
             self.ref(rec["id"], tn, "type_of", l, c)
+
+    def define_type_alias(self, name_node, type_parameters, frec):
+        """`type X[T] = ...` (3.12), or `X: TypeAlias = ...`, which has no type parameters of its own."""
+        nm = name_node.id
+        data = {"doc": None, "signature": None, "visibility": visibility(nm), "is_abstract": False,
+                "is_exported": not nm.startswith("_"), "decorators": [],
+                "type_parameters": type_parameters, "role": None}
+        self.add_node("type_alias", nm, f"{self.module}.{nm}", self.span(name_node), data, frec["id"])
 
     def callable_data(self, fn, is_method, module_level, cls_abstract=False):
         decos = [self.deco_name(d) for d in fn.decorator_list]
@@ -595,6 +608,14 @@ class FileReader:
                         self.ref(r["id"], dotted(dep.args[0]), "injects", dep.args[0].lineno, dep.args[0].col_offset)
         return routes
 
+    def generic_base_params(self, cls):
+        """The pre-3.12 form: the parameters of a base `Generic[T, ...]`, else none."""
+        for b in cls.bases:
+            if isinstance(b, ast.Subscript) and (dotted(b.value) or "").split(".")[-1] == "Generic":
+                elts = b.slice.elts if isinstance(b.slice, ast.Tuple) else [b.slice]
+                return [self.src(e) for e in elts]
+        return []
+
     def define_class(self, cls, parent, prefix, module_level):
         qn = f"{prefix}.{cls.name}"
         bases = [dotted(b) or self.src(b) for b in cls.bases]
@@ -604,10 +625,11 @@ class FileReader:
             full_bases.append(self.imports_from.get(head, head) + ("." + rest if rest else ""))
         role = {"type": "model"} if "pydantic.BaseModel" in full_bases else None
         decos = [self.deco_name(d) for d in cls.decorator_list]
+        type_parameters = [self.src(t) for t in getattr(cls, "type_params", [])] or self.generic_base_params(cls)
         data = {"doc": self.doc(cls), "signature": self.signature(cls), "visibility": visibility(cls.name),
                 "is_abstract": any(b.split(".")[-1] == "ABC" for b in full_bases),
                 "is_exported": module_level and not cls.name.startswith("_"),
-                "decorators": decos, "type_parameters": [self.src(t) for t in getattr(cls, "type_params", [])],
+                "decorators": decos, "type_parameters": type_parameters,
                 "role": role}
         rec = self.add_node("class", cls.name, qn, self.span(cls), data, parent["id"])
         self.ast_owner[id(cls)] = rec

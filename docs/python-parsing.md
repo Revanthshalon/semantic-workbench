@@ -506,7 +506,7 @@ This follows the proposal that a node kind carries its own data, as an edge kind
 | `is_exported` | Module-level definitions | The name is in a literal `__all__`. With no `__all__`, every name not starting with `_` | |
 | `visibility` | Every definition except `Parameter` | The name | `__name__` (dunder): public. `__name` or `_name`: private. Otherwise public. Python has no protected or internal |
 | `decorators` | Callables and classes | Each decorator's dotted name as written, without `@` and without arguments, in source order | `@app.get("/x")` is kept as `app.get`. Flags such as `is_static` are set *as well*, so the list is always complete |
-| `type_parameters` | Classes, callables, `TypeAlias` | `class Box[T]:` (3.12), or a base `Generic[T]` | |
+| `type_parameters` | Classes, callables, `TypeAlias` | The 3.12 brackets: `class Box[T]:`, `def first[T](...)`, `type Pair[K, V] = ...`. Else, for a class, a base `Generic[T]` | Each parameter as written: `class Box[T: int]:` gives `T: int`. A base `Generic[T]` gives only `T`, since the bound sits on the `TypeVar`. `X: TypeAlias = ...` has none |
 | `return_type` | Callables | The `->` annotation, as written | |
 | `declared_type` | `Parameter`, `Field`, `Variable`, `Constant` | The annotation, as written | |
 | `default` | `Parameter`, `Field` | The default value, as written, cut at 80 characters | |

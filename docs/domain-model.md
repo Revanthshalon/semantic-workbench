@@ -123,7 +123,7 @@ The fields:
 | `visibility` | `Visibility`, optional | `Public`, `Private`, `Protected` or `Internal` |
 | `is_async`, `is_static`, `is_abstract`, `is_exported` | flag | Each defaults to false |
 | `decorators` | list of text | Each decorator's dotted name as written, without arguments, in source order. Defaults to empty |
-| `type_parameters` | list of text | Defaults to empty |
+| `type_parameters` | list of text | Each generic type parameter the declaration introduces, as written with its bound or default, in source order: `T`, `T: int`, `K = str`. Defaults to empty |
 | `return_type`, `declared_type` | text, optional | The annotation as written |
 | `default` | text, optional | A default value as written, cut at 80 characters |
 | `source` | `ParamSource`, optional | `Parameter` only: `Path`, `Query`, `Header`, `Cookie`, `Body`, `Form` or `File` |

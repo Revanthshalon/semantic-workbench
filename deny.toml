@@ -12,7 +12,7 @@ unsound = "all"
 ignore = []
 
 [licenses]
-allow = ["MIT"]
+allow = ["MIT", "Unicode-3.0"]
 unused-allowed-license = "warn"
 confidence-threshold = 0.9
 exceptions = []

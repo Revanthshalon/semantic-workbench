@@ -16,6 +16,7 @@ sqlite = []
 memgraph = []
 
 [dependencies]
+thiserror = "2.0.21"
 
 [dev-dependencies]
 
@@ -34,6 +35,7 @@ str_to_string = "warn"
 needless_collect = "warn"
 large_futures = "warn"
 missing_safety_doc = "deny"
+missing_docs_in_private_items = "warn"
 panic = "deny"
 todo = "warn"
 unwrap_used = "deny"

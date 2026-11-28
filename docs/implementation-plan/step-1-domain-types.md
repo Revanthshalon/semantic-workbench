@@ -595,7 +595,7 @@ It lives in 1C, not 1D, because it holds an `EdgeKind`.
 // file.rs. No rule of its own: public fields.
 pub struct FileRecord {
     pub project: ProjectId, pub path: RelPath, pub content_hash: ContentHash,
-    pub size: u64, pub mtime_ns: i64, pub language: Language, pub status: ParseStatus,
+    pub size: u64, pub mtime: i64, pub language: Language, pub status: ParseStatus,   // mtime in nanoseconds since 1970 UTC
 }
 pub enum ParseStatus { Parsed, Failed { message: String }, GrammarUnavailable }
 

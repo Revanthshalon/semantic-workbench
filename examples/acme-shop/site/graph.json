@@ -8560,7 +8560,7 @@
    "path": "projects/admin/src/main.ts",
    "content_hash": "a2088a685fa36d76996bcf88a2ccfd5d368f7bd2781ab505be28a484bc3fd0fb",
    "size": 155,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "typescript",
    "status": {
     "type": "grammar_unavailable"
@@ -8571,7 +8571,7 @@
    "path": "src/shared_api/__init__.py",
    "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
    "size": 0,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8582,7 +8582,7 @@
    "path": "src/shared_api/models.py",
    "content_hash": "eae1b12766ad0b11a74cfcbd6b29830e4b00fb2a6d687780155393389f72ed97",
    "size": 131,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8593,7 +8593,7 @@
    "path": "src/billing/__init__.py",
    "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
    "size": 0,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8604,7 +8604,7 @@
    "path": "src/billing/api.py",
    "content_hash": "a39ab2c1f026e045b5bd44cd1bee3ee29f0a153cb1d9c05ee31d1ac2a284daa2",
    "size": 132,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8615,7 +8615,7 @@
    "path": "src/billing/db.py",
    "content_hash": "4aefb58d841fe1306ec6c919c6e68b6bfb9cc5895e9ff346fc3fc457919ea738",
    "size": 307,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8626,7 +8626,7 @@
    "path": "src/billing/models.py",
    "content_hash": "52f314ebb331761db1ff15efad5b6fa5efbdc4d8953b0be0ba5d954c4935a3fb",
    "size": 395,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8637,7 +8637,7 @@
    "path": "src/billing/outbox.py",
    "content_hash": "bd0e07dc3b451c3056d9c0132ddc49cffeef5e433ef1c40cc3c49e29d96ddb0f",
    "size": 827,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8648,7 +8648,7 @@
    "path": "src/billing/repo.py",
    "content_hash": "2edf73e6f95e749c870836025ee95574826157fd55863f708656901faf7e73e5",
    "size": 51,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8659,7 +8659,7 @@
    "path": "src/billing/routes/__init__.py",
    "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
    "size": 0,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8670,7 +8670,7 @@
    "path": "src/billing/routes/invoices.py",
    "content_hash": "ed8ab375c31b09be3eab289730cab1024dcd6d558f67477b5f8fc1d6cc86926f",
    "size": 874,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8681,7 +8681,7 @@
    "path": "src/billing/services.py",
    "content_hash": "bf47eacb548da7d6ce86d5688a35c424df90b4657ed6e8bb5758b1b02e71ad6c",
    "size": 29,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8692,7 +8692,7 @@
    "path": "src/billing/settings.py",
    "content_hash": "609cdc8976495bcf6826fdcda07ddcf3dafbd0965323dfa9fb69af0198d5d73d",
    "size": 164,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8703,7 +8703,7 @@
    "path": "src/billing/worker.py",
    "content_hash": "53357428fcf93927f4cf16f1b7709d735b913af95099f298789e87bd63ecc73b",
    "size": 770,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8714,7 +8714,7 @@
    "path": "tests/conftest.py",
    "content_hash": "f594a52704779d78a002d6da0aa2daccf5d05fb8dedfb7bc82c5404fe94a8e3f",
    "size": 107,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8725,7 +8725,7 @@
    "path": "tests/test_api.py",
    "content_hash": "d183a08160a5acc6ede19744d10e98f300ee40f8cb4a6413b7846595764449b3",
    "size": 169,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8736,7 +8736,7 @@
    "path": "tests/test_services.py",
    "content_hash": "8441a617a67d66905d1e76ac72706f54bbab634959819a52c439029e86dee953",
    "size": 123,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8747,7 +8747,7 @@
    "path": "src/ledger/__init__.py",
    "content_hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
    "size": 0,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8758,7 +8758,7 @@
    "path": "src/ledger/api.py",
    "content_hash": "848cace0d55b001752aa3583567fa1a38a428f1a34df944ba8f0610dafb42d12",
    "size": 275,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8769,7 +8769,7 @@
    "path": "src/ledger/clients.py",
    "content_hash": "4cb1cf80eaaa7d37593dbb36fb14dd30b348568200437e14b6362318e70c23cd",
    "size": 229,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"
@@ -8780,7 +8780,7 @@
    "path": "src/ledger/consumer.py",
    "content_hash": "6d83c19bcc878666a0357d4213d7ae6f86afbaa94bfc848605c6fadb2f8e1587",
    "size": 737,
-   "mtime_ns": 1795478400000000000,
+   "mtime": 1795478400000000000,
    "language": "python",
    "status": {
     "type": "parsed"

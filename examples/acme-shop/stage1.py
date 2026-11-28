@@ -1019,7 +1019,7 @@ def main():
                 n.pop("_class", None)
             OUT["nodes"].extend(r.nodes)
             OUT["files"].append({"project": pid, "path": path, "content_hash": content_hash(raw), "size": len(raw),
-                                 "mtime_ns": MTIME_NS, "language": "python", "status": {"type": "parsed"}})
+                                 "mtime": MTIME_NS, "language": "python", "status": {"type": "parsed"}})
 
     # ---- self-check ----
     ids = [n["id"] for n in OUT["nodes"]]

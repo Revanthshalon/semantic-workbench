@@ -370,7 +370,7 @@ One row per key.
 |---|---|
 | `format_version` | The version of this schema, `1` |
 | `workbench_version` | The version of `workbench` that last wrote the store |
-| `indexed_at` | When the last index finished |
+| `indexed_at` | When the last index started reading files. The [racy-file rule](#the-racy-file-rule) compares file mtimes with it, so it is the start, not the end: a file saved while a long index runs must count as racy too |
 
 ### `nodes`
 
@@ -424,7 +424,7 @@ A kind that gains data later gets its own column in a new format version.
 
 ### `files`
 
-One row per file record. `size` and `mtime` are the file's size in bytes and its modification time in nanoseconds since 1970, both taken when the file was hashed. A freshness check compares them first and hashes a file only when either differs, so an answer on a large workspace reads no file that has not been touched. `error` holds the parser's message, and is filled in only when `status` is `failed`.
+One row per file record. `size` and `mtime` are the file's size in bytes and its modification time in nanoseconds since 1970, both taken when the file was hashed. [Has a file changed?](#has-a-file-changed) compares them first and hashes a file only when either differs or the file is racy, so neither an index nor an answer reads a file that has not been touched. `error` holds the parser's message, and is filled in only when `status` is `failed`.
 
 ### `unresolved_refs`
 
@@ -504,6 +504,40 @@ Every other rule of the domain model needs more than one row to decide, and is c
 - **A reader never sees half an index.** Until the commit, queries see the graph as it was.
 - **A failed index changes nothing.** An error rolls the transaction back.
 - **Only one index runs at a time.** A second one cannot open its transaction, and stops with exit code `1` and a message that an index is already running.
+
+### Has a file changed?
+
+`index` and the freshness check of every answer ask the same question of each recorded file, through one shared function, so that a workspace where nothing changed is checked without reading a file.
+
+1. **Stat the file.** A file that is gone has changed. A file whose size or mtime differs from its record goes to step 3.
+2. **Trust the stat, unless the file is racy.** A size and an mtime equal to the record mean the file is unchanged, and it is not read. The exception is a racy file: one whose recorded mtime is not at least 2 seconds older than `indexed_at` in `meta`. Its stat is not trusted, and it goes to step 3.
+3. **Hash the file.** A hash equal to the record means the file was touched, not edited: it is unchanged. `index` writes the new size and mtime into its record, so that the next check stops at step 2. A query writes nothing. A different hash means the file has changed, and `index` parses the bytes it has just read.
+
+`--force` skips steps 1 and 2. A record with `GrammarUnavailable` is read again whatever the check says (rule F4).
+
+#### The racy-file rule
+
+A file's mtime moves only in steps of the file system's resolution. HFS+ and many network mounts keep whole seconds, and FAT keeps two. Two saves within one step get the same mtime. When the second save also keeps the size, as fixing a typo or turning `<` into `>` does, size and mtime cannot tell the two versions apart.
+
+That can only go wrong for a file saved close to the moment an index read it. Such a file is racy, and its stat is not trusted until a later index has read it. The window is 2 seconds, the coarsest resolution in common use.
+
+An example, on a disk that keeps whole seconds:
+
+| Time | What happens | `services.py` on disk | Its record |
+|---|---|---|---|
+| 10:00:00.2 | You save `services.py` | 1,200 bytes, mtime 10:00:00, hash A | none |
+| 10:00:00.5 | `workbench index` starts, so `indexed_at` is 10:00:00.5. It reads and hashes the file | the same | 1,200 bytes, mtime 10:00:00, hash A |
+| 10:00:00.8 | You change `if total < limit:` to `if total > limit:` and save | 1,200 bytes, mtime 10:00:00, hash B | the same |
+| 10:20:00 | You run `workbench impact process` | the same | the same |
+
+At 10:20 the stat matches the record exactly.
+
+- **Without the rule** the file counts as unchanged. The answer says nothing has changed since the index, and walks a graph built from hash A. The next `index` skips the file too, so the graph keeps the old condition until the file is edited again or `--force` is given. Nothing ever shows that it is wrong.
+- **With the rule** the recorded mtime, 10:00:00, is not 2 seconds older than `indexed_at`, 10:00:00.5, so the file is racy. It is hashed, hash B differs from hash A, and the answer says one file has changed since the index. The next `index` parses it.
+
+The rule costs little. Only files saved in the 2 seconds before an index started, or while it ran, are hashed again, and only until the next index moves `indexed_at` past them. After an index at 10:25, the mtime 10:00:00 is far older than `indexed_at`, and the stat is trusted again.
+
+The rule cannot help when the file system's clock runs behind the machine's, as a network mount's can. `--force` is the way out.
 
 ### Replacing a file
 

@@ -17,7 +17,7 @@
 - Every public type derives `Debug`, `Clone`, `PartialEq` and `Eq`. A type is `Copy` only when it is a fixed size and holds no `String` or `Vec`.
 - No `match` on a domain enum has a `_` arm. No domain enum is `#[non_exhaustive]`.
 - No enum has a `None` variant.
-- No `unwrap`, `expect` or `panic!`, in tests too. A test returns `Result<(), Box<dyn std::error::Error>>`.
+- No `unwrap`, `expect` or `panic!` outside tests. `.clippy.toml` allows them in `#[test]` functions and `#[cfg(test)]` modules.
 - A test for a rule is named after it: `rule_n3_...`, `rule_e1_...`.
 
 ## Review focus
@@ -346,9 +346,9 @@ pub enum ParamSource { Path, Query, Header, Cookie, Body, Form, File }
 
 // framework.rs
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Framework { Plain, Fastapi { app: Option<QualifiedName> }, Angular }   // app by type (N10)
+pub enum Framework { NoFramework, Fastapi { app: Option<QualifiedName> }, Angular }   // app by type (N10)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FrameworkName { Plain, Fastapi, Angular }   // what the configuration names
+pub enum FrameworkName { NoFramework, Fastapi, Angular }   // what the configuration names
 impl Framework { pub fn name(&self) -> FrameworkName; }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FrameworkSource { Declared, Compose, Dockerfile, Entry }
@@ -560,16 +560,20 @@ impl Edge {
 
 ```rust
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UnresolvedReference { id: ReferenceId, from: NodeId, name: Name, kind: EdgeKind, site: Site }
+pub struct UnresolvedReference { id: ReferenceId, from: NodeId, name: Name, kind: EdgeKind, site: Site, flow_resolved: bool }
 impl UnresolvedReference {
     /// R2: `kind` is a code kind. The id hashes `from`, `name`, `kind.name().as_str()`
-    /// and the site's path, line and column, with `IdWriter`.
+    /// and the site's path, line and column, with `IdWriter`. `flow_resolved` starts false,
+    /// and is not part of the id.
     pub fn new(from: NodeId, name: Name, kind: EdgeKind, site: Site) -> Result<Self, DomainError>;
+    /// For stores only; checks R2 like `new`.
+    pub fn restore(from: NodeId, name: Name, kind: EdgeKind, site: Site, flow_resolved: bool) -> Result<Self, DomainError>;
     pub fn id(&self) -> ReferenceId;
     pub fn from(&self) -> NodeId;
     pub fn name(&self) -> &Name;
     pub fn kind(&self) -> &EdgeKind;
     pub fn site(&self) -> &Site;
+    pub fn flow_resolved(&self) -> bool;
 }
 ```
 
@@ -582,6 +586,8 @@ It lives in 1C, not 1D, because it holds an `EdgeKind`.
 | `rule_r2_refuses_workspace_kind` | `DependsOn` is refused with R2 |
 | `mounts_reference_keeps_its_prefix` | `kind()` returns the `Mounts` with its prefix |
 | `same_fields_same_id` | Two builds give one id. Another line gives another id |
+| `restore_keeps_flow_resolved` | `restore(.., true)` gives `flow_resolved()` true, and the same id as `new` with the same fields |
+| `restore_still_checks_r2` | `restore` with `DependsOn` is refused with R2 |
 
 **Commit:** `feat(domain): add unresolved references`
 
@@ -762,7 +768,7 @@ Nodes are built with `Node::workspace`, `Node::declared`, `Node::binary` and `No
 | `acme_is_stable` | Two builds give equal graphs |
 | `acme_walk_reaches_admin` | The six steps of the walk in graph-model.md can be followed over `acme()`'s edges |
 | `acme_is_valid` | `acme().validate()` is empty |
-| `acme_billing_api_is_fastapi` | `api` has `Framework::Fastapi { app: Some(billing.api.app) }`, `worker` has `Framework::Plain` |
+| `acme_billing_api_is_fastapi` | `api` has `Framework::Fastapi { app: Some(billing.api.app) }`, `worker` has `Framework::NoFramework` |
 | `acme_flow_edge_rests_on_inferred_type` | `r.save()` is a `Calls` edge with `resolved_by: Flow`, and `r` has an inferred type with evidence 2 |
 
 The other checks of level 3 (route paths, reach, `Requests`, `Sends`, `Invokes`) are asserted on `acme()` too, one test each, named after what they check.

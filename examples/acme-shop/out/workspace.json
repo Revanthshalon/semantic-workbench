@@ -125,7 +125,7 @@
       "ordinal": 0,
       "data": {
         "framework": {
-          "type": "plain"
+          "type": "none"
         },
         "framework_source": "entry"
       },
@@ -168,7 +168,7 @@
       "ordinal": 0,
       "data": {
         "framework": {
-          "type": "plain"
+          "type": "none"
         },
         "framework_source": "entry"
       },

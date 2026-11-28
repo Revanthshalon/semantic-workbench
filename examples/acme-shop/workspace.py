@@ -115,12 +115,12 @@ for pid, lang in PROJECTS:
 
 # Binaries and their entry files
 FASTAPI_DF = lambda app: {"framework": {"type": "fastapi", "app": app}, "framework_source": "dockerfile"}
-PLAIN = {"framework": {"type": "plain"}, "framework_source": "entry"}
+NO_FRAMEWORK = {"framework": {"type": "none"}, "framework_source": "entry"}
 BINARIES = [
     ("billing-api", "api", "src/billing/api.py", FASTAPI_DF("billing.api.app")),
-    ("billing-api", "worker", "src/billing/worker.py", PLAIN),
+    ("billing-api", "worker", "src/billing/worker.py", NO_FRAMEWORK),
     ("ledger-api", "api", "src/ledger/api.py", FASTAPI_DF("ledger.api.app")),
-    ("ledger-api", "consumer", "src/ledger/consumer.py", PLAIN),
+    ("ledger-api", "consumer", "src/ledger/consumer.py", NO_FRAMEWORK),
     ("web-app", "admin", "projects/admin/src/main.ts",
      {"framework": {"type": "angular"}, "framework_source": "declared"}),
 ]

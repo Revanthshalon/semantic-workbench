@@ -19,6 +19,8 @@ Step 3 has a specification and no task plan. Its specification is detailed enoug
 
 Each plan covers Release 1 only. Operational support (Release 3) is not planned here.
 
+The module specs in [`docs/spec/`](../spec/capability-map.md) consolidate the pages in the last column. Once a module's spec is approved, it wins wherever it and the page differ.
+
 ## Working in parallel
 
 The work is cut into **slices**. A slice is one pull request by one developer: a few tasks that touch their own files and end in something tested. The roadmap's steps say what is delivered in what order. The slices say what can be built at the same time.
@@ -32,7 +34,7 @@ Three things make that possible.
 ### Rules for a slice
 
 - **A slice owns its files.** Two slices in flight never edit the same file. The file tables of each plan say who owns what.
-- **Shared files change in one line.** A slice adds its own `mod` line to a `mod.rs` and nothing else there. `Cargo.toml` is changed only by C0, which adds every crate at once, so `Cargo.lock` never conflicts.
+- **Shared files change in one line.** A slice adds its own `mod` line to a `mod.rs` and nothing else there. `Cargo.toml` is changed only by C0, which adds every crate at once, so `Cargo.lock` never conflicts. The one exception is the crates the slices before C0 need, as [Crates to add](#crates-to-add) says.
 - **Types before bodies.** A slice's first commit is the types in its **Produces** block. Slices that depend on those types can then start. `todo!()` cannot be used as a placeholder: CI refuses it.
 - **A slice is merged only when green.** The three checks under [Before every commit](#before-every-commit) pass, on its own.
 - **A changed name is changed everywhere.** If a slice has to change a name in [Names handed between slices](#names-handed-between-slices), it changes this page in the same pull request.
@@ -87,7 +89,7 @@ A slice can start as soon as every slice in its **Needs** column is merged, or h
 | 7A | The command tree, flags and exit codes | C0 | [step 7](./step-7-command-line.md) |
 | 7B | Text output of the read commands | C0 | [step 7](./step-7-command-line.md) |
 | 7C | Text output of `init`, `check`, `index`, `status` | C0, 2C | [step 7](./step-7-command-line.md) |
-| 7D | Wiring, and tests that run the binary | 7A, 7B, 7C, 2F, 3B, 3C, 4G, 6F, 6G, 6I, 6J | [step 7](./step-7-command-line.md) |
+| 7D | Wiring, tests that run the binary, and removing `#![allow(dead_code)]` from `src/main.rs` | 7A, 7B, 7C, 2F, 3B, 3C, 4G, 6F, 6G, 6I, 6J | [step 7](./step-7-command-line.md) |
 | 7E | Installation | 7D | [step 7](./step-7-command-line.md) |
 | 8A | The manual document, and modes | C0 | [step 8](./step-8-utcp-manual.md) |
 | 8B | The twelve tools, as call templates | 8A, 7A | [step 8](./step-8-utcp-manual.md) |
@@ -139,9 +141,9 @@ Taken from `Cargo.toml`, `rust-toolchain.toml` and `.github/workflows/ci.yml`.
 
 - Rust edition `2024`, `rust-version = "1.100.0"`, stable toolchain.
 - One binary crate, `workbench`, with entry point `src/main.rs`. There is no `src/lib.rs`, so tests in `tests/` can only run the binary. Unit tests sit beside the code in `#[cfg(test)]` modules.
-- `unwrap_used`, `panic` and `unsafe_code` are denied, in tests too. A test returns `Result<(), Box<dyn std::error::Error>>` and uses `?`.
+- `unwrap_used`, `panic` and `unsafe_code` are denied. `.clippy.toml` allows `unwrap`, `expect` and `panic!` in `#[test]` functions and `#[cfg(test)]` modules. `unsafe_code` is denied in tests too.
 - `todo` is a warning, and CI turns warnings into errors. No `todo!()` is ever merged.
-- `missing_docs` and `missing_debug_implementations` are warnings as well. Every public item has a doc comment and derives or implements `Debug`.
+- `missing_docs`, `missing_docs_in_private_items` and `missing_debug_implementations` are warnings as well. Every item outside `#[cfg(test)]` has a doc comment, and every public item derives or implements `Debug`.
 - `redundant_clone` and `large_enum_variant` are denied.
 - Results go to standard output. Messages, warnings and progress go to standard error.
 - No network calls and no telemetry in any Release 1 code path.
@@ -156,6 +158,8 @@ cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-features --locked
 ```
 
+A commit that changes `Cargo.toml` or `Cargo.lock` also runs `cargo deny check`.
+
 ## Where code goes
 
 The scaffold is hexagonal. A module may depend only on the ones named in its last column.
@@ -167,6 +171,7 @@ The scaffold is hexagonal. A module may depend only on the ones named in its las
 | `src/ports/outbound` | The traits the core needs from the outside: store, files, parsers, git | `domain` |
 | `src/use_cases` | Indexing and every query | `domain`, `config`, `ports` |
 | `src/adapters/driven/store/sqlite` | The SQLite store | `domain`, `ports` |
+| `src/adapters/driven/store/memgraph` | A stub for a Memgraph store, behind the `memgraph` feature. Not in Release 1: planned for Later | `domain`, `ports` |
 | `src/adapters/driven/fs` | Reading files, walking folders, reading `.git` | `domain`, `ports` |
 | `src/adapters/driven/parse` | Reading source code, manifests and compose files | `domain`, `ports` |
 | `src/adapters/driving/cli` | The command line | `use_cases`, `config` |
@@ -186,11 +191,14 @@ Proposed. C0 adds them all. Pick the latest release at the time of building, and
 | `toml` | Reading `pyproject.toml` |
 | `ignore` and `globset` | Walking a project by `.gitignore` rules, and `exclude` patterns |
 | `tree-sitter` and `tree-sitter-python` | Parsing Python |
+| `sqlx` with SQLite | The SQLite store |
+| `tokio` | The runtime `main` builds to run the `async` use cases |
+| `clap` with `derive` | The command line |
 | `assert_cmd` and `tempfile`, as dev-dependencies | Tests that run the binary |
 
-`sqlx`, `tokio` and `clap` are already in `Cargo.toml`. `sqlx` is asynchronous, so the store port and every use case are `async`.
+`sqlx` is asynchronous, so the store port and every use case are `async`.
 
-Slices 1A to 1D, 2A and 2B start before C0. They need `thiserror`, `blake3`, `serde` and the YAML crate, so whichever of them merges first adds those four, and C0 adds the rest.
+Slices 1A to 1D, 2A and 2B start before C0. They need `thiserror`, `blake3`, `serde` and the YAML crate. Each of the four is added by the first of those slices that needs it, and C0 adds the rest. `thiserror` came with slice 1A's `DomainError`.
 
 ## Names handed between slices
 
@@ -203,8 +211,8 @@ Later slices use these names. A slice that has to change one changes it here in 
 | `NodeId`, `ReferenceId`, `ProjectId`, `ComposeName`, `RelPath`, `ContentHash`, `Name`, `QualifiedName`, `Line`, `Column`, `CommitId` | The value types, each a newtype with a private field. Each read from text has `fn parse(&str) -> Result<Self, DomainError>`; ids and hashes are computed. See [How the types are written in Rust](../domain-model.md#how-the-types-are-written-in-rust) |
 | `Node`, `NodeKind`, `NodeKindName`, `Scope`, `Origin`, `Span` | A node. `NodeKind` holds the kind's data in its variant, such as `Function(Callable)`; `NodeKindName` is the same kind without data. `Node::parsed(...)`, `Node::declared(...)` and `Node::binary(...)` each take one input struct, and compute the id. `Node::parsed` takes a `ParsedFrom` (`Source(Language)` or `Compose`) and `Node::binary` its project's `Language`, to check rule N9; neither stores it |
 | `ProjectData`, `BinaryData`, `Callable`, `TypeDecl`, `Member`, `RouteData`, `CommandData`, `Doc` | The data a node kind carries, held inside its `NodeKind` variant |
-| `Framework`, `FrameworkName`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `Plain`, `Fastapi { app: Option<QualifiedName> }`, `Angular`; the same three without data; `Declared`, `Compose`, `Dockerfile`, `Entry`; `App`, `Router { prefix }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
-| `Edge`, `EdgeKind`, `EdgeKindName`, `Provenance`, `Site` | An edge. `Edge::new` takes the two end nodes, to check E1; stores rebuild edges with `Edge::restore`. `Provenance::Declared { note: Option<String> }` holds the note. `EdgeKind` carries its data: `Imports { specifier, alias, type_only }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix }`, `Requests { method, path }`, `Sends { name }`, `Invokes { words }`, and the data-less `Receives`. An edge made by resolution records `resolved_by: Option<Resolution>` |
+| `Framework`, `FrameworkName`, `FrameworkSource`, `FrameworkRole`, `Visibility`, `ParamSource`, `HttpMethod` | `NoFramework`, `Fastapi { app: Option<QualifiedName> }`, `Angular`; the same three without data; `Declared`, `Compose`, `Dockerfile`, `Entry`; `App`, `Router { prefix, tags }`, `Middleware`, `ExceptionHandler`, `LifecycleHook`, `Fixture`, `Model`; the rest as in [domain-model.md](../domain-model.md#node-data) |
+| `Edge`, `EdgeKind`, `EdgeKindName`, `Provenance`, `Site` | An edge. `Edge::new` takes the two end nodes, to check E1; stores rebuild edges with `Edge::restore`. `Provenance::Declared { note: Option<String> }` holds the note. `EdgeKind` carries its data: `Imports { specifier, alias, type_only }`, `DependsOn { scope }`, `ConnectsTo { protocol }`, `Mounts { prefix, tags }`, `Requests { method, path }`, `Sends { name }`, `Invokes { words }`, and the data-less `Receives`. An edge made by resolution records `resolved_by: Option<Resolution>` |
 | `Resolution`, `Template` | `Import`, `SelfMember`, `SameFile`, `Project`, `CrossProject`, `ReExport`, `Annotation`, `LocalInference`, `Inherited`, `Flow`, `Framework`, `RouteMatch`, `MessageMatch`, `CommandMatch`; parts `Text(String)`, `Hole(String)` or `Unknown`, for a route's path, a prefix and a template value |
 | `DependencyScope`, `Protocol` | `Build` or `Dev`; `Http`, `Grpc` or `Database` |
 | `Language`, `DependencyManager` | `Python`, `TypeScript`; `Uv`, `Poetry`, `Npm`, `Pnpm`, `Yarn`, `Bun` |
@@ -214,11 +222,11 @@ Later slices use these names. A slice that has to change one changes it here in 
 | `InferredType`, `Reach`, `Root`, `RoutePath`, `Candidates`, `UnmatchedHttpCall`, `UnmatchedMessage`, `MessageDirection`, `MessagePayload` | What stage 2 computes. `MessageDirection` is `Send` or `Receive`, kept apart from the store's `Direction` |
 | `Warning`, `WarningCode` | A warning |
 | `ProjectCheckout`, `Head` | A project's checkout: `head: Option<Head>`, with `Head { commit: CommitId, branch: Option<String> }` |
-| `Graph` | Nodes, edges, file records, references, warnings and checkouts together. `fn validate(&self) -> Vec<RuleViolation>` |
+| `Graph` | Nodes, edges, file records, references, the records of both stages, warnings and checkouts together. `fn validate(&self) -> Vec<RuleViolation>` |
 | `RuleViolation` | `{ rule: RuleId, message: String }`. `RuleId` lists every rule id of the domain model, such as `RuleId::T2`, and prints as `T2` |
 | `DomainError`, `RuleId` | What building a broken value returns: `Rule { rule: RuleId, message }` or `Malformed { value, input, reason }` |
-| `fixtures::acme_workspace_layer() -> Graph` | The Acme Shop workspace layer: 27 nodes and 54 edges |
-| `fixtures::acme() -> Graph` | The same, plus the code nodes and edges the walk of [graph-model.md](../graph-model.md#walking-the-graph) needs |
+| `fixtures::acme_workspace_layer() -> Result<Graph, DomainError>` | The Acme Shop workspace layer: 27 nodes and 54 edges. It returns `Result` because it is built through the constructors, and `unwrap` is denied |
+| `fixtures::acme() -> Result<Graph, DomainError>` | The same, plus the code nodes and edges the walk of [graph-model.md](../graph-model.md#walking-the-graph) needs |
 
 Both fixtures are compiled only for tests.
 

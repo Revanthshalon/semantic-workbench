@@ -390,7 +390,7 @@ One row per node, for both layers. Each column is the field of the same name in 
 | `router_prefix` | A node whose role is `router`, when the prefix is known |
 | `route_method`, `route_path`, `route_status`, `route_tags` | `route`. `route_method` always |
 | `command_program`, `command_path`, `command_options`, `command_help` | `command`. All but `command_help` always; the path and the options are JSON arrays |
-- **Rows map to enum variants.** The store reads `kind` into a `NodeKindName`, then builds the variant with its data from that kind's columns. `framework` `none` is `Framework::Plain`, and `app` is read only into `Framework::Fastapi`. On `edges`, `note` is read only into `Provenance::Declared`. On `project_checkouts`, an empty `commit` is no `Head`.
+- **Rows map to enum variants.** The store reads `kind` into a `NodeKindName`, then builds the variant with its data from that kind's columns. `framework` `none` is `Framework::NoFramework`, and `app` is read only into `Framework::Fastapi`. On `edges`, `note` is read only into `Provenance::Declared`. On `project_checkouts`, an empty `commit` is no `Head`.
 - **The kind is not checked by the table.** There are 33 kinds and the list grows with each language. The domain types already refuse an unknown kind.
 - **`nodes_qualified_name`** serves the `scope:qualified name` form of naming a node.
 - **`nodes_file`** serves "every node in this file", which `node --file` and the replacing of a file both need.

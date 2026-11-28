@@ -70,7 +70,7 @@ Edge data: `imports {specifier, alias, type_only}`, `depends_on {scope}`, `conne
 ### Records
 
 ```json
-"files":      [{"project","path","content_hash","size","mtime_ns","language","status": {"type": "parsed"} | {"type": "grammar_unavailable"} | {"type": "failed","message"}}],
+"files":      [{"project","path","content_hash","size","mtime","language","status": {"type": "parsed"} | {"type": "grammar_unavailable"} | {"type": "failed","message"}}],
 "references": [{"id","from","name","kind","data","site","flow_resolved": false}],
 "call_sites": [{"from","site","callee","arguments": [{"slot": {"position": 0} | {"keyword": "func"}, "shape": <Shape>}]}],
 "bindings":   [{"within","name","site","shape"}],
@@ -87,7 +87,7 @@ Edge data: `imports {specifier, alias, type_only}`, `depends_on {scope}`, `conne
 
 `Shape`: `{"type":"call","name"}`, `{"type":"name","name"}`, `{"type":"text","value"}`, `{"type":"template","parts":[...]}`, `{"type":"item","name","accessor"}`, `{"type":"collection","kind","elements":[...]}`, `{"type":"spread","name"}`, `{"type":"literal","kind": "number"|"bytes"|"bool"|"null"}`, `{"type":"other"}`.
 
-`mtime_ns`: use `1795478400000000000` (2026-11-24 00:00 UTC) for every file, so the output is stable.
+`mtime`: in nanoseconds since 1970 UTC. Use `1795478400000000000` (2026-11-24 00:00 UTC) for every file, so the output is stable.
 
 ## How the spec is read here
 

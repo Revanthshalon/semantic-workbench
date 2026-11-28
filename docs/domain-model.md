@@ -334,6 +334,8 @@ One per source file the indexer has read. It decides whether a file is read agai
 | F3 | A file whose record is not `Parsed` has a `File` node and no nodes below it | Graph |
 | F4 | A record with `GrammarUnavailable` is read again on the next index, even when the hash is unchanged | Indexer |
 
+The content hash decides whether a file has changed. The size and mtime let that be answered without reading the file, unless the file is racy. When a file's hash still matches, `index` writes its new size and mtime into the record. [storage-model.md](./storage-model.md#has-a-file-changed) gives the check and the racy-file rule.
+
 ## Unresolved reference
 
 A name the parser saw and could not yet connect to a node: a call, an import, a base class. Resolution turns it into an edge. One that cannot be resolved stays, for example an import into an excluded file.

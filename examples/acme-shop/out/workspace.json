@@ -1188,7 +1188,7 @@
       "path": "projects/admin/src/main.ts",
       "content_hash": "a2088a685fa36d76996bcf88a2ccfd5d368f7bd2781ab505be28a484bc3fd0fb",
       "size": 155,
-      "mtime_ns": 1795478400000000000,
+      "mtime": 1795478400000000000,
       "language": "typescript",
       "status": {
         "type": "grammar_unavailable"

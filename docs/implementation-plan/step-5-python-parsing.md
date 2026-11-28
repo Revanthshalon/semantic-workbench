@@ -15,7 +15,7 @@
 ## Global constraints
 
 - A file that fails to parse is never an error. It gets a `File` node, a record with `Failed` and the parser's message, and no nodes below it. The index goes on and ends in success.
-- A file is read again only when its content hash differs from its record, when its record says `GrammarUnavailable`, or when `--force` is given.
+- A file is read again only when it has changed by the [check of storage-model.md](../storage-model.md#has-a-file-changed) (size and mtime, then the content hash, with the racy-file rule), when its record says `GrammarUnavailable`, or when `--force` is given.
 - Skipped always: what `.gitignore` excludes, the folders `.git`, `node_modules`, `.venv` and `.workbench`, and what a project's `exclude` patterns match.
 - Every edge made here has the `TreeSitter` provenance.
 - A reference that cannot be resolved stays an unresolved reference. Nothing is guessed.
@@ -62,6 +62,7 @@ Parameters, enum members, type annotations and attribute access are not read in 
 | `src/use_cases/index/symbols.rs` | `SymbolTable` |
 | `src/use_cases/index/resolve.rs` | Resolution inside a project |
 | `src/use_cases/index/resolve_imports.rs` | Resolution across projects |
+| `src/use_cases/file_change.rs` | `check_file`: has a file changed. Shared with the freshness of step 6 |
 | `src/use_cases/index/code.rs` | The incremental indexing of code |
 | `tests/fixtures/acme/*/src/**/*.py` | The Acme Shop source |
 
@@ -234,11 +235,23 @@ pub fn resolve_across(reference: &UnresolvedReference, from: &Node, names: &Impo
 
 ## Task 6: Index code incrementally
 
-**Files:** create `src/use_cases/index/code.rs`.
+**Files:** create `src/use_cases/file_change.rs`, `src/use_cases/index/code.rs`.
 
 **Produces:**
 
 ```rust
+// file_change.rs: the check of storage-model.md, "Has a file changed?". Step 6 uses it too.
+pub const RACY_WINDOW_NS: i64 = 2_000_000_000;
+pub enum FileChange {
+    Unchanged,                                                     // stat trusted and equal: nothing read
+    Touched { stat: FileStat },                                    // same hash, new stat: refresh the record
+    Changed { stat: FileStat, bytes: Vec<u8>, hash: ContentHash }, // the bytes, so they are not read twice
+    Gone,
+}
+/// `indexed_at` is `meta`'s, in nanoseconds since 1970 UTC.
+pub fn check_file<F: Files>(files: &F, path: &Path, record: &FileRecord, indexed_at: i64) -> Result<FileChange, FilesError>;
+
+// code.rs
 pub struct IndexCode<F, P> { /* files, parsers by extension */ }
 impl<F: Files, P: LanguageParser> IndexCode<F, P> {
     pub async fn run<W: IndexWriter>(&self, writer: &mut W, projects: &[Project], known: &[FileRecord], names: &ImportNames, options: &IndexOptions) -> Result<CodeSummary, IndexError>;
@@ -246,7 +259,7 @@ impl<F: Files, P: LanguageParser> IndexCode<F, P> {
 pub struct CodeSummary { pub files_read: u64, pub files_skipped: u64, pub failed_files: Vec<FileRef> }
 ```
 
-For each project, or the one `--project` names: walk, stat and hash each file, and compare with `known`. The record keeps the file's size and mtime, for freshness. A file is read when its hash differs, when its record is `GrammarUnavailable`, or with `--force`. A record whose file is gone is removed. Every file `replace_file` or `remove_file` returns is read again in the same run, once. When all files are in, each unresolved reference is tried with `resolve`, then `resolve_across`.
+For each project, or the one `--project` names: walk the files, and run `check_file` on each one that has a record in `known`. A file with no record is new, and is hashed and read. A `Changed` file is parsed from the bytes the check returned. A `Touched` file keeps its nodes, and its record gets the new size and mtime. A file is also read when its record is `GrammarUnavailable`, and every file is read with `--force`. A record whose file is gone is removed. Every file `replace_file` or `remove_file` returns is read again in the same run, once. When all files are in, each unresolved reference is tried with `resolve`, then `resolve_across`.
 
 A file with an extension no parser claims gets no node and no record, unless it is a binary's entry, which keeps the `File` node of step 4.
 
@@ -255,6 +268,9 @@ A file with an extension no parser claims gets no node and no record, unless it 
 | Test | Asserts |
 |---|---|
 | `unchanged_file_is_skipped` | The parser is called once over two runs |
+| `unchanged_stat_is_not_read` | Second run, size and mtime equal and not racy: a counting `Files` sees no `read` |
+| `touched_file_is_not_parsed` | A newer mtime and the same bytes: no parse, and the record holds the new mtime |
+| `racy_file_is_hashed_again` | Same size and mtime, mtime within 2 seconds of `indexed_at`, new bytes: parsed again |
 | `changed_file_is_read_again` | Twice |
 | `force_reads_everything` | Twice, with no change |
 | `project_option_limits_the_run` | Files of the other project are not walked |

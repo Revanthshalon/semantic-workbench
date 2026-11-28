@@ -453,7 +453,7 @@ table.t td.rn { color: var(--muted); font-family: var(--mono); font-size: 11.5px
   const COLS = {
     nodes: ['id', 'kind', 'layer', 'name', 'qualified_name', 'scope', 'origin', 'ordinal', 'data'],
     edges: ['source', 'target', 'kind', 'data', 'site', 'provenance', 'note', 'resolved_by', 'stage'],
-    files: ['project', 'path', 'content_hash', 'size', 'mtime_ns', 'language', 'status'],
+    files: ['project', 'path', 'content_hash', 'size', 'mtime', 'language', 'status'],
     references: ['id', 'from', 'name', 'kind', 'data', 'site', 'flow_resolved'],
     call_sites: ['from', 'site', 'callee', 'arguments'],
     bindings: ['within', 'name', 'site', 'shape'],
@@ -467,7 +467,7 @@ table.t td.rn { color: var(--muted); font-family: var(--mono); font-size: 11.5px
     warnings: ['code', 'subject', 'message'],
     checkouts: ['project', 'head']
   };
-  const MONO_KEYS = new Set(['id', 'qualified_name', 'path', 'content_hash', 'specifier', 'full_path', 'callee', 'signature', 'return_type', 'declared_type', 'default', 'app', 'commit', 'code', 'alias', 'decorators', 'name', 'program', 'mtime_ns', 'kind', 'provenance', 'resolved_by', 'stage', 'method', 'language', 'project']);
+  const MONO_KEYS = new Set(['id', 'qualified_name', 'path', 'content_hash', 'specifier', 'full_path', 'callee', 'signature', 'return_type', 'declared_type', 'default', 'app', 'commit', 'code', 'alias', 'decorators', 'name', 'program', 'mtime', 'kind', 'provenance', 'resolved_by', 'stage', 'method', 'language', 'project']);
 
   /* ---------- state ---------- */
   const D = { g: null, nodes: [], edges: [], rec: {}, byId: new Map(), out: new Map(), inn: new Map(), recIdx: new Map(), sources: {}, nodesByKey: new Map(), edgesByKey: new Map(), extra: {}, dupIds: [], dangling: [] };

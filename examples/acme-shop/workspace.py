@@ -135,7 +135,7 @@ for pid, bname, entry, data in BINARIES:
     contains(P[pid], F[(pid, entry)], "tree_sitter")
     if entry.endswith(".ts"):
         files.append({"project": pid, "path": entry, "content_hash": content_hash(raw),
-                      "size": len(raw), "mtime_ns": MTIME_NS, "language": "typescript",
+                      "size": len(raw), "mtime": MTIME_NS, "language": "typescript",
                       "status": {"type": "grammar_unavailable"}})
 
 # Stacks

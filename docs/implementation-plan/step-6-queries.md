@@ -127,7 +127,7 @@ pub async fn read_source<S: GraphStore, F: Files>(store: &S, files: &F, roots: &
 `ProjectRoots` maps a `ProjectId` to its folder on disk, built from the configuration. `freshness` works in two steps, so that an answer on a large workspace reads almost nothing:
 
 1. **Each project's commit.** Read through the `Git` port and compare with the stored checkout. A project on another commit is listed in `moved_projects`. This reads one or two small files per project.
-2. **Each file's size and mtime.** `stat` every recorded file. A file whose size and mtime equal its record is unchanged and is not read. A file where either differs is hashed: it counts as changed only when its hash differs too. A file that is gone counts as changed. `read_source` returns `None` for a declared node.
+2. **Each recorded file, by `check_file`** from [step 5](./step-5-python-parsing.md#task-6-index-code-incrementally), with `indexed_at` from the store. It is the [check of storage-model.md](../storage-model.md#has-a-file-changed): size and mtime first, a hash only when either differs or the file is racy. `Changed` and `Gone` count as changed. A query writes nothing, so a `Touched` file's record waits for the next index. `read_source` returns `None` for a declared node.
 
 **Tests:**
 
@@ -136,6 +136,7 @@ pub async fn read_source<S: GraphStore, F: Files>(store: &S, files: &F, roots: &
 | `nothing_changed_gives_zero` | `changed_files == 0`, `moved_projects` empty, and `indexed_at` from the store |
 | `unchanged_stat_is_not_hashed` | With every size and mtime equal, a counting `Files` sees no `read` |
 | `touched_but_unchanged_file_is_not_counted` | A newer mtime and the same bytes: `changed_files == 0`, and the file was read once |
+| `racy_file_is_counted` | Same size and mtime, mtime within 2 seconds of `indexed_at`, new bytes: `changed_files == 1` |
 | `moved_commit_is_reported` | A project whose checkout moved to another commit is in `moved_projects` with both commits |
 | `edited_file_is_counted` | `1` |
 | `deleted_file_is_counted` | `1` |
@@ -468,4 +469,4 @@ pub struct ContractChannel { pub topic: Location, pub broker: Location, pub send
 
 ## Left open
 
-- **What freshness costs.** Settled ([#17](https://github.com/Revanthshalon/semantic-workbench/issues/17)): task 2 compares each project's commit, then each file's size and mtime, and hashes only the files whose size or mtime changed. Measure it on a large workspace in this step all the same.
+- **What freshness costs.** Settled ([#17](https://github.com/Revanthshalon/semantic-workbench/issues/17)): task 2 compares each project's commit, then each file's size and mtime, and hashes only the files whose size or mtime changed, or that are racy. Measure it on a large workspace in this step all the same.

@@ -52,7 +52,7 @@ Stage 2  analyse from each root    over the graph, no file is read again
 **What is read.** Every file the walk of [step 5](./implementation-plan/step-5-python-parsing.md#task-1-choose-the-files-to-read) returns, whether or not any binary reaches it. That means every file not excluded by `.gitignore`, the fixed folders or `exclude`.
 
 **When a file is read again.**
-- Its content hash differs from its record.
+- It has changed, by the [check of storage-model.md](./storage-model.md#has-a-file-changed): its size and mtime first, then its content hash.
 - Its record says `GrammarUnavailable`.
 - `--force` is given.
 - `replace_file` or `remove_file` returns it because something it referred to is gone.
@@ -69,7 +69,7 @@ Files are independent of each other, so they can be read in parallel.
 | Call sites | For each call: the node it is in, its site, the callee as written (`process`, `self.repo.save`, `models.Invoice`), and each argument's position or keyword with its shape | 2a, 2b, 2d |
 | Bindings | One per assignment: where it is (the `File` for module level, the function or method, or the class for `self.<name> = ...` and class attributes), the name, its site and the shape of the value. A `for` target and a `with ... as` target are bindings too | 2a, 2b, 2c, 2d |
 | Returns | One per `return` in a function or method, with the shape of its value. A bare `return`, and the end of a body that can be reached without a `return` or a `raise`, are returns of `None` | 2b |
-| A file record | Project, path, content hash, language, parse status | Incremental reading, `files`, `status` |
+| A file record | Project, path, content hash, size, mtime, language, parse status | Incremental reading, `files`, `status` |
 
 **The shape of a value or an argument** is one of these, read from the syntax alone:
 

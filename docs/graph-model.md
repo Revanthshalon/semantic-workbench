@@ -333,7 +333,7 @@ A file that imports `Invoice` and is not an entry file is reached the same way, 
 ## What is left out, and why
 
 - **A confidence score on inferred edges.** Nothing produces `Heuristic` edges yet. Edges resolved by `flow` need none: they exist only when every caller agrees.
-- **Timestamps.** The content hash of a file already says whether it changed.
+- **Timestamps on nodes.** A node holds none. Its file's record says whether the file changed: the content hash decides, and the size and mtime let that be checked without reading the file.
 - **A copy of the source code.** A node stores where its source is. A query reads the file through the node's span, and marks a file that has changed since the last index.
 - **Topics, queues and links created from code.** Code is matched to what the configuration declares: an HTTP call to a route, as a `Requests` edge, and a send or a receive to a declared topic or queue, as a `Sends` or `Receives` edge. A name found in code never creates a topic, a queue or a link. One with nothing declared for it is a warning (decisions 13 and 14).
 - **Services that run outside any compose file,** such as a managed database. The current assumption is that the compose files describe everything that runs.

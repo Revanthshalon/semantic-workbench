@@ -334,7 +334,7 @@ Warnings, each with the binary as subject:
 | `nothing_gives_none` | `None`, `Entry` |
 | `configuration_none_with_an_app_in_the_entry_warns` | `None` and one `FrameworkMismatch` |
 | `module_command_against_another_entry_warns` | `python -m ledger.consumer` with entry `src/ledger/worker.py` gives one `EntryCommandMismatch` |
-| `acme_binaries` | Billing's `api` is `Fastapi` with `billing.api.app`; `worker` and ledger's `consumer` are `Plain`; `web-app`'s `admin` is `Angular`, `Declared` |
+| `acme_binaries` | Billing's `api` is `Fastapi` with `billing.api.app`; `worker` and ledger's `consumer` are `NoFramework`; `web-app`'s `admin` is `Angular`, `Declared` |
 
 **Commit:** `feat(index): decide each binary's framework`
 

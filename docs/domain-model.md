@@ -115,7 +115,7 @@ The fields:
 | Field | Type | Meaning |
 |---|---|---|
 | `language` | `Language` | `Python` or `TypeScript` |
-| `framework` | `Framework` | `Plain` (no framework: a plain binary), `Fastapi { app }` or `Angular` |
+| `framework` | `Framework` | `NoFramework` (stored as `none`: a plain binary), `Fastapi { app }` or `Angular` |
 | `app` | `QualifiedName`, optional | Inside `Fastapi` only: the qualified name of the binary's app, such as `billing.api.app` |
 | `framework_source` | `FrameworkSource` | Where `framework` came from: `Declared` (the configuration), `Compose` (a compose command), `Dockerfile` (a Dockerfile's `CMD` or `ENTRYPOINT`) or `Entry` (the entry file). A plain binary has `Entry`, the last source read, unless the configuration writes `framework: none`, which gives `Declared` |
 | `doc` | text, optional | The doc string |
@@ -347,6 +347,7 @@ A name the parser saw and could not yet connect to a node: a call, an import, a 
 | `name` | text | The name as written |
 | `kind` | `EdgeKind` | The kind of edge it becomes when resolved, with its data: a `Mounts` reference keeps its prefix. Never a workspace kind |
 | `site` | `Site` | Where it appears |
+| `flow_resolved` | bool | `true` when stage 2b resolved the reference through a `Flow` edge. It is kept so that 2b can try it again at the next index, and queries do not count it as unresolved. Not part of the id |
 
 | Id | Rule | Enforced |
 |---|---|---|
@@ -600,7 +601,7 @@ Every value with a rule of its own is a newtype: a struct with one private field
 - **A variant holds its data.** When a value is one of several things, and each thing has its own fields, it is one enum whose variants hold those fields. It is never a tag beside an optional struct. `NodeKind`, `EdgeKind`, `Framework`, `Provenance`, `Scope`, `Origin`, `Shape`, `Root` and `ParseStatus` all follow this.
 - **Kinds that share data share a type.** `NodeKind::Function(Callable)` and `NodeKind::Method(Callable)`. A kind without data is a unit variant: `NodeKind::Service`, `EdgeKind::Calls`.
 - **A fieldless twin names a kind.** Code that needs a kind without its data, to filter, to hash into an id, to store or to look up a rule table, uses a fieldless enum beside the data enum: `NodeKindName`, `EdgeKindName`, `FrameworkName`. `fn name(&self)` maps one to the other in one `match`. The id hashes the name, never the data (N2).
-- **Absence is `Option`.** No enum has a `None` variant: it would shadow `Option::None`, and give two ways to say "nothing". A choice that is a real answer gets a name of its own, as `Framework::Plain` does for a binary decided to have no framework.
+- **Absence is `Option`.** No enum has a `None` variant: it would shadow `Option::None`, and give two ways to say "nothing". A choice that is a real answer gets a name of its own, as `Framework::NoFramework` does for a binary decided to have no framework.
 - **Matches are exhaustive.** No `match` in `src/domain` on these enums has a `_` arm, and none of them is `#[non_exhaustive]`. The crate is one binary, so a new kind should break every match that has to decide about it.
 - **Flags stay `bool`** when each is an independent yes or no and every combination is valid, as `is_async`, `is_static`, `is_abstract`, `is_exported` and `type_only` are. A choice between two named things is an enum: `DependencyScope::Build` or `Dev`, never `is_dev`.
 - **Large variants are boxed.** clippy's `large_enum_variant` is denied in this crate. A variant that trips it holds its data in a `Box`, such as `NodeKind::Function(Box<Callable>)`. Which variants need it is found by clippy, not decided here.
@@ -706,7 +707,7 @@ The fixture must also show that:
 
 `fixtures::acme()` adds the code layer of [python-parsing.md](./python-parsing.md#acme-shop-with-fastapi) and must show that:
 
-- Billing's `api` binary has `framework: Fastapi { app: billing.api.app }`, and `worker` has `framework: Plain`.
+- Billing's `api` binary has `framework: Fastapi { app: billing.api.app }`, and `worker` has `framework: NoFramework`.
 - The route `GET /{invoice_id}` reaches billing's app through two `Mounts` edges, and has one route path: `GET /v1/invoices/{invoice_id}`, complete, served by `api`.
 - `r` in `process` has the inferred type `InvoiceRepo` from 2 call sites, and `r.save()` is a `Calls` edge to `InvoiceRepo.save` with `resolved_by: Flow`, and its reference is kept.
 - The file `routes/invoices.py` is reached by billing's `api` and the test `test_api.py`, and not by `worker`. Its handler `get_invoice` is also reached by ledger's `api`. `services.py` is reached by `worker` and the test `test_services.py`, and not by `api`. The package files `billing/__init__.py` and `billing/routes/__init__.py` are reached by billing's `api`.
@@ -737,7 +738,7 @@ Points the other pages left open, settled here and confirmed by the project owne
 | The SQLite layout | One `nodes` table and one `edges` table for both layers, with a column per field. The data of an edge kind is typed columns, not JSON. Walks are done in the core, not in SQL |
 | Node data | Part of the kind, as an edge's data is. A field a kind does not have cannot be set. In Rust, each `NodeKind` variant holds its data, so there is no separate data field |
 | Rust types | Newtypes for every value with a rule, data held inside enum variants, a fieldless `...Name` enum where a kind is needed without its data, no `None` variants. Rules N1, N8, E4, L2, P3, U2 and Y3 are kept by the types, and part of N10 and C2. See [How the types are written in Rust](#how-the-types-are-written-in-rust) |
-| A binary with no framework | `Framework::Plain`, not an absent value, so that the configuration's "not given" stays distinct from "decided: none" |
+| A binary with no framework | `Framework::NoFramework`, not an absent value, so that the configuration's "not given" stays distinct from "decided: none" |
 | Language | On the `Project` node, from the configuration, and on the file record, detected. Not on code nodes |
 | How an index builds the graph | Stage 1 reads every file, one at a time. Stage 2 analyses the finished graph from each root and reads no file again |
 | Types carried from callers | Only when every call site in the workspace passes the same class. Such edges have `resolved_by: Flow`, and their references are kept. Up to 10 rounds by default, set by `analysis.flow_rounds` |

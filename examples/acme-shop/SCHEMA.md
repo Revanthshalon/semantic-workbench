@@ -43,7 +43,7 @@ Every agent builds against this file. Root: this folder (`acme-graph/`).
 - `route`: `{"method": "get", "path": <Template>, "status_code": 201 | null, "tags": []}`
 - `command`: `{"program": "ledger-consumer", "path": ["run"], "help": null, "options": []}`
 - `project`: `{"language": "python"}`
-- `binary`: `{"framework": {"type": "fastapi", "app": "billing.api.app"} | {"type": "plain"} | {"type": "angular"}, "framework_source": "dockerfile"}`
+- `binary`: `{"framework": {"type": "fastapi", "app": "billing.api.app"} | {"type": "none"} | {"type": "angular"}, "framework_source": "dockerfile"}`
 - `import`, `enum_member`, and the workspace kinds other than `project` and `binary`: `null`
 - `role`: `null`, `{"type": "app"}`, `{"type": "router", "prefix": <Template> | null, "tags": []}`, `{"type": "fixture"}`, `{"type": "model"}`, ...
 - `visibility`: `"public"` or `"private"`. `signature`: the `def`/`class` line up to the colon, joined to one line.
@@ -98,6 +98,6 @@ Where the spec leaves a choice, every agent uses these. Each agent reports any f
 3. **File nodes.** Every `.py` file is a `File` node, `Parsed`, scope `project`, span from `(1, 0)` to `(n, len(last line))`, where the lines are `text.split("\n")` with a final empty string dropped. An empty file is `(1, 0)` to `(1, 0)`. Its parent is the `Project` node, by a `Contains` edge with provenance `tree_sitter` and no site. The five entry files are also emitted by the workspace layer with identical fields; the merge keeps one.
 4. **`web-app/projects/admin/src/main.ts`** is a `File` node with the same span rule, a file record with status `grammar_unavailable` and language `typescript`, and no nodes below it. The workspace agent emits it.
 5. **`Contains` from a parent code node** to a child has provenance `tree_sitter`, no site, `resolved_by: null`, stage `1`.
-6. **Framework of a plain binary.** `{"type":"plain"}` with `framework_source: "entry"`: the entry file was the last source checked.
+6. **Framework of a plain binary.** `{"type":"none"}` with `framework_source: "entry"`: the entry file was the last source checked.
 7. **Checkouts.** Each project is on branch `main`. The commit is `blake3(<project id>)` as the first 40 hex characters. These are illustrative, and `meta` says so.
 8. **Compose-parsed nodes.** A stack read from a compose file is `Parsed`, with that file's path and the whole file as span. A service or external service is `Parsed` with the span of its line(s). `acme-backbone` is `Parsed` with the span of its `networks:` entry in `docker-compose.yml`. `billing-api_default` exists in no file, so it is `Declared`.
